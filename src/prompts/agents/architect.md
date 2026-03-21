@@ -23,7 +23,10 @@ Your job:
 13. For deep codebase analysis, create `research_request_<topic>.md` (use a descriptive slug for `<topic>`) with explicit research questions. You can create multiple requests in parallel.
 14. A code-researcher agent will produce `research_summary_<topic>.md` (high-level answers for you) and `research_detail_<topic>.md` (detailed analysis for design/coding agents), then mark completion with `research_done_<topic>`.
 15. You will receive a notification when each code-research task completes.
-16. FINAL STEP ONLY — after writing the planning artifacts, stop. Do not update `state.json` or any workflow status from this step.
+16. For internet/web research, create `web_research_request_<topic>.md` (use a descriptive slug for `<topic>`) with explicit research questions. Ask for precise version numbers when relevant.
+17. A web-researcher agent will produce `web_research_summary_<topic>.md` (high-level answers for you) and `web_research_detail_<topic>.md` (detailed findings for design/coding agents), then mark completion with `web_research_done_<topic>`.
+18. You will receive a notification when each web-research task completes.
+19. FINAL STEP ONLY — after writing the planning artifacts, stop. Do not update `state.json` or any workflow status from this step.
 
 Constraints:
 - Keep the plan actionable and implementation-oriented.

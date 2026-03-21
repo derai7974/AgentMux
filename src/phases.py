@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -16,11 +17,40 @@ from .prompts import (
     build_designer_prompt,
     build_docs_prompt,
     build_fix_prompt,
+    build_web_researcher_prompt,
     write_prompt_file,
 )
 from .state import cleanup_feature_dir, commit_changes, now_iso, write_state
 from .tmux import send_text
 from .transitions import EXIT_FAILURE, EXIT_SUCCESS, PipelineContext, file_signature, phase_input_changed
+
+
+def _git_status_porcelain(project_dir: Path) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.strip() if exc.stderr else "(no stderr)"
+        print(f"Warning: failed to read git status for commit selection: {stderr}")
+        return ""
+
+
+def _parse_changed_paths(status_output: str) -> list[str]:
+    paths: list[str] = []
+    for raw_line in status_output.splitlines():
+        if not raw_line.strip():
+            continue
+        entry = raw_line[3:] if len(raw_line) >= 4 else raw_line
+        path = entry.split(" -> ", maxsplit=1)[-1].strip()
+        if path:
+            paths.append(path)
+    return paths
 
 
 class Phase(ABC):
@@ -74,6 +104,10 @@ class PlanningPhase(Phase):
             snapshot[request_path.name] = file_signature(request_path)
         for done_path in sorted(ctx.files.feature_dir.glob("research_done_*")):
             snapshot[done_path.name] = file_signature(done_path)
+        for request_path in sorted(ctx.files.feature_dir.glob("web_research_request_*.md")):
+            snapshot[request_path.name] = file_signature(request_path)
+        for done_path in sorted(ctx.files.feature_dir.glob("web_research_done_*")):
+            snapshot[done_path.name] = file_signature(done_path)
         return snapshot
 
     def detect_event(self, state: dict, ctx: PipelineContext) -> str | None:
@@ -103,6 +137,20 @@ class PlanningPhase(Phase):
             topic = done_path.name.removeprefix("research_done_")
             if tracked_tasks.get(topic) == "dispatched":
                 return f"task_completed:{topic}"
+
+        tracked_web_tasks = {
+            str(topic): str(status)
+            for topic, status in dict(state.get("web_research_tasks", {})).items()
+        }
+        for request_path in sorted(ctx.files.feature_dir.glob("web_research_request_*.md")):
+            topic = request_path.name.removeprefix("web_research_request_").removesuffix(".md")
+            if topic and topic not in tracked_web_tasks:
+                return f"web_task_requested:{topic}"
+
+        for done_path in sorted(ctx.files.feature_dir.glob("web_research_done_*")):
+            topic = done_path.name.removeprefix("web_research_done_")
+            if tracked_web_tasks.get(topic) == "dispatched":
+                return f"web_task_completed:{topic}"
         return None
 
     def handle_event(self, state: dict, event: str, ctx: PipelineContext) -> str | None:
@@ -159,6 +207,51 @@ class PlanningPhase(Phase):
             }
             research_tasks[topic] = "done"
             state["research_tasks"] = research_tasks
+            state["updated_at"] = now_iso()
+            state["updated_by"] = "pipeline"
+            write_state(ctx.files.state, state)
+            return None
+
+        topic = self._parse_task_event(event, "web_task_requested")
+        if topic is not None:
+            done_marker = ctx.files.feature_dir / f"web_research_done_{topic}"
+            if done_marker.exists():
+                done_marker.unlink()
+            prompt_file = write_prompt_file(
+                ctx.files.feature_dir,
+                f"web_researcher_prompt_{topic}.md",
+                build_web_researcher_prompt(topic, ctx.files),
+            )
+            ctx.runtime.spawn_task("web-researcher", topic, prompt_file)
+            web_research_tasks = {
+                str(key): str(value)
+                for key, value in dict(state.get("web_research_tasks", {})).items()
+            }
+            web_research_tasks[topic] = "dispatched"
+            state["web_research_tasks"] = web_research_tasks
+            state["updated_at"] = now_iso()
+            state["updated_by"] = "pipeline"
+            write_state(ctx.files.state, state)
+            return None
+
+        topic = self._parse_task_event(event, "web_task_completed")
+        if topic is not None:
+            ctx.runtime.finish_task("web-researcher", topic)
+            architect_pane = getattr(ctx.runtime, "primary_panes", {}).get("architect")
+            if architect_pane:
+                send_text(
+                    architect_pane,
+                    (
+                        f"Web research on '{topic}' is complete. Results are in "
+                        f"web_research_summary_{topic}.md and web_research_detail_{topic}.md."
+                    ),
+                )
+            web_research_tasks = {
+                str(key): str(value)
+                for key, value in dict(state.get("web_research_tasks", {})).items()
+            }
+            web_research_tasks[topic] = "done"
+            state["web_research_tasks"] = web_research_tasks
             state["updated_at"] = now_iso()
             state["updated_by"] = "pipeline"
             write_state(ctx.files.state, state)
@@ -431,21 +524,23 @@ class CompletingPhase(Phase):
         if event == "approval_received":
             approval_path = ctx.files.feature_dir / "approval.json"
             payload = json.loads(approval_path.read_text(encoding="utf-8"))
+            changed_paths = _parse_changed_paths(_git_status_porcelain(ctx.files.project_dir))
+            exclude_files = {
+                str(path).strip()
+                for path in payload.get("exclude_files", [])
+                if str(path).strip()
+            }
             commit_hash = commit_changes(
                 ctx.files.project_dir,
                 str(payload.get("commit_message", "")).strip(),
-                [
-                    str(path).strip()
-                    for path in payload.get("commit_files", [])
-                    if str(path).strip()
-                ],
+                [path for path in changed_paths if path not in exclude_files],
             )
             if commit_hash is not None:
                 print("Completion approved and commit created.")
                 print(f"Commit hash: {commit_hash}")
+                cleanup_feature_dir(ctx.files.feature_dir)
             else:
-                print("Completion approved, but commit step failed or was skipped.")
-            cleanup_feature_dir(ctx.files.feature_dir)
+                print("Completion approved, but commit step failed or was skipped. Feature directory retained.")
             return EXIT_SUCCESS
 
         if event != "changes_requested":

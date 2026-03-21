@@ -46,7 +46,7 @@ planning → designing? → implementing → reviewing
     → approval_received (done) OR changes_requested → planning
 ```
 
-`state.json` persists the durable `phase` and optional metadata such as `last_event`, `review_iteration`, `subplan_count`, and `research_tasks` (a dict tracking code-researcher task status by topic). Agents no longer write workflow statuses directly.
+`state.json` persists the durable `phase` and optional metadata such as `last_event`, `review_iteration`, `subplan_count`, `research_tasks` (a dict tracking code-researcher task status by topic), and `web_research_tasks` (a dict tracking web-researcher task status by topic). Agents no longer write workflow statuses directly.
 
 ### Shared file protocol
 
@@ -65,6 +65,10 @@ Agents communicate via files in `.multi-agent/<feature-name>/`. Files are create
 - `research_summary_<topic>.md` — code-researcher's high-level answers for architect
 - `research_detail_<topic>.md` — code-researcher's detailed analysis for coder/designer
 - `research_done_<topic>` — code-researcher completion marker (empty file)
+- `web_research_request_<topic>.md` — architect's research assignment to web-researcher
+- `web_research_summary_<topic>.md` — web-researcher's high-level answers for architect
+- `web_research_detail_<topic>.md` — web-researcher's detailed findings for coder/designer
+- `web_research_done_<topic>` — web-researcher completion marker (empty file)
 - `coder_prompt*.txt` — built and injected when implementation starts
 - `designer_prompt.md` — built and injected when designing starts
 - `review.md` / `review_prompt.md` — architect review result and prompt
@@ -80,6 +84,7 @@ Defines which CLI tools to use and their arguments for each role:
 - **architect**: `claude --model opus` — plans, reviews, confirms
 - **coder**: `codex` — implements the plan in the target project directory
 - **code-researcher**: `claude --model haiku` — analyzes codebase on architect request (optional, spawned in parallel per research topic)
+- **web-researcher**: `claude --model sonnet` — searches the internet on architect request (optional, spawned in parallel per research topic)
 - `max_review_iterations` caps automatic reviewer→coder fix loops before forcing user confirmation
 
 The orchestrator never calls the AI APIs directly; it always goes through these CLI tools.
@@ -97,6 +102,7 @@ src/prompts/agents/            — role-level prompts (define what each agent is
   architect.md                 —   planning phase
   coder.md                     —   implementation phase
   code-researcher.md           —   codebase analysis on architect request
+  web-researcher.md            —   internet search on architect request
 src/prompts/commands/          — phase-specific command prompts (what to do at each step)
   review.md                    —   code review
   fix.md                       —   fix review findings
@@ -128,6 +134,44 @@ During the planning phase, the architect can request deep codebase analysis by w
 5. Orchestrator notifies architect when analysis is complete
 
 Multiple research tasks can run in parallel. The architect can continue planning while research is underway and incorporate findings when ready.
+
+### Web-researcher task dispatch
+
+During the planning phase, the architect can request internet research by writing `web_research_request_<topic>.md` files (where `<topic>` is a descriptive slug like `nodejs-versions` or `aws-pricing`). The orchestrator:
+
+1. Detects the new request file
+2. Spawns a web-researcher pane (parallel to architect, not exclusive)
+3. Injects the research assignment and tracks the topic in `state.json["web_research_tasks"]`
+4. Web-researcher searches the internet via WebFetch and WebSearch tools and produces:
+   - `web_research_summary_<topic>.md` — concise answers with version numbers and source URLs for architect
+   - `web_research_detail_<topic>.md` — comprehensive findings with full citations for coder/designer
+   - `web_research_done_<topic>` — empty completion marker
+5. Orchestrator notifies architect when analysis is complete
+
+Multiple web research tasks can run in parallel and simultaneously with code-researcher tasks. The architect can continue planning while research is underway and incorporate findings when ready. Web-researcher is configured to use Sonnet (not Haiku) for better reasoning about sources and precision regarding version numbers and technical specifications.
+
+### Completing phase
+
+When the review passes, the workflow enters the `documenting` phase (if docs updates are needed) and then transitions to `completing`. In the completing phase:
+
+1. **Confirmation prompt displays changed files** — The confirmation prompt shows all files detected by `git status --porcelain` from the project directory. This gives the architect full visibility into what will be committed.
+
+2. **Architect specifies exclusions (not inclusions)** — Instead of manually enumerating files to commit, the architect simply lists any files to **exclude** from the commit in the `approval.json` response. By default, an empty `exclude_files` list means commit all detected changes.
+
+3. **`approval.json` schema**:
+   ```json
+   {
+     "action": "approve",
+     "commit_message": "...",
+     "exclude_files": []
+   }
+   ```
+
+4. **Auto-detection and filtering** — The completing phase handler (`CompletingPhase.handle_event()`) reads git status again when processing the approval, removes any files listed in `exclude_files`, and passes the remaining file list to `commit_changes()`.
+
+5. **Cleanup only on success** — The feature directory is deleted only if the commit succeeds (commit hash is not `None`). If the commit fails, the feature directory is preserved so the user can investigate and retry.
+
+This flow ensures the architect always knows what's being committed and can selectively exclude unrelated changes without losing the ability to retry after a failed commit.
 
 ### Editing prompts
 

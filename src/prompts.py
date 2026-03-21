@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 from .models import RuntimeFiles
@@ -10,6 +11,7 @@ _NO_CHANGES_FALLBACK = (
     "_No changes.md found. Treat this as missing feedback context"
     " and ask the user to restate changes if required._"
 )
+_CHANGED_FILES_FALLBACK = "_Unable to read changed files from git status._"
 
 
 def _load_template(subdir: str, name: str) -> str:
@@ -103,11 +105,36 @@ def build_docs_prompt(files: RuntimeFiles) -> str:
 
 
 def build_confirmation_prompt(files: RuntimeFiles) -> str:
-    return _load_template("commands", "confirmation").format_map({"feature_dir": files.feature_dir})
+    changed_files = _CHANGED_FILES_FALLBACK
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=files.project_dir,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        changed_files = result.stdout.strip() or "_No changed files detected._"
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.strip() if exc.stderr else "(no stderr)"
+        changed_files = f"{_CHANGED_FILES_FALLBACK}\nError: {stderr}"
+
+    return _load_template("commands", "confirmation").format_map({
+        "feature_dir": files.feature_dir,
+        "changed_files": changed_files,
+    })
 
 
 def build_code_researcher_prompt(topic: str, files: RuntimeFiles) -> str:
     return _load_template("agents", "code-researcher").format_map({
+        "feature_dir": files.feature_dir,
+        "project_dir": files.project_dir,
+        "topic": topic,
+    })
+
+
+def build_web_researcher_prompt(topic: str, files: RuntimeFiles) -> str:
+    return _load_template("agents", "web-researcher").format_map({
         "feature_dir": files.feature_dir,
         "project_dir": files.project_dir,
         "topic": topic,

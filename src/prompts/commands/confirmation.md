@@ -11,10 +11,16 @@ Read these files first:
 
 Your job:
 1. Present what was implemented to the user.
-2. Ask whether the user approves completing the pipeline. Be explicit that all files in this feature directory will be deleted on approval.
-3. If the user approves, write `approval.json` with this exact JSON shape:
-   - `{{"action": "approve", "commit_message": "...", "commit_files": ["relative/path"]}}`
-4. If the user requests changes, write the user feedback to `changes.md`.
+2. Ask whether the user approves completing the pipeline. Be explicit that files in this feature directory will only be deleted if commit succeeds.
+3. Review the changed files from git status and use them as commit candidates:
+   ```
+   {changed_files}
+   ```
+4. If the user approves, write `approval.json` with this exact JSON shape:
+   - `{{"action": "approve", "commit_message": "...", "exclude_files": ["relative/path"]}}`
+   - `exclude_files` is optional and defaults to `[]` (commit all changed files).
+5. Ask for exclusions only. Do not ask the user to enumerate all commit files.
+6. If the user requests changes, write the user feedback to `changes.md`.
 
 Constraints:
 - Keep this step focused on user confirmation.

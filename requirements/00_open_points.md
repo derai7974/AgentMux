@@ -1,4 +1,4 @@
-
+- pipeline didnt commit
 - modell auswahl durch architekten je nach aufgabe
 - LLM in pipeline hinzufügen für feature beschreibung
 - restart open process

@@ -35,5 +35,15 @@
       "--allowedTools",
       "Bash(ls:*) Bash(cat:*) Bash(find:*) Bash(grep:*) Bash(head:*) Bash(tail:*) Bash(pwd:*) Bash(wc:*)"
     ]
+  },
+  "web-researcher": {
+    "cli": "claude",
+    "model": "sonnet",
+    "args": [
+      "--permission-mode",
+      "acceptEdits",
+      "--allowedTools",
+      "WebFetch WebSearch Bash(ls:*) Bash(cat:*) Bash(head:*) Bash(tail:*)"
+    ]
   }
 }
