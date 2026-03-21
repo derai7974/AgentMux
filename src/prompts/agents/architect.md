@@ -20,7 +20,10 @@ Your job:
 10. Only after the user explicitly approves (e.g. says 'approved', 'looks good', 'go ahead'), write the final plan to plan.md.
 11. After writing `plan.md`, also write `tasks.md` as a numbered checklist derived from the plan. Each task must be a concrete, testable unit of work (for example: "Create function X in file Y", "Add test for Z"). If you created sub-plans, group tasks under the corresponding `## Sub-plan <N>: <title>` header.
 12. After writing `plan.md` and `tasks.md`, write `plan_meta.json` with this exact shape: `{{ "needs_design": true|false }}`. Set it to `true` only when the plan requires a dedicated design handoff before coding.
-13. FINAL STEP ONLY — after writing the planning artifacts, stop. Do not update `state.json` or any workflow status from this step.
+13. For deep codebase analysis, create `research_request_<topic>.md` (use a descriptive slug for `<topic>`) with explicit research questions. You can create multiple requests in parallel.
+14. A code-researcher agent will produce `research_summary_<topic>.md` (high-level answers for you) and `research_detail_<topic>.md` (detailed analysis for design/coding agents), then mark completion with `research_done_<topic>`.
+15. You will receive a notification when each code-research task completes.
+16. FINAL STEP ONLY — after writing the planning artifacts, stop. Do not update `state.json` or any workflow status from this step.
 
 Constraints:
 - Keep the plan actionable and implementation-oriented.

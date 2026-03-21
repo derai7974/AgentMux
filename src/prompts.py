@@ -106,6 +106,14 @@ def build_confirmation_prompt(files: RuntimeFiles) -> str:
     return _load_template("commands", "confirmation").format_map({"feature_dir": files.feature_dir})
 
 
+def build_code_researcher_prompt(topic: str, files: RuntimeFiles) -> str:
+    return _load_template("agents", "code-researcher").format_map({
+        "feature_dir": files.feature_dir,
+        "project_dir": files.project_dir,
+        "topic": topic,
+    })
+
+
 def build_initial_prompts(files: RuntimeFiles) -> dict[str, Path]:
     """Build startup prompts and return their file paths."""
     return {

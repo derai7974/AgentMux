@@ -109,6 +109,14 @@ def load_config(path: Path) -> tuple[str, dict[str, AgentConfig], int]:
             model=designer_raw["model"],
             args=designer_raw.get("args", []),
         )
+    researcher_raw = raw.get("code-researcher")
+    if researcher_raw:
+        agents["code-researcher"] = AgentConfig(
+            role="code-researcher",
+            cli=researcher_raw["cli"],
+            model=researcher_raw["model"],
+            args=researcher_raw.get("args", []),
+        )
     return session_name, agents, max_review_iterations
 
 

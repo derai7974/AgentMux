@@ -9,6 +9,7 @@ from .plan_parser import split_plan_into_subplans
 from .prompts import (
     build_architect_prompt,
     build_change_prompt,
+    build_code_researcher_prompt,
     build_coder_prompt,
     build_coder_subplan_prompt,
     build_confirmation_prompt,
@@ -18,6 +19,7 @@ from .prompts import (
     write_prompt_file,
 )
 from .state import cleanup_feature_dir, commit_changes, now_iso, write_state
+from .tmux import send_text
 from .transitions import EXIT_FAILURE, EXIT_SUCCESS, PipelineContext, file_signature, phase_input_changed
 
 
@@ -44,6 +46,14 @@ class Phase(ABC):
 class PlanningPhase(Phase):
     name = "planning"
 
+    @staticmethod
+    def _parse_task_event(event: str, expected: str) -> str | None:
+        prefix = f"{expected}:"
+        if not event.startswith(prefix):
+            return None
+        topic = event[len(prefix):].strip()
+        return topic or None
+
     def on_enter(self, state: dict, ctx: PipelineContext) -> None:
         is_replan = state.get("last_event") == "changes_requested" and ctx.files.changes.exists()
         prompt_file = write_prompt_file(
@@ -55,14 +65,18 @@ class PlanningPhase(Phase):
 
     def snapshot_inputs(self, state: dict, ctx: PipelineContext) -> dict[str, str | None]:
         _ = state
-        return {
+        snapshot: dict[str, str | None] = {
             "plan": file_signature(ctx.files.plan),
             "tasks": file_signature(ctx.files.tasks),
             "plan_meta": file_signature(ctx.files.feature_dir / "plan_meta.json"),
         }
+        for request_path in sorted(ctx.files.feature_dir.glob("research_request_*.md")):
+            snapshot[request_path.name] = file_signature(request_path)
+        for done_path in sorted(ctx.files.feature_dir.glob("research_done_*")):
+            snapshot[done_path.name] = file_signature(done_path)
+        return snapshot
 
     def detect_event(self, state: dict, ctx: PipelineContext) -> str | None:
-        _ = state
         plan_sig = file_signature(ctx.files.plan)
         tasks_sig = file_signature(ctx.files.tasks)
         meta_sig = file_signature(ctx.files.feature_dir / "plan_meta.json")
@@ -75,21 +89,79 @@ class PlanningPhase(Phase):
             }.items()
         ):
             return "plan_written"
+
+        tracked_tasks = {
+            str(topic): str(status)
+            for topic, status in dict(state.get("research_tasks", {})).items()
+        }
+        for request_path in sorted(ctx.files.feature_dir.glob("research_request_*.md")):
+            topic = request_path.name.removeprefix("research_request_").removesuffix(".md")
+            if topic and topic not in tracked_tasks:
+                return f"task_requested:{topic}"
+
+        for done_path in sorted(ctx.files.feature_dir.glob("research_done_*")):
+            topic = done_path.name.removeprefix("research_done_")
+            if tracked_tasks.get(topic) == "dispatched":
+                return f"task_completed:{topic}"
         return None
 
     def handle_event(self, state: dict, event: str, ctx: PipelineContext) -> str | None:
-        if event != "plan_written":
+        if event == "plan_written":
+            meta = load_plan_meta(ctx.files.feature_dir)
+            needs_design = bool(meta.get("needs_design")) and "designer" in ctx.agents
+            if ctx.files.changes.exists():
+                ctx.files.changes.unlink()
+            write_phase(
+                ctx,
+                state,
+                "designing" if needs_design else "implementing",
+                "plan_written",
+            )
             return None
-        meta = load_plan_meta(ctx.files.feature_dir)
-        needs_design = bool(meta.get("needs_design")) and "designer" in ctx.agents
-        if ctx.files.changes.exists():
-            ctx.files.changes.unlink()
-        write_phase(
-            ctx,
-            state,
-            "designing" if needs_design else "implementing",
-            "plan_written",
-        )
+
+        topic = self._parse_task_event(event, "task_requested")
+        if topic is not None:
+            done_marker = ctx.files.feature_dir / f"research_done_{topic}"
+            if done_marker.exists():
+                done_marker.unlink()
+            prompt_file = write_prompt_file(
+                ctx.files.feature_dir,
+                f"code_researcher_prompt_{topic}.md",
+                build_code_researcher_prompt(topic, ctx.files),
+            )
+            ctx.runtime.spawn_task("code-researcher", topic, prompt_file)
+            research_tasks = {
+                str(key): str(value)
+                for key, value in dict(state.get("research_tasks", {})).items()
+            }
+            research_tasks[topic] = "dispatched"
+            state["research_tasks"] = research_tasks
+            state["updated_at"] = now_iso()
+            state["updated_by"] = "pipeline"
+            write_state(ctx.files.state, state)
+            return None
+
+        topic = self._parse_task_event(event, "task_completed")
+        if topic is not None:
+            ctx.runtime.finish_task("code-researcher", topic)
+            architect_pane = getattr(ctx.runtime, "primary_panes", {}).get("architect")
+            if architect_pane:
+                send_text(
+                    architect_pane,
+                    (
+                        f"Code-research on '{topic}' is complete. Results are in "
+                        f"research_summary_{topic}.md and research_detail_{topic}.md."
+                    ),
+                )
+            research_tasks = {
+                str(key): str(value)
+                for key, value in dict(state.get("research_tasks", {})).items()
+            }
+            research_tasks[topic] = "done"
+            state["research_tasks"] = research_tasks
+            state["updated_at"] = now_iso()
+            state["updated_by"] = "pipeline"
+            write_state(ctx.files.state, state)
         return None
 
 

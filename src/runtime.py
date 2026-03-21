@@ -37,6 +37,12 @@ class AgentRuntime(Protocol):
     def finish_many(self, role: str) -> None:
         ...
 
+    def spawn_task(self, role: str, task_id: str, prompt_file: Path) -> None:
+        ...
+
+    def finish_task(self, role: str, task_id: str) -> None:
+        ...
+
     def shutdown(self, keep_session: bool) -> None:
         ...
 
@@ -49,7 +55,7 @@ class TmuxAgentRuntime:
         session_name: str,
         agents: dict[str, AgentConfig],
         primary_panes: dict[str, str | None],
-        parallel_panes: dict[str, dict[int, str]] | None = None,
+        parallel_panes: dict[str, dict[int | str, str]] | None = None,
     ) -> None:
         self.feature_dir = feature_dir
         self.session_name = session_name
@@ -100,7 +106,7 @@ class TmuxAgentRuntime:
     @staticmethod
     def _load_snapshot(
         feature_dir: Path,
-    ) -> tuple[dict[str, str | None], dict[str, dict[int, str]]]:
+    ) -> tuple[dict[str, str | None], dict[str, dict[int | str, str]]]:
         snapshot_path = feature_dir / "runtime_state.json"
         if snapshot_path.exists():
             raw = json.loads(snapshot_path.read_text(encoding="utf-8"))
@@ -108,16 +114,16 @@ class TmuxAgentRuntime:
                 str(key): value if value is None else str(value)
                 for key, value in dict(raw.get("primary", {})).items()
             }
-            parallel: dict[str, dict[int, str]] = {}
+            parallel: dict[str, dict[int | str, str]] = {}
             for role, workers in dict(raw.get("parallel", {})).items():
-                parsed: dict[int, str] = {}
+                parsed: dict[int | str, str] = {}
                 for worker_key, pane_id in dict(workers).items():
                     if pane_id is None:
                         continue
-                    try:
-                        parsed[int(worker_key)] = str(pane_id)
-                    except ValueError:
-                        continue
+                    key: int | str = str(worker_key)
+                    if str(worker_key).isdigit():
+                        key = int(str(worker_key))
+                    parsed[key] = str(pane_id)
                 if parsed:
                     parallel[str(role)] = parsed
             return primary, parallel
@@ -128,7 +134,7 @@ class TmuxAgentRuntime:
 
         panes = json.loads(legacy_path.read_text(encoding="utf-8"))
         primary: dict[str, str | None] = {}
-        parallel: dict[str, dict[int, str]] = {}
+        parallel: dict[str, dict[int | str, str]] = {}
         for role, pane_id in panes.items():
             if role.startswith("coder_"):
                 suffix = role.split("_", 1)[1]
@@ -151,7 +157,10 @@ class TmuxAgentRuntime:
             "version": SNAPSHOT_VERSION,
             "primary": self.primary_panes,
             "parallel": {
-                role: {str(worker): pane_id for worker, pane_id in sorted(workers.items())}
+                role: {
+                    str(worker): pane_id
+                    for worker, pane_id in sorted(workers.items(), key=lambda item: str(item[0]))
+                }
                 for role, workers in sorted(self.parallel_panes.items())
                 if workers
             },
@@ -177,7 +186,7 @@ class TmuxAgentRuntime:
             self.primary_panes[role] = _find_pane_by_title(self.session_name, role)
 
         for role, workers in list(self.parallel_panes.items()):
-            validated_workers: dict[int, str] = {}
+            validated_workers: dict[int | str, str] = {}
             for worker, pane_id in workers.items():
                 validated = self._validate_pane_id(pane_id)
                 if validated is not None:
@@ -242,6 +251,26 @@ class TmuxAgentRuntime:
         if role in self.parallel_panes:
             self.parallel_panes.pop(role, None)
             self._persist_snapshot()
+
+    def spawn_task(self, role: str, task_id: str, prompt_file: Path) -> None:
+        if role not in self.agents:
+            return
+        pane_id = create_agent_pane(self.session_name, role, self.agents)
+        show_agent_pane(pane_id, self.session_name, exclusive=False)
+        send_prompt(pane_id, prompt_file)
+        self.parallel_panes.setdefault(role, {})[task_id] = pane_id
+        self._persist_snapshot()
+
+    def finish_task(self, role: str, task_id: str) -> None:
+        workers = self.parallel_panes.get(role, {})
+        pane_id = workers.get(task_id)
+        if pane_id:
+            kill_agent_pane(pane_id, self.session_name)
+        if task_id in workers:
+            workers.pop(task_id, None)
+        if not workers:
+            self.parallel_panes.pop(role, None)
+        self._persist_snapshot()
 
     def shutdown(self, keep_session: bool) -> None:
         if not keep_session:

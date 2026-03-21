@@ -46,7 +46,7 @@ planning → designing? → implementing → reviewing
     → approval_received (done) OR changes_requested → planning
 ```
 
-`state.json` persists the durable `phase` and optional metadata such as `last_event`, `review_iteration`, and `subplan_count`. Agents no longer write workflow statuses directly.
+`state.json` persists the durable `phase` and optional metadata such as `last_event`, `review_iteration`, `subplan_count`, and `research_tasks` (a dict tracking code-researcher task status by topic). Agents no longer write workflow statuses directly.
 
 ### Shared file protocol
 
@@ -61,6 +61,10 @@ Agents communicate via files in `.multi-agent/<feature-name>/`. Files are create
 
 **Created on-demand during workflow:**
 - `plan.md` / `tasks.md` / `plan_meta.json` — architect planning artifacts
+- `research_request_<topic>.md` — architect's research assignment to code-researcher
+- `research_summary_<topic>.md` — code-researcher's high-level answers for architect
+- `research_detail_<topic>.md` — code-researcher's detailed analysis for coder/designer
+- `research_done_<topic>` — code-researcher completion marker (empty file)
 - `coder_prompt*.txt` — built and injected when implementation starts
 - `designer_prompt.md` — built and injected when designing starts
 - `review.md` / `review_prompt.md` — architect review result and prompt
@@ -75,6 +79,7 @@ Agents communicate via files in `.multi-agent/<feature-name>/`. Files are create
 Defines which CLI tools to use and their arguments for each role:
 - **architect**: `claude --model opus` — plans, reviews, confirms
 - **coder**: `codex` — implements the plan in the target project directory
+- **code-researcher**: `claude --model haiku` — analyzes codebase on architect request (optional, spawned in parallel per research topic)
 - `max_review_iterations` caps automatic reviewer→coder fix loops before forcing user confirmation
 
 The orchestrator never calls the AI APIs directly; it always goes through these CLI tools.
@@ -91,6 +96,7 @@ src/prompts.py                 — loads markdown templates and renders them wit
 src/prompts/agents/            — role-level prompts (define what each agent is)
   architect.md                 —   planning phase
   coder.md                     —   implementation phase
+  code-researcher.md           —   codebase analysis on architect request
 src/prompts/commands/          — phase-specific command prompts (what to do at each step)
   review.md                    —   code review
   fix.md                       —   fix review findings
@@ -107,6 +113,21 @@ src/prompts/commands/          — phase-specific command prompts (what to do at
 - Handler functions in `src/handlers.py` — each builds and writes its prompt file just before sending to agent
 - `tmux_*` helpers in `src/tmux.py` — create/kill sessions, panes, capture output
 - `_fix_control_width()` in `src/tmux.py` — one-shot resize fallback, only used when the right zone was empty
+
+### Code-researcher task dispatch
+
+During the planning phase, the architect can request deep codebase analysis by writing `research_request_<topic>.md` files (where `<topic>` is a descriptive slug like `auth-module` or `db-schema`). The orchestrator:
+
+1. Detects the new request file
+2. Spawns a code-researcher pane (parallel to architect, not exclusive)
+3. Injects the research assignment and tracks the topic in `state.json["research_tasks"]`
+4. Code-researcher analyzes the codebase and produces:
+   - `research_summary_<topic>.md` — concise answers for architect
+   - `research_detail_<topic>.md` — comprehensive analysis for coder/designer
+   - `research_done_<topic>` — empty completion marker
+5. Orchestrator notifies architect when analysis is complete
+
+Multiple research tasks can run in parallel. The architect can continue planning while research is underway and incorporate findings when ready.
 
 ### Editing prompts
 
