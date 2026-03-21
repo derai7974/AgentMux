@@ -9,10 +9,12 @@ Read these files first:
 - state.json
 
 Your job:
-1. Implement the plan in the project directory {project_dir}.
+1. You must at first create tests that implement the requirements  
+2. Implement the plan in the project directory {project_dir}.
 2. Keep the implementation aligned with requirements.md and {plan_file}.
 3. Do not write the review.
-4. {completion_instruction}
+4. You are only finished when the tests are successful 
+5. {completion_instruction}
 
 Constraints:
 - Communicate only through the files in the shared feature directory.

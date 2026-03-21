@@ -62,39 +62,64 @@ def tmux_new_session(
     architect_pane = result.stdout.strip()
     run_command(["tmux", "select-pane", "-t", architect_pane, "-T", architect.role])
 
-    _reapply_control_layout(session_name)
+    _fix_control_width(session_name)
     return {"architect": architect_pane, "coder": None, "_control": control_pane}
 
 
-def _reapply_control_layout(session_name: str) -> None:
-    """Re-apply main-vertical layout and fix control pane width."""
-    run_command(["tmux", "select-layout", "-t", session_name, "main-vertical"])
+def _find_control_pane(session_name: str) -> str | None:
+    """Return the pane ID of the control pane (titled 'control'), or None."""
     result = run_command(["tmux", "list-panes", "-t", session_name, "-F", "#{pane_id} #{pane_title}"])
     for line in result.stdout.splitlines():
         parts = line.strip().split(None, 1)
         if len(parts) == 2 and parts[1] == "control":
-            run_command(["tmux", "resize-pane", "-t", parts[0], "-x", str(CONTROL_PANE_WIDTH)])
-            break
+            return parts[0]
+    return None
+
+
+def _fix_control_width(session_name: str) -> None:
+    """Resize the control pane to its fixed width without re-applying layout."""
+    control = _find_control_pane(session_name)
+    if control:
+        run_command(["tmux", "resize-pane", "-t", control, "-x", str(CONTROL_PANE_WIDTH)])
+
+
+def _find_split_target(session_name: str) -> str:
+    """Find a non-control pane to split from, so the control pane stays untouched."""
+    result = run_command(["tmux", "list-panes", "-t", session_name, "-F", "#{pane_id} #{pane_title}"])
+    fallback = None
+    for line in result.stdout.splitlines():
+        parts = line.strip().split(None, 1)
+        if not parts:
+            continue
+        pane_id = parts[0]
+        title = parts[1] if len(parts) == 2 else ""
+        if title != "control":
+            return pane_id
+        fallback = pane_id
+    return fallback or session_name
 
 
 def create_agent_pane(session_name: str, agent_name: str, agents: dict[str, AgentConfig]) -> str:
     agent = agents[agent_name]
     agent_cmd = build_agent_command(agent)
+    split_target = _find_split_target(session_name)
     result = run_command([
-        "tmux", "split-window", "-h", "-t", session_name,
+        "tmux", "split-window", "-h", "-t", split_target,
         "-P", "-F", "#{pane_id}", agent_cmd,
     ])
     pane_id = result.stdout.strip()
     run_command(["tmux", "select-pane", "-t", pane_id, "-T", agent.role])
-    _reapply_control_layout(session_name)
+    _fix_control_width(session_name)
     accept_trust_prompt(pane_id)
     return pane_id
 
 
-def kill_agent_pane(pane_id: str | None) -> None:
+def kill_agent_pane(pane_id: str | None, session_name: str | None = None) -> None:
     if not pane_id:
         return
     run_command(["tmux", "kill-pane", "-t", pane_id], check=False)
+    if session_name:
+        _fix_control_width(session_name)
 
 
 def tmux_kill_session(session_name: str) -> None:

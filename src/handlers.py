@@ -158,7 +158,7 @@ def handle_plan_ready_single(state: dict[str, Any], ctx: PipelineContext) -> str
 def handle_coders_done(state: dict[str, Any], ctx: PipelineContext) -> str | None:
     """Row 3: coders_requested (all done) -> implementation_done."""
     for pane_id in ctx.coder_panes.values():
-        kill_agent_pane(pane_id)
+        kill_agent_pane(pane_id, ctx.session_name)
     ctx.coder_panes.clear()
 
     state["status"] = "implementation_done"
@@ -185,7 +185,7 @@ def handle_start_review(state: dict[str, Any], ctx: PipelineContext) -> str | No
 def handle_review_fail(state: dict[str, Any], ctx: PipelineContext) -> str | None:
     """Row 5: review_ready (verdict=fail) -> fix_requested."""
     for pane_id in ctx.coder_panes.values():
-        kill_agent_pane(pane_id)
+        kill_agent_pane(pane_id, ctx.session_name)
     ctx.coder_panes.clear()
 
     review_text = ctx.files.review.read_text(encoding="utf-8")
@@ -218,7 +218,7 @@ def handle_review_fail(state: dict[str, Any], ctx: PipelineContext) -> str | Non
 
 def handle_review_pass_docs(state: dict[str, Any], ctx: PipelineContext) -> str | None:
     """Row 6: review_ready (verdict=pass, docs agent) -> docs_update_requested."""
-    kill_agent_pane(ctx.panes["coder"])
+    kill_agent_pane(ctx.panes["coder"], ctx.session_name)
     ctx.panes["coder"] = None
 
     review_text = ctx.files.review.read_text(encoding="utf-8")
@@ -249,7 +249,7 @@ def handle_review_pass_no_docs(
     state: dict[str, Any], ctx: PipelineContext
 ) -> str | None:
     """Row 7: review_ready (verdict=pass, no docs) -> completion_pending."""
-    kill_agent_pane(ctx.panes["coder"])
+    kill_agent_pane(ctx.panes["coder"], ctx.session_name)
     ctx.panes["coder"] = None
 
     review_text = ctx.files.review.read_text(encoding="utf-8")
@@ -272,7 +272,7 @@ def handle_review_pass_no_docs(
 
 def handle_docs_done(state: dict[str, Any], ctx: PipelineContext) -> str | None:
     """Row 8: docs_updated -> completion_pending."""
-    kill_agent_pane(ctx.panes["docs"])
+    kill_agent_pane(ctx.panes["docs"], ctx.session_name)
     ctx.panes["docs"] = None
 
     update_state(
@@ -290,12 +290,12 @@ def handle_changes_requested(
     state: dict[str, Any], ctx: PipelineContext
 ) -> str | None:
     """Row 9: changes_requested -> architect_requested (full reset)."""
-    kill_agent_pane(ctx.panes["coder"])
+    kill_agent_pane(ctx.panes["coder"], ctx.session_name)
     ctx.panes["coder"] = None
-    kill_agent_pane(ctx.panes.get("docs"))
+    kill_agent_pane(ctx.panes.get("docs"), ctx.session_name)
     ctx.panes["docs"] = None
     for pane_id in ctx.coder_panes.values():
-        kill_agent_pane(pane_id)
+        kill_agent_pane(pane_id, ctx.session_name)
     ctx.coder_panes.clear()
 
     changes_prompt = write_prompt_file(
