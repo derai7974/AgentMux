@@ -9,10 +9,13 @@ from pathlib import Path
 from .models import AgentConfig
 
 TRUST_PROMPT_SNIPPET = "Do you trust the contents of this directory?"
-CONTROL_PANE_WIDTH = 28
+CONTROL_PANE_WIDTH = 20
+MAIN_WINDOW = "pipeline"
 
 
-def run_command(args: list[str], cwd: Path | None = None, check: bool = True) -> subprocess.CompletedProcess[str]:
+def run_command(
+    args: list[str], cwd: Path | None = None, check: bool = True
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         args,
         cwd=str(cwd) if cwd else None,
@@ -34,41 +37,24 @@ def tmux_session_exists(session_name: str) -> bool:
     return result.returncode == 0
 
 
-def tmux_new_session(
-    session_name: str,
-    architect: AgentConfig,
-    feature_dir: Path,
-    config_path: Path,
-) -> dict[str, str | None]:
-    monitor_script = Path(__file__).resolve().parent / "monitor.py"
-    monitor_cmd = (
-        f"python3 {shlex.quote(str(monitor_script))}"
-        f" --feature-dir {shlex.quote(str(feature_dir))}"
-        f" --session-name {shlex.quote(session_name)}"
-        f" --config {shlex.quote(str(config_path))}"
-    )
-    result = run_command([
-        "tmux", "new-session", "-d", "-s", session_name,
-        "-n", "pipeline", "-P", "-F", "#{pane_id}", monitor_cmd,
-    ])
-    control_pane = result.stdout.strip()
-    run_command(["tmux", "select-pane", "-t", control_pane, "-T", "control"])
-
-    architect_cmd = build_agent_command(architect)
-    result = run_command([
-        "tmux", "split-window", "-h", "-t", control_pane,
-        "-P", "-F", "#{pane_id}", architect_cmd,
-    ])
-    architect_pane = result.stdout.strip()
-    run_command(["tmux", "select-pane", "-t", architect_pane, "-T", architect.role])
-
-    _fix_control_width(session_name)
-    return {"architect": architect_pane, "coder": None, "_control": control_pane}
+# ---------------------------------------------------------------------------
+# Layout helpers
+# ---------------------------------------------------------------------------
 
 
 def _find_control_pane(session_name: str) -> str | None:
     """Return the pane ID of the control pane (titled 'control'), or None."""
-    result = run_command(["tmux", "list-panes", "-t", session_name, "-F", "#{pane_id} #{pane_title}"])
+    result = run_command(
+        [
+            "tmux",
+            "list-panes",
+            "-t",
+            f"{session_name}:{MAIN_WINDOW}",
+            "-F",
+            "#{pane_id} #{pane_title}",
+        ],
+        check=False,
+    )
     for line in result.stdout.splitlines():
         parts = line.strip().split(None, 1)
         if len(parts) == 2 and parts[1] == "control":
@@ -77,36 +63,269 @@ def _find_control_pane(session_name: str) -> str | None:
 
 
 def _fix_control_width(session_name: str) -> None:
-    """Resize the control pane to its fixed width without re-applying layout."""
+    """Resize the control pane to its fixed width."""
     control = _find_control_pane(session_name)
     if control:
-        run_command(["tmux", "resize-pane", "-t", control, "-x", str(CONTROL_PANE_WIDTH)])
+        run_command(
+            ["tmux", "resize-pane", "-t", control, "-x", str(CONTROL_PANE_WIDTH)]
+        )
 
 
-def _find_split_target(session_name: str) -> str:
-    """Find a non-control pane to split from, so the control pane stays untouched."""
-    result = run_command(["tmux", "list-panes", "-t", session_name, "-F", "#{pane_id} #{pane_title}"])
-    fallback = None
+def _is_pane_visible(pane_id: str | None, session_name: str) -> bool:
+    """Check if a pane is in the main window (not hidden)."""
+    if not pane_id:
+        return False
+    result = run_command(
+        [
+            "tmux",
+            "list-panes",
+            "-t",
+            f"{session_name}:{MAIN_WINDOW}",
+            "-F",
+            "#{pane_id}",
+        ],
+        check=False,
+    )
+    return pane_id in result.stdout
+
+
+def _park_all_agents(session_name: str) -> None:
+    """Move all non-control panes from the main window into _hidden."""
+    result = run_command(
+        [
+            "tmux",
+            "list-panes",
+            "-t",
+            f"{session_name}:{MAIN_WINDOW}",
+            "-F",
+            "#{pane_id} #{pane_title}",
+        ],
+        check=False,
+    )
+    for line in result.stdout.splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) == 2 and parts[1] != "control":
+            run_command(
+                [
+                    "tmux",
+                    "break-pane",
+                    "-d",
+                    "-s",
+                    parts[0],
+                    "-n",
+                    "_hidden",
+                ],
+                check=False,
+            )
+
+
+def _park_other_agents(session_name: str, keep_pane: str) -> None:
+    """Move all non-control panes except keep_pane from the main window into _hidden."""
+    result = run_command(
+        [
+            "tmux",
+            "list-panes",
+            "-t",
+            f"{session_name}:{MAIN_WINDOW}",
+            "-F",
+            "#{pane_id} #{pane_title}",
+        ],
+        check=False,
+    )
+    for line in result.stdout.splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) == 2 and parts[1] != "control" and parts[0] != keep_pane:
+            run_command(
+                [
+                    "tmux",
+                    "break-pane",
+                    "-d",
+                    "-s",
+                    parts[0],
+                    "-n",
+                    "_hidden",
+                ],
+                check=False,
+            )
+
+
+# ---------------------------------------------------------------------------
+# Pane lifecycle: park / show
+# ---------------------------------------------------------------------------
+
+
+def park_agent_pane(pane_id: str | None, session_name: str) -> None:
+    """Move a pane to the hidden window. Process keeps running."""
+    if not pane_id:
+        return
+    if not _is_pane_visible(pane_id, session_name):
+        return
+    run_command(
+        ["tmux", "break-pane", "-d", "-s", pane_id, "-n", "_hidden"], check=False
+    )
+    _fix_control_width(session_name)
+
+
+def show_agent_pane(
+    pane_id: str | None, session_name: str, *, exclusive: bool = True
+) -> None:
+    """Join a pane into the main window.
+
+    If exclusive=True (default), park all other agent panes after joining so only
+    this agent is visible. Set exclusive=False for parallel mode.
+
+    Join first, then park: this prevents the control pane from ever becoming the
+    sole pane in the window, which would cause tmux to expand it full-width and
+    then create a proportional split when the next agent joins.
+    """
+    if not pane_id:
+        return
+    if _is_pane_visible(pane_id, session_name):
+        return
+    # Join the new pane FIRST (layout stays stable — control width unaffected)
+    target = _find_agent_pane_in_main(session_name)
+    control = _find_control_pane(session_name)
+    if target == f"{session_name}:{MAIN_WINDOW}" or target == control:
+        # No agent panes visible — join horizontally next to control
+        run_command(
+            ["tmux", "join-pane", "-h", "-s", pane_id, "-t", control], check=False
+        )
+    else:
+        # Stack vertically with existing agent panes
+        run_command(
+            ["tmux", "join-pane", "-v", "-s", pane_id, "-t", target], check=False
+        )
+    # THEN park old agents — new pane is already in place so control width is stable
+    if exclusive:
+        _park_other_agents(session_name, keep_pane=pane_id)
+    _fix_control_width(session_name)
+
+
+# ---------------------------------------------------------------------------
+# Session and pane creation
+# ---------------------------------------------------------------------------
+
+
+def tmux_new_session(
+    session_name: str,
+    agents: dict[str, AgentConfig],
+    feature_dir: Path,
+    config_path: Path,
+) -> dict[str, str | None]:
+    """Create the tmux session with control pane + architect pane.
+
+    Other agents are created lazily on first send_prompt via _ensure_agent_pane.
+    """
+    monitor_script = Path(__file__).resolve().parent / "monitor.py"
+    monitor_cmd = (
+        f"python3 {shlex.quote(str(monitor_script))}"
+        f" --feature-dir {shlex.quote(str(feature_dir))}"
+        f" --session-name {shlex.quote(session_name)}"
+        f" --config {shlex.quote(str(config_path))}"
+    )
+
+    # Create session with control pane (left)
+    result = run_command(
+        [
+            "tmux",
+            "new-session",
+            "-d",
+            "-s",
+            session_name,
+            "-n",
+            MAIN_WINDOW,
+            "-P",
+            "-F",
+            "#{pane_id}",
+            monitor_cmd,
+        ]
+    )
+    control_pane = result.stdout.strip()
+    run_command(["tmux", "select-pane", "-t", control_pane, "-T", "control"])
+
+    # Create architect pane (right side)
+    architect = agents["architect"]
+    architect_cmd = build_agent_command(architect)
+    result = run_command(
+        [
+            "tmux",
+            "split-window",
+            "-h",
+            "-t",
+            control_pane,
+            "-P",
+            "-F",
+            "#{pane_id}",
+            architect_cmd,
+        ]
+    )
+    architect_pane = result.stdout.strip()
+    run_command(["tmux", "select-pane", "-t", architect_pane, "-T", "architect"])
+
+    _fix_control_width(session_name)
+    accept_trust_prompt(architect_pane)
+
+    panes: dict[str, str | None] = {
+        "_control": control_pane,
+        "architect": architect_pane,
+    }
+    # Initialize slots for other agents (created lazily)
+    for role in agents:
+        if role != "architect":
+            panes[role] = None
+
+    return panes
+
+
+def _find_agent_pane_in_main(session_name: str) -> str:
+    """Find a non-control pane in the main window to split from."""
+    result = run_command(
+        [
+            "tmux",
+            "list-panes",
+            "-t",
+            f"{session_name}:{MAIN_WINDOW}",
+            "-F",
+            "#{pane_id} #{pane_title}",
+        ]
+    )
     for line in result.stdout.splitlines():
         parts = line.strip().split(None, 1)
         if not parts:
             continue
-        pane_id = parts[0]
         title = parts[1] if len(parts) == 2 else ""
         if title != "control":
-            return pane_id
-        fallback = pane_id
-    return fallback or session_name
+            return parts[0]
+    return f"{session_name}:{MAIN_WINDOW}"
 
 
-def create_agent_pane(session_name: str, agent_name: str, agents: dict[str, AgentConfig]) -> str:
+def create_agent_pane(
+    session_name: str, agent_name: str, agents: dict[str, AgentConfig]
+) -> str:
+    """Create a new agent pane. Used for lazy creation and parallel coders."""
     agent = agents[agent_name]
     agent_cmd = build_agent_command(agent)
-    split_target = _find_split_target(session_name)
-    result = run_command([
-        "tmux", "split-window", "-h", "-t", split_target,
-        "-P", "-F", "#{pane_id}", agent_cmd,
-    ])
+    split_target = _find_agent_pane_in_main(session_name)
+    control = _find_control_pane(session_name)
+    # If no agent pane is visible, split horizontally from control
+    if split_target == f"{session_name}:{MAIN_WINDOW}" or split_target == control:
+        split_dir = "-h"
+        split_target = control or f"{session_name}:{MAIN_WINDOW}"
+    else:
+        split_dir = "-v"
+    result = run_command(
+        [
+            "tmux",
+            "split-window",
+            split_dir,
+            "-t",
+            split_target,
+            "-P",
+            "-F",
+            "#{pane_id}",
+            agent_cmd,
+        ]
+    )
     pane_id = result.stdout.strip()
     run_command(["tmux", "select-pane", "-t", pane_id, "-T", agent.role])
     _fix_control_width(session_name)
@@ -115,6 +334,7 @@ def create_agent_pane(session_name: str, agent_name: str, agents: dict[str, Agen
 
 
 def kill_agent_pane(pane_id: str | None, session_name: str | None = None) -> None:
+    """Kill a pane permanently (used for parallel coder cleanup)."""
     if not pane_id:
         return
     run_command(["tmux", "kill-pane", "-t", pane_id], check=False)
@@ -126,8 +346,15 @@ def tmux_kill_session(session_name: str) -> None:
     run_command(["tmux", "kill-session", "-t", session_name], check=False)
 
 
+# ---------------------------------------------------------------------------
+# Pane interaction
+# ---------------------------------------------------------------------------
+
+
 def capture_pane(target_pane: str, history_lines: int = 160) -> str:
-    result = run_command(["tmux", "capture-pane", "-p", "-S", f"-{history_lines}", "-t", target_pane])
+    result = run_command(
+        ["tmux", "capture-pane", "-p", "-S", f"-{history_lines}", "-t", target_pane]
+    )
     return result.stdout
 
 
@@ -160,14 +387,49 @@ def normalize_prompt(content: str) -> str:
     return re.sub(r"\s+", " ", content).strip()
 
 
-def send_prompt(target_pane: str, prompt_file: Path) -> None:
-    if not tmux_pane_exists(target_pane):
+def send_prompt(
+    target_pane: str | None,
+    prompt_file: Path,
+    session_name: str | None = None,
+    *,
+    role: str | None = None,
+    agents: dict[str, AgentConfig] | None = None,
+    panes: dict[str, str | None] | None = None,
+) -> None:
+    """Send a prompt to a pane. If session_name is given, auto-show the pane first.
+
+    If target_pane is None and role/agents/panes are provided, the agent pane
+    is created lazily (first use).
+    """
+    if target_pane is None and role and agents and panes and session_name:
+        target_pane = _ensure_agent_pane(session_name, role, agents, panes)
+    if not target_pane or not tmux_pane_exists(target_pane):
         return
+    if session_name:
+        show_agent_pane(target_pane, session_name)
     prompt = normalize_prompt(prompt_file.read_text(encoding="utf-8"))
     send_text(target_pane, prompt)
 
 
-def accept_trust_prompt(target_pane: str, timeout_seconds: float = 15.0) -> None:
+def _ensure_agent_pane(
+    session_name: str,
+    role: str,
+    agents: dict[str, AgentConfig],
+    panes: dict[str, str | None],
+) -> str | None:
+    """Create an agent pane if it doesn't exist yet. Returns the pane ID."""
+    if panes.get(role) and tmux_pane_exists(panes[role]):
+        return panes[role]
+    if role not in agents:
+        return None
+    pane_id = create_agent_pane(session_name, role, agents)
+    # Immediately park it — show_agent_pane will bring it back
+    park_agent_pane(pane_id, session_name)
+    panes[role] = pane_id
+    return pane_id
+
+
+def accept_trust_prompt(target_pane: str, timeout_seconds: float = 3.0) -> None:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
         if TRUST_PROMPT_SNIPPET in capture_pane(target_pane):
