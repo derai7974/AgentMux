@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -12,11 +13,23 @@ from pathlib import Path
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
-GREEN = "\033[32m"
-YELLOW = "\033[33m"
+DIM = "\033[2m"
+GREEN = "\033[92m"   # bright green – phosphor
+YELLOW = "\033[33m"  # amber – idle / warning
 RED = "\033[31m"
 CYAN = "\033[36m"
-DIM = "\033[2m"
+
+# Box-drawing characters (double-line style)
+_TL = "╔"
+_TR = "╗"
+_BL = "╚"
+_BR = "╝"
+_ML = "╠"
+_MR = "╣"
+_V = "║"
+_H = "═"
+
+_ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 
 PIPELINE_STATES = [
     "planning",
@@ -37,6 +50,47 @@ def get_terminal_size() -> tuple[int, int]:
     except OSError:
         return 40, 24
 
+
+def _vlen(s: str) -> int:
+    """Visible (printable) length, stripping ANSI escape codes."""
+    return len(_ANSI_RE.sub("", s))
+
+
+def _box_top(width: int, label: str = "PIPELINE") -> str:
+    inner = width - 2
+    padded = f" {label} "
+    right_fill = max(0, inner - 2 - len(padded))
+    return f"{DIM}{_TL}{_H * 2}{RESET}{BOLD}{padded}{RESET}{DIM}{_H * right_fill}{_TR}{RESET}"
+
+
+def _box_divider(width: int, label: str = "") -> str:
+    inner = width - 2
+    if label:
+        padded = f" {label} "
+        right_fill = max(0, inner - 2 - len(padded))
+        return f"{DIM}{_ML}{_H * 2}{RESET}{DIM}{padded}{RESET}{DIM}{_H * right_fill}{_MR}{RESET}"
+    return f"{DIM}{_ML}{_H * inner}{_MR}{RESET}"
+
+
+def _box_bottom(width: int) -> str:
+    inner = width - 2
+    return f"{DIM}{_BL}{_H * inner}{_BR}{RESET}"
+
+
+def _box_row(width: int, text: str = "") -> str:
+    """Wrap *text* in box side-borders, padding to fill the inner width."""
+    inner = width - 2
+    vl = _vlen(text)
+    if vl > inner:
+        # strip ANSI, truncate, no re-color
+        clean = _ANSI_RE.sub("", text)
+        text = clean[: inner - 1] + "…"
+        vl = inner
+    pad = inner - vl
+    return f"{DIM}{_V}{RESET}{text}{' ' * pad}{DIM}{_V}{RESET}"
+
+
+# ---------------------------------------------------------------------------
 
 def load_runtime_registry(runtime_state_path: Path) -> dict[str, str | None]:
     try:
@@ -113,7 +167,7 @@ def status_color(status: str) -> str:
         return RED
     if status in ("completing", "reviewing"):
         return YELLOW
-    return CYAN
+    return GREEN
 
 
 def _trim_model(model: str, cli: str) -> str:
@@ -122,6 +176,27 @@ def _trim_model(model: str, cli: str) -> str:
     if model.lower().startswith(prefix.lower()):
         model = model[len(prefix):]
     return model
+
+
+def _read_event_log(log_path: Path, n: int) -> list[tuple[str, str]]:
+    """Return the last *n* entries from status_log.txt as (time_str, phase) pairs."""
+    try:
+        text = log_path.read_text(encoding="utf-8")
+    except Exception:
+        return []
+    entries: list[tuple[str, str]] = []
+    for line in text.splitlines():
+        parts = line.strip().split()
+        # Format: "2026-03-21 14:30:00  implementing"
+        if len(parts) >= 3:
+            time_str = parts[1][:5]  # HH:MM
+            phase = parts[2]
+            entries.append((time_str, phase))
+        elif len(parts) == 2:
+            time_str = parts[0][:5]
+            phase = parts[1]
+            entries.append((time_str, phase))
+    return entries[-n:] if entries else []
 
 
 def _read_feature_request(state_path: Path) -> str:
@@ -151,82 +226,83 @@ def render(
     width: int,
     height: int,
     start_time: float,
+    log_path: Path | None = None,
 ) -> str:
     state = load_state(state_path)
     role_states = get_role_states(session_name, runtime_state_path)
 
-    status = state.get("phase", "waiting...")
+    status = state.get("phase", "waiting…")
     last_event = str(state.get("last_event", "")).strip()
     review_iter = state.get("review_iteration", 0)
     subplan_count = state.get("subplan_count", 0)
 
+    inner = width - 2
     lines: list[str] = []
 
-    lines.append(f"{BOLD}{CYAN}Multi-Agent Pipeline{RESET}")
-    lines.append("\u2500" * (width - 1))
-    lines.append("")
+    # ── top border ────────────────────────────────────────────────────────
+    lines.append(_box_top(width))
 
+    # ── feature request ───────────────────────────────────────────────────
     feature_request = _read_feature_request(state_path)
     if feature_request:
-        lines.append(f"{BOLD}Feature{RESET}")
-        max_feature_len = max(1, width - 4)
-        if len(feature_request) > max_feature_len:
-            feature_request = feature_request[: max_feature_len - 1] + "…"
-        lines.append(f"  {DIM}{feature_request}{RESET}")
-        lines.append("")
-        lines.append("\u2500" * (width - 1))
-        lines.append("")
+        max_len = max(1, inner - 2)
+        if len(feature_request) > max_len:
+            feature_request = feature_request[: max_len - 1] + "…"
+        lines.append(_box_row(width, f" {DIM}{feature_request}{RESET}"))
+        lines.append(_box_divider(width))
 
-    lines.append(f"{BOLD}Pipeline{RESET}")
+    # ── pipeline stages ───────────────────────────────────────────────────
     color = status_color(status)
-    max_pipeline_len = max(1, width - 4)
-    for pipeline_status in PIPELINE_STATES:
-        display = pipeline_status[:max_pipeline_len]
-        if pipeline_status == status:
-            lines.append(f"  {color}\u25ba {display}{RESET}")
+    max_stage = max(1, inner - 5)
+    for stage in PIPELINE_STATES:
+        display = stage[:max_stage]
+        if stage == status:
+            lines.append(_box_row(width, f"  {BOLD}{color}▶ {display}{RESET}"))
         else:
-            lines.append(f"  {DIM}{display}{RESET}")
+            lines.append(_box_row(width, f"  {DIM}· {display}{RESET}"))
 
-    if status not in PIPELINE_STATES:
-        unknown_display = status[:max_pipeline_len]
-        lines.append(f"  {color}\u25ba {unknown_display}{RESET}")
+    # unknown status not in list
+    if status not in PIPELINE_STATES and status != "waiting…":
+        display = status[:max_stage]
+        lines.append(_box_row(width, f"  {BOLD}{color}▶ {display}{RESET}"))
 
+    # extra pipeline metadata
     if last_event:
-        max_event_len = max(1, width - 8)
-        event_display = last_event
-        if len(event_display) > max_event_len:
-            event_display = event_display[: max_event_len - 1] + "…"
-        lines.append(f"  {DIM}event {event_display}{RESET}")
+        max_ev = max(1, inner - 7)
+        ev = last_event if len(last_event) <= max_ev else last_event[: max_ev - 1] + "…"
+        lines.append(_box_row(width, f"   {DIM}↳ {ev}{RESET}"))
     if review_iter:
-        lines.append(f"  {DIM}review iter {review_iter}{RESET}")
+        lines.append(_box_row(width, f"   {DIM}iter {review_iter}{RESET}"))
     if subplan_count > 1:
-        lines.append(f"  {DIM}{subplan_count} subplans{RESET}")
+        lines.append(_box_row(width, f"   {DIM}{subplan_count} subplans{RESET}"))
 
-    lines.append("")
-    lines.append("\u2500" * (width - 1))
-    lines.append("")
+    # ── agents ────────────────────────────────────────────────────────────
+    lines.append(_box_divider(width, "AGENTS"))
+    lines.append(_box_row(width))
 
-    lines.append(f"{BOLD}Agents{RESET}")
-    lines.append("")
-
-    def _render_agent_row(display_name: str, agent_state: str, cfg: dict[str, str]) -> None:
+    def _agent_row(display_name: str, agent_state: str, cfg: dict[str, str]) -> None:
+        max_name = 8
         if agent_state == "working":
-            bullet = f"{GREEN}\u25cf{RESET}"
-            state_label = f"{GREEN}WORKING{RESET}"
-            name_part = f"{BOLD}{display_name:<10}{RESET}"
+            bullet = f"{GREEN}●{RESET}"
+            label = f"{GREEN}WORKING{RESET}"
+            name = f"{BOLD}{display_name:<{max_name}}{RESET}"
         elif agent_state == "idle":
-            bullet = f"{YELLOW}\u25cf{RESET}"
-            state_label = f"{YELLOW}IDLE{RESET}"
-            name_part = f"{display_name:<10}"
+            bullet = f"{YELLOW}●{RESET}"
+            label = f"{YELLOW}IDLE{RESET}"
+            name = f"{display_name:<{max_name}}"
         else:
-            bullet = f"{DIM}\u25cb{RESET}"
-            state_label = f"{DIM}INACTIVE{RESET}"
-            name_part = f"{DIM}{display_name:<10}{RESET}"
-        lines.append(f"  {bullet} {name_part} {state_label}")
+            bullet = f"{DIM}○{RESET}"
+            label = f"{DIM}inactive{RESET}"
+            name = f"{DIM}{display_name:<{max_name}}{RESET}"
+        lines.append(_box_row(width, f" {bullet} {name} {label}"))
         cli = cfg.get("cli", "?")
         model = _trim_model(cfg.get("model", ""), cli)
-        lines.append(f"    {DIM}{cli}/{model}{RESET}")
-        lines.append("")
+        info = f"{cli}/{model}"
+        max_info = max(1, inner - 4)
+        if len(info) > max_info:
+            info = info[: max_info - 1] + "…"
+        lines.append(_box_row(width, f"   {DIM}{info}{RESET}"))
+        lines.append(_box_row(width))
 
     for role, cfg in agents.items():
         if role == "coder":
@@ -237,26 +313,47 @@ def render(
             if parallel_keys:
                 for ckey in parallel_keys:
                     num = ckey.split("_")[1]
-                    _render_agent_row(f"coder {num}", role_states.get(ckey, "inactive"), cfg)
+                    _agent_row(f"coder {num}", role_states.get(ckey, "inactive"), cfg)
             else:
-                _render_agent_row("coder", role_states.get("coder", "inactive"), cfg)
+                _agent_row("coder", role_states.get("coder", "inactive"), cfg)
         else:
-            _render_agent_row(role, role_states.get(role, "inactive"), cfg)
+            _agent_row(role, role_states.get(role, "inactive"), cfg)
 
+    # ── event log (fills remaining height, pinned above footer) ──────────
+    if log_path is not None:
+        footer_height = 3  # divider + elapsed + bottom
+        available_for_log = height - len(lines) - footer_height
+        # min 2 rows to bother showing (divider + at least one entry)
+        if available_for_log >= 2:
+            max_entries = available_for_log - 1  # -1 for the LOG divider
+            entries = _read_event_log(log_path, max_entries)
+            if entries:
+                lines.append(_box_divider(width, "LOG"))
+                max_phase = max(1, inner - 9)  # " HH:MM phase" = 1+5+1+phase
+                for ts, phase in entries:
+                    ph = phase[:max_phase]
+                    lines.append(_box_row(width, f" {DIM}{ts}  {ph}{RESET}"))
+
+    # ── elapsed footer (pinned to bottom) ─────────────────────────────────
     elapsed_seconds = max(0, int(time.time() - start_time))
     hours = elapsed_seconds // 3600
     minutes = (elapsed_seconds % 3600) // 60
     seconds = elapsed_seconds % 60
     elapsed_str = f"{hours}:{minutes:02d}:{seconds:02d}"
 
-    footer = ["\u2500" * (width - 1), f"{DIM}↑ {elapsed_str}{RESET}"]
+    footer = [
+        _box_divider(width),
+        _box_row(width, f" {DIM}↑ {elapsed_str}{RESET}"),
+        _box_bottom(width),
+    ]
 
-    lines.extend(footer)
+    # pad middle with empty box rows so footer sits at the bottom
+    target_body = height - len(footer)
+    while len(lines) < target_body:
+        lines.append(_box_row(width))
 
-    while len(lines) < height - 1:
-        lines.append("")
-
-    return "\n".join(lines[:height])
+    all_lines = lines[:target_body] + footer
+    return "\n".join(all_lines[:height])
 
 
 def append_status_change(log_path: Path, prev_status: str | None, status: str) -> str | None:
@@ -299,7 +396,10 @@ def main() -> None:
     try:
         while True:
             width, height = get_terminal_size()
-            output = render(args.session_name, state_path, runtime_state_path, agents, width, height, start_time)
+            output = render(
+                args.session_name, state_path, runtime_state_path, agents,
+                width, height, start_time, log_path=status_log_path,
+            )
             sys.stdout.write("\033[H\033[2J" + output)
             sys.stdout.flush()
             state = load_state(state_path)
