@@ -103,6 +103,36 @@ def build_confirmation_prompt(files: RuntimeFiles, approved_target: str, changes
     })
 
 
+def build_all_prompts(files: RuntimeFiles) -> dict[str, Path]:
+    """Pre-build the four static prompts and return their file paths."""
+    return {
+        "architect": write_prompt_file(
+            files.feature_dir,
+            "architect_prompt.md",
+            build_architect_prompt(files, state_target="plan_ready"),
+        ),
+        "coder": write_prompt_file(
+            files.feature_dir,
+            "coder_prompt.md",
+            build_coder_prompt(files, state_target="implementation_done"),
+        ),
+        "review": write_prompt_file(
+            files.feature_dir,
+            "review_prompt.md",
+            build_architect_prompt(files, state_target="review_ready", is_review=True),
+        ),
+        "confirmation": write_prompt_file(
+            files.feature_dir,
+            "confirmation_prompt.md",
+            build_confirmation_prompt(
+                files,
+                approved_target="completion_approved",
+                changes_target="changes_requested",
+            ),
+        ),
+    }
+
+
 def build_change_prompt(files: RuntimeFiles, state_target: str) -> str:
     requirements_text = files.requirements.read_text(encoding="utf-8")
     plan_text = files.plan.read_text(encoding="utf-8")
