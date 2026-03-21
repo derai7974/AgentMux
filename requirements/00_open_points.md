@@ -1,7 +1,10 @@
 
-- monitor soll auch beschreibung des features zeigen
-- kein review schreiben, wenn alles ok ist
+- md files should only be created on demand
+- Architect soll neben dem plan noch eine task list erstellen, an der sich der coder orientieren kann
+- In monitor unterscheiden ob session aktiv oder wirklich weg (3 Stati: working, active, idle) 
+- modell auswahl durch architekten je nach aufgabe
 - gemini auf 3 flash umstellen und permission auf gitignored verzeichnis geben
+- LLM in pipeline hinzufügen für feature beschreibung
 - restart open process
 - md files as alternative
 - git integration

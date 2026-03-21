@@ -8,11 +8,11 @@ Read these files first:
 Then inspect the current repository state and compare the implementation against both requirements and plan.
 
 Your job:
-1. Write your review to review.md.
-2. The very first line of review.md must be exactly `verdict: pass` (no actionable findings) or `verdict: fail` (findings that need fixing). Then write your detailed review below.
-3. Call out concrete findings, regressions, gaps, or residual risks.
-4. If there are no findings, state that explicitly.
-5. FINAL STEP ONLY — once the review is fully written and nothing else remains, update state.json so that `status` becomes `{state_target}`. This must be the very last action you take. Do not do anything after writing the status.
+1. Review the implementation against requirements and plan, and choose one path:
+   - **Pass (no findings):** update state.json status to `review_pass` directly. Do **not** write `review.md`.
+   - **Fail (findings exist):** write `review.md` with `verdict: fail` as the first line, followed by detailed findings. Then update state.json status to `{state_target}`.
+2. Call out concrete findings, regressions, gaps, or residual risks when failing.
+3. FINAL STEP ONLY — once all review work is fully complete and nothing else remains, update state.json as instructed above. This must be the very last action you take. Do not do anything after writing the status.
 
 Constraints:
 - Communicate only through the files in the shared feature directory.

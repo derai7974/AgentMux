@@ -9,6 +9,102 @@ from src import monitor
 
 
 class MonitorTests(unittest.TestCase):
+    def test_render_shows_feature_description_from_requirements(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            panes_path = feature_dir / "panes.json"
+            requirements_path = feature_dir / "requirements.md"
+
+            state_path.write_text('{"status": "coder_requested"}', encoding="utf-8")
+            panes_path.write_text("{}", encoding="utf-8")
+            requirements_path.write_text(
+                "# Requirements\n\n## Initial Request\nmonitor soll auch beschreibung des features zeigen\n",
+                encoding="utf-8",
+            )
+
+            output = monitor.render(
+                session_name="session-x",
+                state_path=state_path,
+                panes_path=panes_path,
+                agents={},
+                width=40,
+                height=16,
+                start_time=0.0,
+            )
+
+            self.assertIn("\n\x1b[1mFeature\x1b[0m\n", output)
+            self.assertIn("  \x1b[2mmonitor soll auch beschreibung des …\x1b[0m", output)
+
+    def test_render_pipeline_shows_all_states_and_highlights_current(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            panes_path = feature_dir / "panes.json"
+            state_path.write_text('{"status": "plan_ready"}', encoding="utf-8")
+            panes_path.write_text("{}", encoding="utf-8")
+
+            output = monitor.render(
+                session_name="session-x",
+                state_path=state_path,
+                panes_path=panes_path,
+                agents={},
+                width=50,
+                height=22,
+                start_time=0.0,
+            )
+
+            self.assertIn("  \x1b[2marchitect_requested\x1b[0m", output)
+            self.assertIn(f"  {monitor.CYAN}\u25ba plan_ready{monitor.RESET}", output)
+            self.assertIn("  \x1b[2mcoder_requested\x1b[0m", output)
+            self.assertIn("  \x1b[2mcompletion_approved\x1b[0m", output)
+
+    def test_render_pipeline_includes_unknown_status_as_extra_highlighted_line(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            panes_path = feature_dir / "panes.json"
+            state_path.write_text('{"status": "fix_requested"}', encoding="utf-8")
+            panes_path.write_text("{}", encoding="utf-8")
+
+            output = monitor.render(
+                session_name="session-x",
+                state_path=state_path,
+                panes_path=panes_path,
+                agents={},
+                width=50,
+                height=22,
+                start_time=0.0,
+            )
+
+            self.assertIn("  \x1b[2mcompletion_approved\x1b[0m", output)
+            self.assertIn(f"  {monitor.CYAN}\u25ba fix_requested{monitor.RESET}", output)
+
+    def test_render_inserts_divider_between_agents_and_log(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            panes_path = feature_dir / "panes.json"
+            log_path = feature_dir / "status_log.txt"
+
+            state_path.write_text('{"status": "coder_requested"}', encoding="utf-8")
+            panes_path.write_text("{}", encoding="utf-8")
+            log_path.write_text("2026-03-21 11:20:00 plan_ready\n", encoding="utf-8")
+
+            output = monitor.render(
+                session_name="session-x",
+                state_path=state_path,
+                panes_path=panes_path,
+                agents={"coder": {"cli": "codex", "model": "gpt-5"}},
+                width=40,
+                height=25,
+                start_time=0.0,
+            )
+
+            self.assertIn("\n\x1b[1mAgents\x1b[0m\n", output)
+            self.assertIn("\n\x1b[1mLog\x1b[0m\n", output)
+            self.assertIn("\n" + ("─" * 39) + "\n\x1b[1mLog\x1b[0m\n", output)
+
     def test_render_footer_shows_elapsed_duration(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
@@ -28,7 +124,7 @@ class MonitorTests(unittest.TestCase):
                     panes_path=panes_path,
                     agents=agents,
                     width=40,
-                    height=18,
+                    height=30,
                     start_time=6339.0,
                 )
 
@@ -61,7 +157,7 @@ class MonitorTests(unittest.TestCase):
                     panes_path=panes_path,
                     agents=agents,
                     width=40,
-                    height=20,
+                    height=30,
                     start_time=11900.0,
                 )
 

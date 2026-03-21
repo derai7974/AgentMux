@@ -287,12 +287,14 @@ def handle_review_pass_docs(state: dict[str, Any], ctx: PipelineContext) -> str 
     """review_ready (verdict=pass, docs agent) -> docs_update_requested."""
     park_agent_pane(ctx.panes.get("coder"), ctx.session_name)
 
-    review_text = ctx.files.review.read_text(encoding="utf-8")
-    verdict = parse_review_verdict(review_text)
-    if verdict is None:
-        print(
-            "Warning: parse_review_verdict returned None — treating as pass and requesting docs update"
-        )
+    status = str(state.get("status", ""))
+    if status == "review_ready":
+        review_text = ctx.files.review.read_text(encoding="utf-8")
+        verdict = parse_review_verdict(review_text)
+        if verdict is None:
+            print(
+                "Warning: parse_review_verdict returned None — treating as pass and requesting docs update"
+            )
 
     update_state(
         ctx.files.state,
@@ -306,7 +308,7 @@ def handle_review_pass_docs(state: dict[str, Any], ctx: PipelineContext) -> str 
         build_docs_prompt(ctx.files, state_target="docs_updated"),
     )
     _send(ctx, "docs", docs_prompt)
-    _mark(ctx, "review_ready")
+    _mark(ctx, status)
     return None
 
 
@@ -316,12 +318,14 @@ def handle_review_pass_no_docs(
     """review_ready (verdict=pass, no docs) -> completion_pending."""
     park_agent_pane(ctx.panes.get("coder"), ctx.session_name)
 
-    review_text = ctx.files.review.read_text(encoding="utf-8")
-    verdict = parse_review_verdict(review_text)
-    if verdict is None:
-        print(
-            "Warning: parse_review_verdict returned None — treating as pass and sending confirmation"
-        )
+    status = str(state.get("status", ""))
+    if status == "review_ready":
+        review_text = ctx.files.review.read_text(encoding="utf-8")
+        verdict = parse_review_verdict(review_text)
+        if verdict is None:
+            print(
+                "Warning: parse_review_verdict returned None — treating as pass and sending confirmation"
+            )
 
     update_state(
         ctx.files.state,
@@ -330,7 +334,7 @@ def handle_review_pass_no_docs(
         active_role="architect",
     )
     _send(ctx, "architect", ctx.prompts["confirmation"])
-    _mark(ctx, "review_ready")
+    _mark(ctx, status)
     return None
 
 

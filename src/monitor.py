@@ -18,6 +18,17 @@ RED = "\033[31m"
 CYAN = "\033[36m"
 DIM = "\033[2m"
 
+PIPELINE_STATES = [
+    "architect_requested",
+    "plan_ready",
+    "coder_requested",
+    "implementation_done",
+    "review_requested",
+    "review_ready",
+    "completion_pending",
+    "completion_approved",
+]
+
 
 def get_terminal_size() -> tuple[int, int]:
     try:
@@ -93,6 +104,25 @@ def _format_log_entry(raw_line: str) -> str:
     return f"{time_part} {status_part}"
 
 
+def _read_feature_request(state_path: Path) -> str:
+    requirements_path = state_path.parent / "requirements.md"
+    try:
+        lines = requirements_path.read_text(encoding="utf-8").splitlines()
+    except Exception:
+        return ""
+
+    in_initial_request = False
+    for line in lines:
+        stripped = line.strip()
+        if not in_initial_request:
+            if stripped == "## Initial Request":
+                in_initial_request = True
+            continue
+        if stripped:
+            return stripped
+    return ""
+
+
 def render(
     session_name: str,
     state_path: Path,
@@ -116,9 +146,30 @@ def render(
     lines.append("\u2500" * (width - 1))
     lines.append("")
 
+    feature_request = _read_feature_request(state_path)
+    if feature_request:
+        lines.append(f"{BOLD}Feature{RESET}")
+        max_feature_len = max(1, width - 4)
+        if len(feature_request) > max_feature_len:
+            feature_request = feature_request[: max_feature_len - 1] + "…"
+        lines.append(f"  {DIM}{feature_request}{RESET}")
+        lines.append("")
+        lines.append("\u2500" * (width - 1))
+        lines.append("")
+
     lines.append(f"{BOLD}Pipeline{RESET}")
     color = status_color(status)
-    lines.append(f"  {color}{status[:17]}{RESET}")
+    max_pipeline_len = max(1, width - 4)
+    for pipeline_status in PIPELINE_STATES:
+        display = pipeline_status[:max_pipeline_len]
+        if pipeline_status == status:
+            lines.append(f"  {color}\u25ba {display}{RESET}")
+        else:
+            lines.append(f"  {DIM}{display}{RESET}")
+
+    if status not in PIPELINE_STATES:
+        unknown_display = status[:max_pipeline_len]
+        lines.append(f"  {color}\u25ba {unknown_display}{RESET}")
 
     if review_iter:
         lines.append(f"  {DIM}review iter {review_iter}{RESET}")
@@ -174,6 +225,7 @@ def render(
 
     if status_log_lines:
         available_log_lines = max(0, height - len(lines) - len(footer) - 1)
+        lines.append("\u2500" * (width - 1))
         lines.append(f"{BOLD}Log{RESET}")
         for entry in status_log_lines[-available_log_lines:]:
             lines.append(f"{DIM}{_format_log_entry(entry)}{RESET}")
