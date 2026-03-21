@@ -238,7 +238,8 @@ def orchestrate(
         prompts=build_all_prompts(files),
     )
 
-    send_prompt(panes["architect"], ctx.prompts["architect"])
+    send_prompt(panes["architect"], ctx.prompts["architect"], session_name,
+                role="architect", agents=agents, panes=panes)
 
     try:
         while True:
@@ -338,10 +339,8 @@ def main() -> int:
     panes: dict[str, str | None] | None = None
     try:
         panes = tmux_new_session(
-            session_name, agents["architect"], feature_dir, config_path
+            session_name, agents, feature_dir, config_path
         )
-        panes["docs"] = None
-        panes["designer"] = None
         _save_panes(feature_dir, panes)
         start_background_orchestrator(
             config_path, project_dir, feature_dir, args.keep_session

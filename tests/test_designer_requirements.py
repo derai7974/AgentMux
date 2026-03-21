@@ -139,29 +139,27 @@ class DesignerRequirementsTests(unittest.TestCase):
 
             called: dict[str, object] = {}
 
-            def fake_create_agent_pane(session_name: str, agent_name: str, agents: dict[str, AgentConfig]) -> str:
-                called["create"] = (session_name, agent_name, sorted(agents))
-                return "%9"
-
-            def fake_send_prompt(target_pane: str, prompt_file: Path) -> None:
-                called["send"] = (target_pane, prompt_file.name)
+            def fake_send_prompt(
+                target_pane: str | None,
+                prompt_file: Path,
+                session_name: str | None = None,
+                **kwargs: object,
+            ) -> None:
+                called["send"] = (target_pane, prompt_file.name, session_name, kwargs.get("role"))
 
             state = load_state(state_path)
             state["status"] = "plan_ready"
             state["needs_design"] = True
             write_state(state_path, state)
 
-            with patch("src.handlers.create_agent_pane", fake_create_agent_pane), patch(
-                "src.handlers.send_prompt", fake_send_prompt
-            ):
+            with patch("src.handlers.send_prompt", fake_send_prompt):
                 handle_plan_ready_design(load_state(state_path), ctx)
 
             updated = load_state(state_path)
             self.assertEqual("designer_requested", updated["status"])
             self.assertEqual("designer", updated["active_role"])
-            self.assertEqual("%9", ctx.panes["designer"])
-            self.assertEqual("designer", called["create"][1])
-            self.assertEqual(("%9", "designer_prompt.md"), called["send"])
+            self.assertIsNone(ctx.panes["designer"])
+            self.assertEqual((None, "designer_prompt.md", "session-x", "designer"), called["send"])
 
     def test_handle_design_ready_handoff_back_to_plan_ready(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -171,24 +169,24 @@ class DesignerRequirementsTests(unittest.TestCase):
             ctx.panes["designer"] = "%19"
             ctx.handled.add("plan_ready")
 
-            killed: list[tuple[str | None, str]] = []
+            parked: list[tuple[str | None, str]] = []
 
-            def fake_kill_agent_pane(pane_id: str | None, session_name: str) -> None:
-                killed.append((pane_id, session_name))
+            def fake_park_agent_pane(pane_id: str | None, session_name: str) -> None:
+                parked.append((pane_id, session_name))
 
             state = load_state(state_path)
             state["status"] = "design_ready"
             state["needs_design"] = True
             write_state(state_path, state)
 
-            with patch("src.handlers.kill_agent_pane", fake_kill_agent_pane):
+            with patch("src.handlers.park_agent_pane", fake_park_agent_pane):
                 handle_design_ready(load_state(state_path), ctx)
 
             updated = load_state(state_path)
             self.assertEqual("plan_ready", updated["status"])
             self.assertNotIn("needs_design", updated)
-            self.assertIsNone(ctx.panes["designer"])
-            self.assertIn(("%19", "session-x"), killed)
+            self.assertEqual("%19", ctx.panes["designer"])
+            self.assertIn(("%19", "session-x"), parked)
             self.assertNotIn("plan_ready", ctx.handled)
 
     def test_plan_ready_designer_transition_precedes_coder_transition(self) -> None:

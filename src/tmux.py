@@ -62,13 +62,23 @@ def _find_control_pane(session_name: str) -> str | None:
     return None
 
 
-def _fix_control_width(session_name: str) -> None:
-    """Resize the control pane to its fixed width."""
-    control = _find_control_pane(session_name)
-    if control:
-        run_command(
-            ["tmux", "resize-pane", "-t", control, "-x", str(CONTROL_PANE_WIDTH)]
-        )
+def _reapply_layout(session_name: str) -> None:
+    """Reapply main-vertical layout so the monitor pane is always CONTROL_PANE_WIDTH cols.
+
+    tmux's main-vertical layout keeps the leftmost (main) pane at exactly
+    main-pane-width columns, regardless of any join-pane / break-pane operations.
+    Calling this after every pane change re-enforces the fixed width.
+    """
+    run_command(
+        [
+            "tmux",
+            "select-layout",
+            "-t",
+            f"{session_name}:{MAIN_WINDOW}",
+            "main-vertical",
+        ],
+        check=False,
+    )
 
 
 def _is_pane_visible(pane_id: str | None, session_name: str) -> bool:
@@ -119,36 +129,6 @@ def _park_all_agents(session_name: str) -> None:
             )
 
 
-def _park_other_agents(session_name: str, keep_pane: str) -> None:
-    """Move all non-control panes except keep_pane from the main window into _hidden."""
-    result = run_command(
-        [
-            "tmux",
-            "list-panes",
-            "-t",
-            f"{session_name}:{MAIN_WINDOW}",
-            "-F",
-            "#{pane_id} #{pane_title}",
-        ],
-        check=False,
-    )
-    for line in result.stdout.splitlines():
-        parts = line.strip().split(None, 1)
-        if len(parts) == 2 and parts[1] != "control" and parts[0] != keep_pane:
-            run_command(
-                [
-                    "tmux",
-                    "break-pane",
-                    "-d",
-                    "-s",
-                    parts[0],
-                    "-n",
-                    "_hidden",
-                ],
-                check=False,
-            )
-
-
 # ---------------------------------------------------------------------------
 # Pane lifecycle: park / show
 # ---------------------------------------------------------------------------
@@ -163,7 +143,7 @@ def park_agent_pane(pane_id: str | None, session_name: str) -> None:
     run_command(
         ["tmux", "break-pane", "-d", "-s", pane_id, "-n", "_hidden"], check=False
     )
-    _fix_control_width(session_name)
+    _reapply_layout(session_name)
 
 
 def show_agent_pane(
@@ -171,18 +151,17 @@ def show_agent_pane(
 ) -> None:
     """Join a pane into the main window.
 
-    If exclusive=True (default), park all other agent panes after joining so only
+    If exclusive=True (default), park all other agent panes first so only
     this agent is visible. Set exclusive=False for parallel mode.
-
-    Join first, then park: this prevents the control pane from ever becoming the
-    sole pane in the window, which would cause tmux to expand it full-width and
-    then create a proportional split when the next agent joins.
     """
     if not pane_id:
         return
     if _is_pane_visible(pane_id, session_name):
         return
-    # Join the new pane FIRST (layout stays stable — control width unaffected)
+    if exclusive:
+        _park_all_agents(session_name)
+    # Join horizontally next to control if no agent panes visible,
+    # otherwise vertically to stack with other agents
     target = _find_agent_pane_in_main(session_name)
     control = _find_control_pane(session_name)
     if target == f"{session_name}:{MAIN_WINDOW}" or target == control:
@@ -195,10 +174,7 @@ def show_agent_pane(
         run_command(
             ["tmux", "join-pane", "-v", "-s", pane_id, "-t", target], check=False
         )
-    # THEN park old agents — new pane is already in place so control width is stable
-    if exclusive:
-        _park_other_agents(session_name, keep_pane=pane_id)
-    _fix_control_width(session_name)
+    _reapply_layout(session_name)
 
 
 # ---------------------------------------------------------------------------
@@ -242,6 +218,11 @@ def tmux_new_session(
     )
     control_pane = result.stdout.strip()
     run_command(["tmux", "select-pane", "-t", control_pane, "-T", "control"])
+    # Fix the monitor pane width permanently via tmux's layout engine
+    run_command([
+        "tmux", "set-option", "-t", f"{session_name}:{MAIN_WINDOW}",
+        "main-pane-width", str(CONTROL_PANE_WIDTH),
+    ])
 
     # Create architect pane (right side)
     architect = agents["architect"]
@@ -262,7 +243,7 @@ def tmux_new_session(
     architect_pane = result.stdout.strip()
     run_command(["tmux", "select-pane", "-t", architect_pane, "-T", "architect"])
 
-    _fix_control_width(session_name)
+    _reapply_layout(session_name)
     accept_trust_prompt(architect_pane)
 
     panes: dict[str, str | None] = {
@@ -328,7 +309,7 @@ def create_agent_pane(
     )
     pane_id = result.stdout.strip()
     run_command(["tmux", "select-pane", "-t", pane_id, "-T", agent.role])
-    _fix_control_width(session_name)
+    _reapply_layout(session_name)
     accept_trust_prompt(pane_id)
     return pane_id
 
@@ -339,7 +320,7 @@ def kill_agent_pane(pane_id: str | None, session_name: str | None = None) -> Non
         return
     run_command(["tmux", "kill-pane", "-t", pane_id], check=False)
     if session_name:
-        _fix_control_width(session_name)
+        _reapply_layout(session_name)
 
 
 def tmux_kill_session(session_name: str) -> None:

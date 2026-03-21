@@ -21,10 +21,12 @@ from .state import (
     write_state,
 )
 from .tmux import (
+    _ensure_agent_pane,
     create_agent_pane,
     kill_agent_pane,
+    park_agent_pane,
     send_prompt,
-    tmux_pane_exists,
+    show_agent_pane,
 )
 from .transitions import EXIT_FAILURE, EXIT_SUCCESS, PipelineContext
 
@@ -32,6 +34,23 @@ from .transitions import EXIT_FAILURE, EXIT_SUCCESS, PipelineContext
 def _mark(ctx: PipelineContext, status: str) -> None:
     """Mark a status as handled so it won't re-fire."""
     ctx.handled.add(status)
+
+
+def _send(ctx: PipelineContext, role: str, prompt_file) -> None:
+    """Send a prompt to an agent, creating the pane lazily if needed."""
+    send_prompt(
+        ctx.panes.get(role),
+        prompt_file,
+        ctx.session_name,
+        role=role,
+        agents=ctx.agents,
+        panes=ctx.panes,
+    )
+
+
+def _ensure_pane(ctx: PipelineContext, role: str) -> str | None:
+    """Ensure an agent pane exists (create lazily if needed). Returns pane ID."""
+    return _ensure_agent_pane(ctx.session_name, role, ctx.agents, ctx.panes)
 
 
 # ---------------------------------------------------------------------------
@@ -114,24 +133,20 @@ def guard_review_pass_no_docs(state: dict[str, Any], ctx: PipelineContext) -> bo
 
 
 def handle_plan_ready_design(state: dict[str, Any], ctx: PipelineContext) -> str | None:
-    """Row 1: plan_ready (needs design) -> designer_requested."""
-    if not tmux_pane_exists(ctx.panes.get("designer")):
-        ctx.panes["designer"] = create_agent_pane(ctx.session_name, "designer", ctx.agents)
-
+    """plan_ready (needs design) -> designer_requested."""
     state["status"] = "designer_requested"
     state["updated_at"] = now_iso()
     state["updated_by"] = "pipeline"
     state["active_role"] = "designer"
     write_state(ctx.files.state, state)
-    send_prompt(ctx.panes["designer"], ctx.prompts["designer"])
+    _send(ctx, "designer", ctx.prompts["designer"])
     _mark(ctx, "plan_ready")
     return None
 
 
 def handle_design_ready(state: dict[str, Any], ctx: PipelineContext) -> str | None:
-    """Row 2: design_ready -> plan_ready (coder handoff)."""
-    kill_agent_pane(ctx.panes.get("designer"), ctx.session_name)
-    ctx.panes["designer"] = None
+    """design_ready -> plan_ready (coder handoff)."""
+    park_agent_pane(ctx.panes.get("designer"), ctx.session_name)
 
     state.pop("needs_design", None)
     state["status"] = "plan_ready"
@@ -146,7 +161,7 @@ def handle_design_ready(state: dict[str, Any], ctx: PipelineContext) -> str | No
 
 
 def handle_plan_ready_multi(state: dict[str, Any], ctx: PipelineContext) -> str | None:
-    """Row 3: plan_ready (multiple subplans) -> coders_requested."""
+    """plan_ready (multiple subplans) -> coders_requested."""
     for done_marker in ctx.files.feature_dir.glob("done_*"):
         if done_marker.is_file():
             done_marker.unlink()
@@ -155,7 +170,15 @@ def handle_plan_ready_multi(state: dict[str, Any], ctx: PipelineContext) -> str 
     subplan_count = len(subplan_paths)
 
     for subplan_index, subplan_path in enumerate(subplan_paths, start=1):
-        pane_id = create_agent_pane(ctx.session_name, "coder", ctx.agents)
+        if subplan_index == 1:
+            # Use the primary coder pane (create lazily if needed)
+            pane_id = _ensure_pane(ctx, "coder")
+            # First pane: exclusive=True to park architect etc.
+            show_agent_pane(pane_id, ctx.session_name, exclusive=True)
+        else:
+            pane_id = create_agent_pane(ctx.session_name, "coder", ctx.agents)
+            # Additional panes: exclusive=False to stack vertically
+            show_agent_pane(pane_id, ctx.session_name, exclusive=False)
         ctx.coder_panes[subplan_index] = pane_id
         subplan_prompt = write_prompt_file(
             ctx.files.feature_dir,
@@ -180,13 +203,10 @@ def handle_plan_ready_multi(state: dict[str, Any], ctx: PipelineContext) -> str 
 
 
 def handle_plan_ready_single(state: dict[str, Any], ctx: PipelineContext) -> str | None:
-    """Row 4: plan_ready (single plan) -> coder_requested."""
+    """plan_ready (single plan) -> coder_requested."""
     for done_marker in ctx.files.feature_dir.glob("done_*"):
         if done_marker.is_file():
             done_marker.unlink()
-
-    if not tmux_pane_exists(ctx.panes["coder"]):
-        ctx.panes["coder"] = create_agent_pane(ctx.session_name, "coder", ctx.agents)
 
     state["status"] = "coder_requested"
     state["subplan_count"] = 1
@@ -194,15 +214,19 @@ def handle_plan_ready_single(state: dict[str, Any], ctx: PipelineContext) -> str
     state["updated_by"] = "pipeline"
     state["active_role"] = "coder"
     write_state(ctx.files.state, state)
-    send_prompt(ctx.panes["coder"], ctx.prompts["coder"])
+    _send(ctx, "coder", ctx.prompts["coder"])
     _mark(ctx, "plan_ready")
     return None
 
 
 def handle_coders_done(state: dict[str, Any], ctx: PipelineContext) -> str | None:
-    """Row 5: coders_requested (all done) -> implementation_done."""
-    for pane_id in ctx.coder_panes.values():
-        kill_agent_pane(pane_id, ctx.session_name)
+    """coders_requested (all done) -> implementation_done."""
+    # Kill extra parallel coder panes (they were dynamically created)
+    for idx, pane_id in ctx.coder_panes.items():
+        if pane_id != ctx.panes.get("coder"):
+            kill_agent_pane(pane_id, ctx.session_name)
+    # Park the primary coder pane
+    park_agent_pane(ctx.panes.get("coder"), ctx.session_name)
     ctx.coder_panes.clear()
 
     state["status"] = "implementation_done"
@@ -214,22 +238,24 @@ def handle_coders_done(state: dict[str, Any], ctx: PipelineContext) -> str | Non
 
 
 def handle_start_review(state: dict[str, Any], ctx: PipelineContext) -> str | None:
-    """Row 6: implementation_done -> review_requested."""
+    """implementation_done -> review_requested."""
     update_state(
         ctx.files.state,
         "review_requested",
         updated_by="pipeline",
         active_role="architect",
     )
-    send_prompt(ctx.panes["architect"], ctx.prompts["review"])
+    _send(ctx, "architect", ctx.prompts["review"])
     _mark(ctx, "implementation_done")
     return None
 
 
 def handle_review_fail(state: dict[str, Any], ctx: PipelineContext) -> str | None:
-    """Row 7: review_ready (verdict=fail) -> fix_requested."""
+    """review_ready (verdict=fail) -> fix_requested."""
+    # Kill any extra parallel coder panes
     for pane_id in ctx.coder_panes.values():
-        kill_agent_pane(pane_id, ctx.session_name)
+        if pane_id != ctx.panes.get("coder"):
+            kill_agent_pane(pane_id, ctx.session_name)
     ctx.coder_panes.clear()
 
     review_text = ctx.files.review.read_text(encoding="utf-8")
@@ -244,15 +270,12 @@ def handle_review_fail(state: dict[str, Any], ctx: PipelineContext) -> str | Non
     state["active_role"] = "coder"
     write_state(ctx.files.state, state)
 
-    if not tmux_pane_exists(ctx.panes["coder"]):
-        ctx.panes["coder"] = create_agent_pane(ctx.session_name, "coder", ctx.agents)
-
     fix_prompt = write_prompt_file(
         ctx.files.feature_dir,
         "fix_prompt.txt",
         build_fix_prompt(ctx.files, state_target="implementation_done"),
     )
-    send_prompt(ctx.panes["coder"], fix_prompt)
+    _send(ctx, "coder", fix_prompt)
 
     # Allow implementation_done and review_ready to re-fire in the next review iteration
     ctx.handled.discard("implementation_done")
@@ -261,9 +284,8 @@ def handle_review_fail(state: dict[str, Any], ctx: PipelineContext) -> str | Non
 
 
 def handle_review_pass_docs(state: dict[str, Any], ctx: PipelineContext) -> str | None:
-    """Row 8: review_ready (verdict=pass, docs agent) -> docs_update_requested."""
-    kill_agent_pane(ctx.panes["coder"], ctx.session_name)
-    ctx.panes["coder"] = None
+    """review_ready (verdict=pass, docs agent) -> docs_update_requested."""
+    park_agent_pane(ctx.panes.get("coder"), ctx.session_name)
 
     review_text = ctx.files.review.read_text(encoding="utf-8")
     verdict = parse_review_verdict(review_text)
@@ -278,13 +300,12 @@ def handle_review_pass_docs(state: dict[str, Any], ctx: PipelineContext) -> str 
         updated_by="pipeline",
         active_role="docs",
     )
-    ctx.panes["docs"] = create_agent_pane(ctx.session_name, "docs", ctx.agents)
     docs_prompt = write_prompt_file(
         ctx.files.feature_dir,
         "docs_prompt.txt",
         build_docs_prompt(ctx.files, state_target="docs_updated"),
     )
-    send_prompt(ctx.panes["docs"], docs_prompt)
+    _send(ctx, "docs", docs_prompt)
     _mark(ctx, "review_ready")
     return None
 
@@ -292,9 +313,8 @@ def handle_review_pass_docs(state: dict[str, Any], ctx: PipelineContext) -> str 
 def handle_review_pass_no_docs(
     state: dict[str, Any], ctx: PipelineContext
 ) -> str | None:
-    """Row 9: review_ready (verdict=pass, no docs) -> completion_pending."""
-    kill_agent_pane(ctx.panes["coder"], ctx.session_name)
-    ctx.panes["coder"] = None
+    """review_ready (verdict=pass, no docs) -> completion_pending."""
+    park_agent_pane(ctx.panes.get("coder"), ctx.session_name)
 
     review_text = ctx.files.review.read_text(encoding="utf-8")
     verdict = parse_review_verdict(review_text)
@@ -309,15 +329,14 @@ def handle_review_pass_no_docs(
         updated_by="pipeline",
         active_role="architect",
     )
-    send_prompt(ctx.panes["architect"], ctx.prompts["confirmation"])
+    _send(ctx, "architect", ctx.prompts["confirmation"])
     _mark(ctx, "review_ready")
     return None
 
 
 def handle_docs_done(state: dict[str, Any], ctx: PipelineContext) -> str | None:
-    """Row 10: docs_updated -> completion_pending."""
-    kill_agent_pane(ctx.panes["docs"], ctx.session_name)
-    ctx.panes["docs"] = None
+    """docs_updated -> completion_pending."""
+    park_agent_pane(ctx.panes.get("docs"), ctx.session_name)
 
     update_state(
         ctx.files.state,
@@ -325,7 +344,7 @@ def handle_docs_done(state: dict[str, Any], ctx: PipelineContext) -> str | None:
         updated_by="pipeline",
         active_role="architect",
     )
-    send_prompt(ctx.panes["architect"], ctx.prompts["confirmation"])
+    _send(ctx, "architect", ctx.prompts["confirmation"])
     _mark(ctx, "docs_updated")
     return None
 
@@ -333,15 +352,14 @@ def handle_docs_done(state: dict[str, Any], ctx: PipelineContext) -> str | None:
 def handle_changes_requested(
     state: dict[str, Any], ctx: PipelineContext
 ) -> str | None:
-    """Row 11: changes_requested -> architect_requested (full reset)."""
-    kill_agent_pane(ctx.panes["coder"], ctx.session_name)
-    ctx.panes["coder"] = None
-    kill_agent_pane(ctx.panes.get("docs"), ctx.session_name)
-    ctx.panes["docs"] = None
-    kill_agent_pane(ctx.panes.get("designer"), ctx.session_name)
-    ctx.panes["designer"] = None
+    """changes_requested -> architect_requested (full reset)."""
+    park_agent_pane(ctx.panes.get("coder"), ctx.session_name)
+    park_agent_pane(ctx.panes.get("docs"), ctx.session_name)
+    park_agent_pane(ctx.panes.get("designer"), ctx.session_name)
+    # Kill any extra parallel coder panes
     for pane_id in ctx.coder_panes.values():
-        kill_agent_pane(pane_id, ctx.session_name)
+        if pane_id != ctx.panes.get("coder"):
+            kill_agent_pane(pane_id, ctx.session_name)
     ctx.coder_panes.clear()
 
     changes_prompt = write_prompt_file(
@@ -349,7 +367,7 @@ def handle_changes_requested(
         "changes_prompt.txt",
         build_change_prompt(ctx.files, state_target="plan_ready"),
     )
-    send_prompt(ctx.panes["architect"], changes_prompt)
+    _send(ctx, "architect", changes_prompt)
 
     state["status"] = "architect_requested"
     state["subplan_count"] = 0
@@ -367,7 +385,7 @@ def handle_changes_requested(
 def handle_completion_approved(
     state: dict[str, Any], ctx: PipelineContext
 ) -> str | None:
-    """Row 12: completion_approved -> EXIT_SUCCESS."""
+    """completion_approved -> EXIT_SUCCESS."""
     commit_message = str(state.get("commit_message", "")).strip()
     raw_commit_files = state.get("commit_files", [])
     commit_files = (
@@ -391,5 +409,5 @@ def handle_completion_approved(
 
 
 def handle_failed(state: dict[str, Any], ctx: PipelineContext) -> str | None:
-    """Row 13: failed -> EXIT_FAILURE."""
+    """failed -> EXIT_FAILURE."""
     return EXIT_FAILURE
