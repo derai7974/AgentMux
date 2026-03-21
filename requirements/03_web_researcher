@@ -1,0 +1,5 @@
+Wenn im internet recherchiert werden soll, soll ein dedizierter web researcher agent erstellt werden.
+
+Er kriegt eine aufgaben stellung vom architekten und sucht im internet via webfetch tool nach lösungen und erstellt eine zusammenfassung für den architekten.
+
+Er muss genau sein bzgl versions nummern und darf nicht erfinden und zugeben wenn er etwas nicht findet

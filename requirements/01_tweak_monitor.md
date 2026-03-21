@@ -1,3 +1,0 @@
-- statt uhrzeit die länge der session anzeigen
-- zusätzlich einen log führen über die geschriebenen Status meldungen
-- spalten anzahl statt 28 -> 20
