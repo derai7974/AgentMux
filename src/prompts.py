@@ -87,6 +87,14 @@ def build_fix_prompt(files: RuntimeFiles, state_target: str) -> str:
     })
 
 
+def build_docs_prompt(files: RuntimeFiles, state_target: str) -> str:
+    return _load_template("commands", "docs").format_map({
+        "feature_dir": files.feature_dir,
+        "project_dir": files.project_dir,
+        "state_target": state_target,
+    })
+
+
 def build_confirmation_prompt(files: RuntimeFiles, approved_target: str, changes_target: str) -> str:
     return _load_template("commands", "confirmation").format_map({
         "feature_dir": files.feature_dir,

@@ -13,5 +13,10 @@
     "cli": "codex",
     "model": "gpt-5.3-codex",
     "args": ["-s", "workspace-write", "-a", "never"]
+  },
+  "docs": {
+    "cli": "gemini",
+    "model": "gemini-2.5-pro",
+    "args": ["--approval-mode", "auto_edit"]
   }
 }

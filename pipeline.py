@@ -44,6 +44,7 @@ from src.prompts import (
     build_coder_prompt,
     build_coder_subplan_prompt,
     build_fix_prompt,
+    build_docs_prompt,
     build_confirmation_prompt,
     build_change_prompt,
     write_prompt_file,
@@ -112,6 +113,14 @@ def load_config(path: Path) -> tuple[str, dict[str, AgentConfig], int]:
             args=raw["coder"].get("args", []),
         ),
     }
+    docs_raw = raw.get("docs")
+    if docs_raw:
+        agents["docs"] = AgentConfig(
+            role="docs",
+            cli=docs_raw["cli"],
+            model=docs_raw["model"],
+            args=docs_raw.get("args", []),
+        )
     return session_name, agents, max_review_iterations
 
 
@@ -178,6 +187,7 @@ def orchestrate(
     coder_dispatched = False
     coders_dispatched = False
     review_dispatched = False
+    docs_dispatched = False
     confirmation_dispatched = False
     change_reroute_dispatched = False
     coder_panes: dict[int, str] = {}
@@ -258,7 +268,7 @@ def orchestrate(
                 review_dispatched = True
                 continue
 
-            if status == "review_ready" and not confirmation_dispatched:
+            if status == "review_ready" and not docs_dispatched:
                 review_text = files.review.read_text(encoding="utf-8")
                 verdict = parse_review_verdict(review_text)
                 review_iteration = int(state.get("review_iteration", 0))
@@ -290,7 +300,31 @@ def orchestrate(
                 kill_agent_pane(panes["coder"])
                 panes["coder"] = None
                 if verdict is None:
-                    print("Warning: parse_review_verdict returned None — treating as pass and moving to completion_pending")
+                    print("Warning: parse_review_verdict returned None — treating as pass and requesting docs update")
+                if "docs" in agents:
+                    update_state(files.state, "docs_update_requested", updated_by="pipeline", active_role="docs")
+                    panes["docs"] = create_agent_pane(session_name, "docs", agents)
+                    docs_prompt = write_prompt_file(
+                        files.feature_dir,
+                        "docs_prompt.txt",
+                        build_docs_prompt(files, state_target="docs_updated"),
+                    )
+                    send_prompt(panes["docs"], docs_prompt)
+                    docs_dispatched = True
+                else:
+                    update_state(
+                        files.state,
+                        "completion_pending",
+                        updated_by="pipeline",
+                        active_role="architect",
+                    )
+                    send_prompt(panes["architect"], confirmation_prompt)
+                    confirmation_dispatched = True
+                continue
+
+            if status == "docs_updated" and not confirmation_dispatched:
+                kill_agent_pane(panes["docs"])
+                panes["docs"] = None
                 update_state(files.state, "completion_pending", updated_by="pipeline", active_role="architect")
                 send_prompt(panes["architect"], confirmation_prompt)
                 confirmation_dispatched = True
@@ -299,6 +333,8 @@ def orchestrate(
             if status == "changes_requested" and not change_reroute_dispatched:
                 kill_agent_pane(panes["coder"])
                 panes["coder"] = None
+                kill_agent_pane(panes["docs"])
+                panes["docs"] = None
                 for pane_id in coder_panes.values():
                     kill_agent_pane(pane_id)
                 coder_panes.clear()
@@ -319,6 +355,7 @@ def orchestrate(
                 coder_dispatched = False
                 coders_dispatched = False
                 review_dispatched = False
+                docs_dispatched = False
                 confirmation_dispatched = False
                 change_reroute_dispatched = False
                 continue
@@ -370,7 +407,7 @@ def main() -> int:
         project_dir = Path.cwd().resolve()
         feature_dir = Path(args.orchestrate).resolve()
         files = load_runtime_files(project_dir, feature_dir)
-        panes: dict[str, str | None] = {"architect": f"{session_name}:0.0", "coder": None}
+        panes: dict[str, str | None] = {"architect": f"{session_name}:0.0", "coder": None, "docs": None}
         return orchestrate(files, panes, agents, max_review_iterations, args.keep_session, session_name)
 
     if tmux_session_exists(session_name):
@@ -387,6 +424,7 @@ def main() -> int:
     panes: dict[str, str | None] | None = None
     try:
         panes = tmux_new_session(session_name, agents["architect"])
+        panes["docs"] = None
         start_background_orchestrator(config_path, project_dir, feature_dir, args.keep_session)
         print(f"Feature directory: {feature_dir}")
         print(f"tmux session: {session_name}")
