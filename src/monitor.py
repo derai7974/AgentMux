@@ -88,11 +88,11 @@ def status_color(status: str) -> str:
 
 
 def _trim_model(model: str, cli: str) -> str:
-    """Strip vendor prefix matching CLI name, then truncate to 8 chars."""
+    """Strip vendor prefix matching CLI name."""
     prefix = f"{cli}-"
     if model.lower().startswith(prefix.lower()):
-        model = model[len(prefix) :]
-    return model[:8]
+        model = model[len(prefix):]
+    return model
 
 
 def _read_feature_request(state_path: Path) -> str:
