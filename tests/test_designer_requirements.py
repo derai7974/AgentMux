@@ -32,6 +32,9 @@ class FakeRuntime:
     def finish_many(self, role: str) -> None:
         self.calls.append(("finish_many", role))
 
+    def kill_primary(self, role: str) -> None:
+        self.calls.append(("kill_primary", role))
+
     def shutdown(self, keep_session: bool) -> None:
         self.calls.append(("shutdown", keep_session))
 
@@ -143,6 +146,7 @@ class DesignerRequirementsTests(unittest.TestCase):
             updated = load_state(state_path)
             self.assertEqual("designing", updated["phase"])
             self.assertEqual("plan_written", updated["last_event"])
+            self.assertEqual([("deactivate", "architect"), ("kill_primary", "architect")], ctx.runtime.calls)
 
     def test_enter_designing_builds_designer_prompt(self) -> None:
         with tempfile.TemporaryDirectory() as td:

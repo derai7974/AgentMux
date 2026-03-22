@@ -34,6 +34,9 @@ class AgentRuntime(Protocol):
     def deactivate_many(self, roles: Iterable[str]) -> None:
         ...
 
+    def kill_primary(self, role: str) -> None:
+        ...
+
     def finish_many(self, role: str) -> None:
         ...
 
@@ -257,6 +260,11 @@ class TmuxAgentRuntime:
     def deactivate_many(self, roles: Iterable[str]) -> None:
         for role in roles:
             self.deactivate(role)
+
+    def kill_primary(self, role: str) -> None:
+        kill_agent_pane(self.primary_panes.get(role), self.session_name)
+        self.primary_panes[role] = None
+        self._persist_snapshot()
 
     def finish_many(self, role: str) -> None:
         workers = self.parallel_panes.get(role, {})

@@ -24,7 +24,7 @@ class ProviderAbstractionTests(unittest.TestCase):
         )
         self.assertEqual("coder", agent.role)
         self.assertEqual(PROVIDERS["codex"].cli, agent.cli)
-        self.assertEqual("gpt-5.1-codex-mini", agent.model)
+        self.assertEqual("gpt-5.1-mini", agent.model)
         self.assertEqual(["--x"], agent.args)
         self.assertIsNone(agent.trust_snippet)
 
@@ -35,6 +35,7 @@ class ProviderAbstractionTests(unittest.TestCase):
                 "session_name": "s",
                 "provider": "claude",
                 "architect": {"tier": "max"},
+                "reviewer": {"tier": "standard"},
                 "coder": {"provider": "codex", "tier": "standard"},
                 "docs": {"tier": "low"},
             }
@@ -46,8 +47,10 @@ class ProviderAbstractionTests(unittest.TestCase):
             self.assertEqual(3, max_review_iterations)
             self.assertEqual("claude", agents["architect"].cli)
             self.assertEqual("opus", agents["architect"].model)
+            self.assertEqual("claude", agents["reviewer"].cli)
+            self.assertEqual("sonnet", agents["reviewer"].model)
             self.assertEqual("codex", agents["coder"].cli)
-            self.assertEqual("codex-mini-latest", agents["coder"].model)
+            self.assertEqual("gpt-5.3-codex", agents["coder"].model)
             self.assertEqual("claude", agents["docs"].cli)
             self.assertEqual("haiku", agents["docs"].model)
 

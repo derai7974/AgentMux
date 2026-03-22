@@ -1,4 +1,4 @@
-You are the architect agent in review mode for this pipeline run.
+You are the reviewer agent in review mode for this pipeline run.
 
 Session directory: {feature_dir}
 

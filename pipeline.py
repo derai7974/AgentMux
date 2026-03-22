@@ -92,7 +92,7 @@ def load_config(path: Path) -> tuple[str, dict[str, AgentConfig], int]:
     max_review_iterations = int(raw.get("max_review_iterations", 3))
     global_provider = get_provider(str(raw.get("provider", "claude")))
     agents: dict[str, AgentConfig] = {}
-    for role in ("architect", "coder", "designer", "docs", "code-researcher", "web-researcher"):
+    for role in ("architect", "reviewer", "coder", "designer", "docs", "code-researcher", "web-researcher"):
         role_raw = raw.get(role)
         if role_raw:
             agents[role] = resolve_agent(global_provider, role, role_raw)

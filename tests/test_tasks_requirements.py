@@ -4,7 +4,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.prompts import build_architect_prompt, build_change_prompt, build_coder_prompt
+from src.prompts import (
+    build_architect_prompt,
+    build_change_prompt,
+    build_coder_prompt,
+    build_reviewer_prompt,
+)
 from src.state import create_feature_files, load_runtime_files
 
 
@@ -66,6 +71,20 @@ class TasksRequirementsTests(unittest.TestCase):
             self.assertIn("- completion/changes.md", prompt)
             self.assertIn("planning/plan_meta.json", prompt)
             self.assertNotIn("1. Example task", prompt)
+
+    def test_architect_prompt_no_longer_accepts_review_mode_and_reviewer_prompt_handles_review(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp_path = Path(td)
+            project_dir = tmp_path / "project"
+            feature_dir = tmp_path / "feature"
+            project_dir.mkdir()
+            files = create_feature_files(project_dir, feature_dir, "review split", "session")
+
+            with self.assertRaises(TypeError):
+                build_architect_prompt(files, is_review=True)  # type: ignore[call-arg]
+
+            review_prompt = build_reviewer_prompt(files, is_review=True)
+            self.assertIn("reviewer agent in review mode", review_prompt)
 
 
 if __name__ == "__main__":

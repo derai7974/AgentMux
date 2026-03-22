@@ -15,14 +15,20 @@ from src.transitions import EXIT_SUCCESS, PipelineContext
 
 
 class _FakeRuntime:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, object]] = []
+
     def send(self, role: str, prompt_file: Path) -> None:
-        _ = role, prompt_file
+        self.calls.append(("send", role, prompt_file.name))
+
+    def kill_primary(self, role: str) -> None:
+        self.calls.append(("kill_primary", role))
 
     def deactivate_many(self, roles) -> None:
-        _ = roles
+        self.calls.append(("deactivate_many", tuple(roles)))
 
     def finish_many(self, role: str) -> None:
-        _ = role
+        self.calls.append(("finish_many", role))
 
 
 def _make_ctx(feature_dir: Path) -> tuple[PipelineContext, dict]:
@@ -31,6 +37,7 @@ def _make_ctx(feature_dir: Path) -> tuple[PipelineContext, dict]:
     files = create_feature_files(project_dir, feature_dir, "test", "session-x")
     agents = {
         "architect": AgentConfig(role="architect", cli="claude", model="opus", args=[]),
+        "reviewer": AgentConfig(role="reviewer", cli="claude", model="sonnet", args=[]),
         "coder": AgentConfig(role="coder", cli="codex", model="gpt-5.3-codex", args=[]),
     }
     ctx = PipelineContext(
@@ -44,6 +51,19 @@ def _make_ctx(feature_dir: Path) -> tuple[PipelineContext, dict]:
 
 
 class CompletionCommitFlowTests(unittest.TestCase):
+    def test_completing_phase_on_enter_sends_confirmation_prompt_to_reviewer(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td) / "feature"
+            ctx, state = _make_ctx(feature_dir)
+
+            with patch.object(ctx.runtime, "send") as send_mock:
+                CompletingPhase().on_enter(state, ctx)
+
+            sent_role = send_mock.call_args.args[0]
+            sent_prompt = send_mock.call_args.args[1]
+            self.assertEqual("reviewer", sent_role)
+            self.assertEqual("confirmation_prompt.md", sent_prompt.name)
+
     def test_build_confirmation_prompt_includes_git_status_output(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td) / "feature"
@@ -128,6 +148,29 @@ class CompletionCommitFlowTests(unittest.TestCase):
 
             self.assertEqual(EXIT_SUCCESS, result)
             cleanup_mock.assert_not_called()
+
+    def test_changes_requested_deactivates_reviewer_and_resets_for_replanning(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td) / "feature"
+            ctx, state = _make_ctx(feature_dir)
+            state["phase"] = "completing"
+            state["subplan_count"] = 3
+            state["review_iteration"] = 2
+
+            result = CompletingPhase().handle_event(state, "changes_requested", ctx)
+
+            self.assertIsNone(result)
+            self.assertIn(
+                ("deactivate_many", ("reviewer", "coder", "docs", "designer")),
+                ctx.runtime.calls,
+            )
+            self.assertIn(("finish_many", "coder"), ctx.runtime.calls)
+
+            updated = load_state(ctx.files.state)
+            self.assertEqual("planning", updated["phase"])
+            self.assertEqual("changes_requested", updated["last_event"])
+            self.assertEqual(0, updated["subplan_count"])
+            self.assertEqual(0, updated["review_iteration"])
 
 
 if __name__ == "__main__":

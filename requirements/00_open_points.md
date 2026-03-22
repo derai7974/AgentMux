@@ -1,8 +1,5 @@
-- only reference files in commands
-- docs agent only when configured? that does not make sense - architect should decide if changes need documentation change
 - coder muss plan und requirements anpassen falls sich daran was geändert hat
-- confirmation und review eigener agent
-- titles for panes that say what this agent is 
+- docs agent only when configured? that does not make sense - architect should decide if changes need documentation change
 - modell auswahl durch architekten je nach aufgabe
 - LLM in pipeline hinzufügen für feature beschreibung
 - github integration

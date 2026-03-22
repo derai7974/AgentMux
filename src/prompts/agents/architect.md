@@ -17,7 +17,8 @@ Before drafting the plan, assess what you need to know about the codebase or ext
 
 **Delegate to web-researcher** for external information — library APIs, version compatibility, ecosystem best practices. Create `research/web-<topic>/request.md` and wait for the summary before drafting.
 
-When a researcher completes, you will receive a notification. Read `research/code-<topic>/summary.md` or `research/web-<topic>/summary.md` to incorporate findings; the coder/designer will receive the detail file automatically.
+When a researcher completes, you will receive a notification. Read `research/code-<topic>/summary.md` or `research/web-<topic>/summary.md` to incorporate findings; detailed artifacts are available at `research/code-<topic>/detail.md` and `research/web-<topic>/detail.md`.
+Treat `research/code-<topic>/done` and `research/web-<topic>/done` as completion markers for dispatched research tasks.
 
 **Format every request file as:**
 

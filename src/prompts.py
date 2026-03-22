@@ -21,10 +21,14 @@ def write_prompt_file(feature_dir: Path, name: str, content: str) -> Path:
     return prompt_path
 
 
-def build_architect_prompt(files: RuntimeFiles, is_review: bool = False) -> str:
+def build_architect_prompt(files: RuntimeFiles) -> str:
+    return _load_template("agents", "architect").format_map({"feature_dir": files.feature_dir})
+
+
+def build_reviewer_prompt(files: RuntimeFiles, is_review: bool = False) -> str:
     if is_review:
         return _load_template("commands", "review").format_map({"feature_dir": files.feature_dir})
-    return _load_template("agents", "architect").format_map({"feature_dir": files.feature_dir})
+    return _load_template("agents", "reviewer").format_map({"feature_dir": files.feature_dir})
 
 
 def build_coder_prompt(files: RuntimeFiles) -> str:

@@ -12,6 +12,7 @@ Configuration specifies providers and tier levels (rather than explicit CLI tool
   "provider": "claude",
   "max_review_iterations": 3,
   "architect": { "tier": "max" },
+  "reviewer": { "tier": "standard" },
   "coder": { "provider": "codex", "tier": "standard" },
   "designer": { "tier": "standard" },
   "docs": { "tier": "low" },
@@ -31,9 +32,9 @@ Configuration specifies providers and tier levels (rather than explicit CLI tool
 
 | Tier | claude | codex | gemini | opencode |
 |------|--------|-------|--------|----------|
-| max | `opus` | `gpt-5.4-codex-medium` | `gemini-2.5-pro` | `anthropic/claude-opus-4-6` |
-| standard | `sonnet` | `gpt-5.3-codex-high` | `gemini-2.5-flash` | `anthropic/claude-sonnet-4-20250514` |
-| low | `haiku` | `gpt-5.2-codex` | `gemini-2.5-flash-lite` | `anthropic/claude-haiku-4-5-20251001` |
+| max | `opus` | `gpt-5.4` | `gemini-2.5-pro` | `anthropic/claude-opus-4-6` |
+| standard | `sonnet` | `gpt-5.3-codex` | `gemini-2.5-flash` | `anthropic/claude-sonnet-4-20250514` |
+| low | `haiku` | `gpt-5.1-mini` | `gemini-2.5-flash-lite` | `anthropic/claude-haiku-4-5-20251001` |
 
 The orchestrator never calls the AI APIs directly; it always goes through these CLI tools, looking up the appropriate model via provider configuration.
 

@@ -140,6 +140,40 @@ class MonitorTests(unittest.TestCase):
                 lines,
             )
 
+    def test_render_agents_hides_inactive_roles_and_shows_active_only(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            runtime_state_path = feature_dir / "runtime_state.json"
+            state_path.write_text('{"phase": "reviewing"}', encoding="utf-8")
+            runtime_state_path.write_text('{"primary": {"architect": "%1", "reviewer": "%2", "coder": "%3"}}', encoding="utf-8")
+
+            agents = {
+                "architect": {"cli": "claude", "model": "opus"},
+                "reviewer": {"cli": "claude", "model": "sonnet"},
+                "coder": {"cli": "codex", "model": "gpt-5.3-codex"},
+            }
+
+            with patch(
+                "src.monitor.get_role_states",
+                return_value={"architect": "inactive", "reviewer": "working", "coder": "idle"},
+            ):
+                output = self._strip_ansi(
+                    monitor.render(
+                        session_name="session-x",
+                        state_path=state_path,
+                        runtime_state_path=runtime_state_path,
+                        agents=agents,
+                        width=60,
+                        height=24,
+                        start_time=0.0,
+                    )
+                )
+
+            self.assertNotIn("architect", output)
+            self.assertIn("reviewer", output)
+            self.assertIn("coder", output)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -334,6 +334,8 @@ def tmux_new_session(
         ]
     )
     control_pane = result.stdout.strip()
+    run_command(["tmux", "set-option", "-t", session_name, "pane-border-status", "top"])
+    run_command(["tmux", "set-option", "-t", session_name, "pane-border-format", " #{pane_title} "])
     run_command(["tmux", "select-pane", "-t", control_pane, "-T", "control"])
 
     # Create architect pane (right side)

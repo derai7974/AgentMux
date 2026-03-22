@@ -1,4 +1,4 @@
-You are the architect agent at the final confirmation stage for this pipeline run.
+You are the reviewer agent at the final confirmation stage for this pipeline run.
 
 Session directory: {feature_dir}
 

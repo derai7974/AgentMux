@@ -3,9 +3,12 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from subprocess import CompletedProcess
 from unittest.mock import patch
 
+from src.models import AgentConfig
 from src.tmux import send_prompt
+from src.tmux import tmux_new_session
 
 
 class TmuxPromptReferencesTests(unittest.TestCase):
@@ -26,6 +29,45 @@ class TmuxPromptReferencesTests(unittest.TestCase):
                 sent[0],
             )
             self.assertNotIn("line 1", sent[0])
+
+    def test_tmux_new_session_enables_pane_border_titles(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td) / "feature"
+            config_path = Path(td) / "pipeline_config.json"
+            feature_dir.mkdir(parents=True, exist_ok=True)
+            config_path.write_text("{}", encoding="utf-8")
+            agents = {
+                "architect": AgentConfig(role="architect", cli="claude", model="opus", args=[]),
+                "coder": AgentConfig(role="coder", cli="codex", model="gpt-5.3-codex", args=[]),
+            }
+
+            commands: list[list[str]] = []
+            split_count = 0
+
+            def fake_run_command(args, cwd=None, check=True):
+                nonlocal split_count
+                _ = (cwd, check)
+                commands.append(list(args))
+                if args[:2] == ["tmux", "new-session"]:
+                    return CompletedProcess(args=args, returncode=0, stdout="%0\n", stderr="")
+                if args[:2] == ["tmux", "split-window"]:
+                    split_count += 1
+                    pane = "%1" if split_count == 1 else "%2"
+                    return CompletedProcess(args=args, returncode=0, stdout=f"{pane}\n", stderr="")
+                return CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+            with patch("src.tmux.run_command", side_effect=fake_run_command), patch(
+                "src.tmux._fix_control_width", return_value=None
+            ), patch("src.tmux.accept_trust_prompt", return_value=None):
+                tmux_new_session("session-x", agents, feature_dir, config_path, trust_snippet=None)
+
+            border_status_cmd = ["tmux", "set-option", "-t", "session-x", "pane-border-status", "top"]
+            border_format_cmd = ["tmux", "set-option", "-t", "session-x", "pane-border-format", " #{pane_title} "]
+            self.assertIn(border_status_cmd, commands)
+            self.assertIn(border_format_cmd, commands)
+            split_index = commands.index(next(cmd for cmd in commands if cmd[:2] == ["tmux", "split-window"]))
+            self.assertLess(commands.index(border_status_cmd), split_index)
+            self.assertLess(commands.index(border_format_cmd), split_index)
 
 
 if __name__ == "__main__":

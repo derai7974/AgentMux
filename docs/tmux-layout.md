@@ -4,7 +4,9 @@
 
 ## Zone approach
 
-The tmux layout uses a "zone" approach: the **monitor zone** (left, fixed 20 cols) and the **agent zone** (right, remaining space). The control pane width is set once at session creation via `resize-pane -x 20` and never touched programmatically again.
+The tmux layout uses a "zone" approach: the **monitor zone** (left, fixed 15 cols) and the **agent zone** (right, remaining space). The control pane width is set once at session creation via `resize-pane -x 15` and never touched programmatically again.
+
+Pane border titles are enabled at session creation (`pane-border-status top` with `pane-border-format " #{pane_title} "`), so each visible agent pane shows its role title in the border.
 
 ## Pane lifecycle
 

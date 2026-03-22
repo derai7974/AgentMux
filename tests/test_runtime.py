@@ -154,6 +154,23 @@ class RuntimeTests(unittest.TestCase):
 
             self.assertEqual(["Do you trust the contents of this directory?"], args_seen)
 
+    def test_kill_primary_kills_pane_clears_registry_and_persists_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            with patch("src.runtime.kill_agent_pane") as kill_mock:
+                runtime = TmuxAgentRuntime(
+                    feature_dir=feature_dir,
+                    session_name="session-x",
+                    agents=_agents(),
+                    primary_panes={"architect": "%1", "coder": "%2"},
+                )
+                runtime.kill_primary("architect")
+
+            kill_mock.assert_called_once_with("%1", "session-x")
+            self.assertIsNone(runtime.primary_panes["architect"])
+            snapshot = json.loads((feature_dir / "runtime_state.json").read_text(encoding="utf-8"))
+            self.assertIsNone(snapshot["primary"]["architect"])
+
 
 if __name__ == "__main__":
     unittest.main()

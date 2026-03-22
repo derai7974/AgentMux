@@ -418,11 +418,17 @@ def render(
             )
             if parallel_keys:
                 for ckey in parallel_keys:
+                    if role_states.get(ckey, "inactive") == "inactive":
+                        continue
                     num = ckey.split("_")[1]
                     _agent_row(f"coder {num}", role_states.get(ckey, "inactive"), cfg)
             else:
+                if role_states.get("coder", "inactive") == "inactive":
+                    continue
                 _agent_row("coder", role_states.get("coder", "inactive"), cfg)
         else:
+            if role_states.get(role, "inactive") == "inactive":
+                continue
             _agent_row(role, role_states.get(role, "inactive"), cfg)
 
     # ── research tasks ────────────────────────────────────────────────────
@@ -493,7 +499,7 @@ def main() -> None:
     raw = json.loads(config_path.read_text(encoding="utf-8"))
     global_provider = get_provider(str(raw.get("provider", "claude")))
     agents: dict[str, dict[str, str]] = {}
-    for role in ("architect", "coder", "designer", "docs", "code-researcher", "web-researcher"):
+    for role in ("architect", "reviewer", "coder", "designer", "docs", "code-researcher", "web-researcher"):
         role_cfg = raw.get(role)
         if not role_cfg:
             continue

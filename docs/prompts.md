@@ -4,7 +4,7 @@
 
 ## Template directories
 
-- `src/prompts/agents/` — role-level prompts (define what each agent is): `architect.md`, `coder.md`, `code-researcher.md`, `web-researcher.md`, `designer.md`
+- `src/prompts/agents/` — role-level prompts (define what each agent is): `architect.md`, `reviewer.md`, `coder.md`, `code-researcher.md`, `web-researcher.md`, `designer.md`
 - `src/prompts/commands/` — phase-specific command prompts (what to do at each step): `review.md`, `fix.md`, `confirmation.md`, `change.md`, `docs.md`
 
 ## Placeholder syntax
@@ -26,3 +26,8 @@ Agents read the referenced file themselves, reducing keystroke overhead and allo
 ## Lazy build
 
 Prompt files are built lazily by handlers just before injection, not pre-generated. Each `build_*_prompt()` function in `src/prompts.py` loads and renders the markdown template for its phase.
+
+Current split:
+- `build_architect_prompt()` renders planning prompts only
+- `build_reviewer_prompt(..., is_review=True)` renders the review command prompt
+- `build_confirmation_prompt()` renders the confirmation command prompt used in completion

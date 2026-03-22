@@ -17,6 +17,7 @@ from .prompts import (
     build_designer_prompt,
     build_docs_prompt,
     build_fix_prompt,
+    build_reviewer_prompt,
     build_web_researcher_prompt,
     write_prompt_file,
 )
@@ -163,6 +164,8 @@ class PlanningPhase(Phase):
             needs_design = bool(meta.get("needs_design")) and "designer" in ctx.agents
             if ctx.files.changes.exists():
                 ctx.files.changes.unlink()
+            ctx.runtime.deactivate("architect")
+            ctx.runtime.kill_primary("architect")
             write_phase(
                 ctx,
                 state,
@@ -384,9 +387,9 @@ class ReviewingPhase(Phase):
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
             "review/review_prompt.md",
-            build_architect_prompt(ctx.files, is_review=True),
+            build_reviewer_prompt(ctx.files, is_review=True),
         )
-        send_to_role(ctx, "architect", prompt_file)
+        send_to_role(ctx, "reviewer", prompt_file)
 
     def snapshot_inputs(self, state: dict, ctx: PipelineContext) -> dict[str, str | None]:
         _ = state
@@ -516,7 +519,7 @@ class CompletingPhase(Phase):
             "completion/confirmation_prompt.md",
             build_confirmation_prompt(ctx.files),
         )
-        send_to_role(ctx, "architect", prompt_file)
+        send_to_role(ctx, "reviewer", prompt_file)
 
     def snapshot_inputs(self, state: dict, ctx: PipelineContext) -> dict[str, str | None]:
         _ = state
@@ -561,7 +564,7 @@ class CompletingPhase(Phase):
 
         if event != "changes_requested":
             return None
-        ctx.runtime.deactivate_many(("coder", "docs", "designer"))
+        ctx.runtime.deactivate_many(("reviewer", "coder", "docs", "designer"))
         ctx.runtime.finish_many("coder")
         state["subplan_count"] = 0
         state["review_iteration"] = 0

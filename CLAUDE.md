@@ -31,7 +31,8 @@ This is a **tmux-based multi-agent orchestration system**. Instead of calling AI
 
 `pipeline.py` is both the entry point and the orchestrator (started as a background subprocess with `--orchestrate`). It:
 1. Creates a feature directory under `.multi-agent/<feature-name>/`
-2. Spawns a tmux session with a **control pane** (left, 20 cols) and agent panes (right)
+2. Spawns a tmux session with a **control pane** (left, 15 cols) and agent panes (right)
+   - Pane border titles are enabled so each pane shows its role name
 3. Watches the feature directory with `watchdog` for file changes
 4. Advances the workflow state machine (`state.json`) based on which workflow artifacts appear/change
 5. Injects the next prompt into the appropriate tmux pane
@@ -48,6 +49,11 @@ planning → designing? → implementing → reviewing
     → approval_received (done) OR changes_requested → planning
 ```
 
+Role routing in these phases:
+- `architect`: planning/replanning only
+- `reviewer`: reviewing and final confirmation/completion prompts
+- `coder`: implementing/fixing
+
 `state.json` persists the durable `phase` and optional metadata such as `last_event`, `review_iteration`, `subplan_count`, `research_tasks` (a dict tracking code-researcher task status by topic), and `web_research_tasks` (a dict tracking web-researcher task status by topic). Agents no longer write workflow statuses directly.
 
 ### Module structure
@@ -63,6 +69,7 @@ src/runtime.py                 — TmuxAgentRuntime, spawns agents with resolved
 src/prompts.py                 — loads markdown templates and renders them with str.format_map()
 src/prompts/agents/            — role-level prompts (define what each agent is)
   architect.md                 —   planning phase
+  reviewer.md                  —   review + confirmation phases
   coder.md                     —   implementation phase
   code-researcher.md           —   codebase analysis on architect request
   web-researcher.md            —   internet search on architect request

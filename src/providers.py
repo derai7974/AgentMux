@@ -27,6 +27,12 @@ PROVIDERS: dict[str, Provider] = {
                 "--allowedTools",
                 "Bash(ls:*) Bash(cat:*) Bash(find:*) Bash(grep:*) Bash(git:*) Bash(head:*) Bash(tail:*) Bash(pwd:*) Bash(wc:*)",
             ],
+            "reviewer": [
+                "--permission-mode",
+                "acceptEdits",
+                "--allowedTools",
+                "Bash(ls:*) Bash(cat:*) Bash(find:*) Bash(grep:*) Bash(git:*) Bash(head:*) Bash(tail:*) Bash(pwd:*) Bash(wc:*)",
+            ],
             "coder": ["--permission-mode", "acceptEdits"],
             "designer": ["--permission-mode", "acceptEdits"],
             "docs": ["--permission-mode", "acceptEdits"],
@@ -55,6 +61,7 @@ PROVIDERS: dict[str, Provider] = {
         trust_snippet=None,
         default_args={
             "architect": ["-s", "workspace-write", "-a", "never"],
+            "reviewer": ["-s", "workspace-write", "-a", "never"],
             "coder": ["-s", "workspace-write", "-a", "never"],
             "designer": ["-s", "workspace-write", "-a", "never"],
             "docs": ["-s", "workspace-write", "-a", "never"],
@@ -73,6 +80,7 @@ PROVIDERS: dict[str, Provider] = {
         trust_snippet="Trust this folder?",
         default_args={
             "architect": ["--approval-mode", "yolo"],
+            "reviewer": ["--approval-mode", "yolo"],
             "coder": ["--approval-mode", "yolo"],
             "designer": ["--approval-mode", "yolo"],
             "docs": ["--approval-mode", "yolo"],
@@ -91,6 +99,7 @@ PROVIDERS: dict[str, Provider] = {
         trust_snippet=None,
         default_args={
             "architect": [],
+            "reviewer": [],
             "coder": [],
             "designer": [],
             "docs": [],

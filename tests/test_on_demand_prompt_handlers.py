@@ -29,6 +29,9 @@ class FakeRuntime:
     def finish_many(self, role: str) -> None:
         self.calls.append(("finish_many", role))
 
+    def kill_primary(self, role: str) -> None:
+        self.calls.append(("kill_primary", role))
+
     def shutdown(self, keep_session: bool) -> None:
         self.calls.append(("shutdown", keep_session))
 
@@ -42,6 +45,7 @@ def _make_ctx(feature_dir: Path, with_docs: bool = True) -> tuple[PipelineContex
     architect_prompt.write_text("architect prompt", encoding="utf-8")
     agents = {
         "architect": AgentConfig(role="architect", cli="claude", model="opus", args=[]),
+        "reviewer": AgentConfig(role="reviewer", cli="claude", model="sonnet", args=[]),
         "coder": AgentConfig(role="coder", cli="codex", model="gpt-5.3-codex", args=[]),
     }
     if with_docs:
@@ -82,7 +86,7 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
             run_phase_cycle(load_state(state_path), ctx)
 
             self.assertTrue((ctx.files.review_dir / "review_prompt.md").exists())
-            self.assertEqual([("send", "architect", "review_prompt.md")], ctx.runtime.calls)
+            self.assertEqual([("send", "reviewer", "review_prompt.md")], ctx.runtime.calls)
 
     def test_enter_completing_builds_confirmation_prompt_inline(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -95,7 +99,7 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
             run_phase_cycle(load_state(state_path), ctx)
 
             self.assertTrue((ctx.files.completion_dir / "confirmation_prompt.md").exists())
-            self.assertEqual([("send", "architect", "confirmation_prompt.md")], ctx.runtime.calls)
+            self.assertEqual([("send", "reviewer", "confirmation_prompt.md")], ctx.runtime.calls)
 
 
 if __name__ == "__main__":

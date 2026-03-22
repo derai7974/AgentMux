@@ -6,7 +6,7 @@ from pathlib import Path
 
 from src.models import AgentConfig
 from src.phases import PHASES, get_phase
-from src.prompts import build_architect_prompt
+from src.prompts import build_reviewer_prompt
 from src.state import create_feature_files, load_state, write_state
 from src.transitions import PipelineContext
 
@@ -30,6 +30,9 @@ class FakeRuntime:
     def finish_many(self, role: str) -> None:
         self.calls.append(("finish_many", role))
 
+    def kill_primary(self, role: str) -> None:
+        self.calls.append(("kill_primary", role))
+
     def shutdown(self, keep_session: bool) -> None:
         self.calls.append(("shutdown", keep_session))
 
@@ -47,6 +50,7 @@ class ReviewPassRequirementsTests(unittest.TestCase):
 
         agents = {
             "architect": AgentConfig(role="architect", cli="claude", model="opus", args=[]),
+            "reviewer": AgentConfig(role="reviewer", cli="claude", model="sonnet", args=[]),
             "coder": AgentConfig(role="coder", cli="codex", model="gpt-5.3-codex", args=[]),
         }
         if with_docs:
@@ -61,17 +65,33 @@ class ReviewPassRequirementsTests(unittest.TestCase):
         )
         return ctx, files.state
 
-    def test_review_prompt_requires_review_md_for_pass_and_fail(self) -> None:
+    def test_reviewer_prompt_requires_review_md_for_pass_and_fail(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             files = create_feature_files(tmp_path / "project", tmp_path / "feature", "x", "session")
 
-            prompt = build_architect_prompt(files, is_review=True)
+            prompt = build_reviewer_prompt(files, is_review=True)
 
             self.assertIn("Always write `review/review.md`", prompt)
             self.assertIn("verdict: pass", prompt)
             self.assertIn("verdict: fail", prompt)
             self.assertIn("Do not update `state.json`", prompt)
+
+    def test_reviewing_phase_on_enter_sends_prompt_to_reviewer(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp_path = Path(td)
+            ctx, state_path = self._make_ctx(tmp_path / "feature", with_docs=False)
+            ctx.files.review.write_text("verdict: pass\n", encoding="utf-8")
+
+            state = load_state(state_path)
+            state["phase"] = "reviewing"
+            write_state(state_path, state)
+
+            phase = get_phase(load_state(state_path))
+            phase.on_enter(load_state(state_path), ctx)
+
+            self.assertIn(("send", "reviewer", "review_prompt.md"), ctx.runtime.calls)
+            self.assertFalse(ctx.files.review.exists())
 
     def test_reviewing_phase_is_registered(self) -> None:
         self.assertIn("reviewing", PHASES)

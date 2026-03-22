@@ -10,7 +10,9 @@ The control pane renders a live status box with the following sections:
   - Optional phases (shown only when active): `designing`, `fixing`, `documenting`
   - Displayed with `▶` for active, `·` for inactive
 - **Pipeline metadata** — human-readable event label (e.g. "plan ready" for `plan_written`), review iteration count, subplan count
-- **Agents** — list of all agents with their status (●WORKING / ●IDLE / ○inactive) and provider/model info
+- **Agents** — list of active agents only (WORKING/IDLE), with provider/model info
+  - Inactive agents are filtered out of the AGENTS section
+  - For parallel coder mode, only non-inactive `coder_<n>` workers are shown
 - **Research tasks** — progress on code and web research (if any)
 - **Documents** — workflow output files present: `planning/plan.md`, `planning/tasks.md`, `design/design.md`, `review/review.md`, `completion/changes.md` (shown with ✓ when present)
 - **Event log** — recent phase transitions with timestamps
