@@ -309,9 +309,10 @@ def tmux_new_session(
 
     Other agents are created lazily on first send_prompt via _ensure_agent_pane.
     """
-    monitor_script = Path(__file__).resolve().parent / "monitor.py"
+    project_root = Path(__file__).resolve().parent.parent
     monitor_cmd = (
-        f"python3 {shlex.quote(str(monitor_script))}"
+        f"cd {shlex.quote(str(project_root))} && "
+        f"python3 -m src.monitor"
         f" --feature-dir {shlex.quote(str(feature_dir))}"
         f" --session-name {shlex.quote(session_name)}"
         f" --config {shlex.quote(str(config_path))}"
