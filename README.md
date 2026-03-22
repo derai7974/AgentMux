@@ -17,31 +17,45 @@ The pipeline is static and deterministic. AgentMux defines the workflow; the age
 
 ```mermaid
 flowchart LR
-    PM(["`**product manager** *(optional)*
+    %% -- Styling Klassen (Modern & Übersichtlich) --
+    classDef optional fill:#f8f9fa,stroke:#adb5bd,stroke-width:2px,stroke-dasharray: 5 5,color:#212529,rx:8,ry:8
+    classDef process fill:#e7f5ff,stroke:#339af0,stroke-width:2px,color:#212529,rx:8,ry:8
+    classDef review fill:#fff3bf,stroke:#fcc419,stroke-width:2px,color:#212529,rx:8,ry:8
+    classDef success fill:#ebfbee,stroke:#51cf66,stroke-width:2px,color:#212529,rx:8,ry:8
+    classDef fixing fill:#ffe3e3,stroke:#ff8787,stroke-width:2px,color:#212529,rx:8,ry:8
+
+    %% -- Knoten (Nodes) mit zugewiesenen Klassen --
+    PM(["`**Product Manager** *(optional)*
     refines & structures
-    requirements`"]) --> PL
+    requirements`"]):::optional --> PL
 
-    PL(["`**planning**
+    PL(["`**Planning**
     architect breaks down
-    the task into a plan`"]) --> IM
+    the task into a plan`"]):::process --> IM
 
-    IM(["`**implementing**
+    IM(["`**Implementing**
     coder writes code
-    following the plan`"]) --> RV
+    following the plan`"]):::process --> RV
 
-    RV(["`**reviewing**
+    RV(["`**Reviewing**
     reviewer checks code,
-    requests changes or passes`"])
+    requests changes or passes`"]):::review
 
-    RV -->|pass| CO(["`**completing**
+    RV -->|pass| CO(["`**Completing**
     user confirms, docs written,
-    changes committed`"])
+    changes committed`"]):::success
 
-    RV -->|fail| FX(["`**fixing**
+    RV -->|fail| FX(["`**Fixing**
     coder addresses
-    review findings`"])
+    review findings`"]):::fixing
 
     FX --> RV
+
+    %% -- Linien-Styling (Farblich passend zu den Aktionen) --
+    %% Indizes: 0=PM->PL, 1=PL->IM, 2=IM->RV, 3=RV->CO(pass), 4=RV->FX(fail), 5=FX->RV
+    linkStyle 0,1,2,5 stroke:#adb5bd,stroke-width:2px
+    linkStyle 3 stroke:#51cf66,stroke-width:2px,color:#2b8a3e
+    linkStyle 4 stroke:#ff8787,stroke-width:2px,color:#c92a2a
 ```
 
 At each phase, the orchestrator selects the right agent role, renders the appropriate prompt, and injects it into the agent's tmux pane. Agents write their outputs to shared files. The orchestrator watches for those files and advances the state machine accordingly.
