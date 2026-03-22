@@ -22,7 +22,8 @@ Your job:
 9. If you hit an ambiguity or blocker that prevents correct implementation, record it clearly in the shared feature directory instead of guessing.
 10. You are only finished when the required validation passes.
 11. Record any notable risks, follow-ups, or breaking changes in the shared feature directory if they remain after implementation.
-12. {completion_instruction}
+12. If implementation reveals that requirements or the plan need adjustment (e.g. a requirement turns out to be infeasible as written, or a task needs to be split or reordered), update `requirements.md` and `{plan_file}` / `planning/tasks.md` accordingly so they stay in sync with reality.
+13. {completion_instruction}
 
 Constraints:
 - Communicate only through the files in the shared feature directory.
