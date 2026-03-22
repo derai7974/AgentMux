@@ -80,9 +80,15 @@ python3 pipeline.py "Add rate limiting to the API"
 # Optional: start with a product management phase
 python3 pipeline.py "Add rate limiting to the API" --product-manager
 
+# Bootstrap from a GitHub issue (title + body become the prompt)
+python3 pipeline.py --issue 42
+python3 pipeline.py --issue https://github.com/owner/repo/issues/42
+
 # Resume an interrupted run
 python3 pipeline.py --resume
 ```
+
+When run with `--issue`, AgentMux fetches the issue title and body via the `gh` CLI and uses them as the feature prompt. If `gh` is authenticated, it also opens a pull request automatically once the pipeline completes.
 
 AgentMux creates a tmux session you can attach to at any time. A narrow control pane on the left shows pipeline status, active agents, and generated documents. Agent panes on the right show each tool running live.
 
