@@ -44,7 +44,7 @@ When a pipeline is interrupted (e.g., connection loss, tmux session killed), it 
 
 - `list_resumable_sessions(project_dir)` scans `.multi-agent/` for all feature directories with `state.json` and returns them sorted by recency
 - `select_session(sessions)` presents an interactive menu (or auto-selects if only one exists)
-- `infer_resume_phase(feature_dir, state)` examines workflow artifacts (`plan.md`, `done_*`, `review.md`, etc.) to determine the correct phase to resume into
+- `infer_resume_phase(feature_dir, state)` examines workflow artifacts (`planning/plan.md`, `implementation/done_*`, `review/review.md`, etc.) to determine the correct phase to resume into
 - On resume, the phase is updated in `state.json`, `last_event` is set to `"resumed"`, and any research tasks with `"dispatched"` status are cleaned up (allowing re-request)
 - The orchestrator picks up the updated state and injects the appropriate phase prompt to resume work
 
@@ -64,33 +64,40 @@ planning → designing? → implementing → reviewing
 
 ### Shared file protocol
 
-Agents communicate via files in `.multi-agent/<feature-name>/`. Files are created on-demand as needed, not all at startup:
+Agents communicate via files in `.multi-agent/<feature-name>/`. Files are grouped by phase subdirectories and created on-demand as needed.
 
-**Created at initialization:**
+**Root files:**
 - `state.json` — current workflow phase; orchestrator drives transitions
 - `requirements.md` — initial request passed to architect
 - `context.md` — auto-generated rules/session info injected into prompts
-- `panes.json` — tmux pane IDs written by `main()`, read by the background orchestrator
-- `architect_prompt.txt` — initial prompt for architect
+- `runtime_state.json` / `orchestrator.log` — runtime tracking and orchestrator logs
 
-**Created on-demand during workflow:**
+**Planning (`planning/`):**
+- `architect_prompt.md` / `changes_prompt.txt` — architect prompts
 - `plan.md` / `tasks.md` / `plan_meta.json` — architect planning artifacts
-- `research_request_<topic>.md` — architect's research assignment to code-researcher
-- `research_summary_<topic>.md` — code-researcher's high-level answers for architect
-- `research_detail_<topic>.md` — code-researcher's detailed analysis for coder/designer
-- `research_done_<topic>` — code-researcher completion marker (empty file)
-- `web_research_request_<topic>.md` — architect's research assignment to web-researcher
-- `web_research_summary_<topic>.md` — web-researcher's high-level answers for architect
-- `web_research_detail_<topic>.md` — web-researcher's detailed findings for coder/designer
-- `web_research_done_<topic>` — web-researcher completion marker (empty file)
-- `coder_prompt*.txt` — built and injected when implementation starts
-- `designer_prompt.md` — built and injected when designing starts
-- `review.md` / `review_prompt.md` — architect review result and prompt
-- `fix_request.md` / `fix_prompt.txt` — fix-loop handoff and prompt
+- `plan_*.md` — subplan files for parallel coder runs
+
+**Research (`research/`):**
+- `code-<topic>/request.md` / `summary.md` / `detail.md` / `done` / `prompt.md`
+- `web-<topic>/request.md` / `summary.md` / `detail.md` / `done` / `prompt.md`
+
+**Design (`design/`):**
+- `designer_prompt.md` / `design.md`
+
+**Implementation (`implementation/`):**
+- `coder_prompt.md` / `coder_prompt_*.txt`
 - `done_*` — coder completion markers for single or parallel implementation/fixing
-- `docs_prompt.txt` / `docs_done` — docs prompt and completion marker
-- `confirmation_prompt.md` / `approval.json` — completion prompt and approval payload
-- `changes.md` / `changes_prompt.txt` — change request feedback and replanning prompt
+
+**Review (`review/`):**
+- `review_prompt.md` / `review.md`
+- `fix_prompt.txt` / `fix_request.md`
+
+**Docs (`docs/`):**
+- `docs_prompt.txt` / `docs_done`
+
+**Completion (`completion/`):**
+- `confirmation_prompt.md` / `approval.json`
+- `changes.md`
 
 ### Agent configuration (`pipeline_config.json`)
 
@@ -138,7 +145,7 @@ The control pane renders a live status box with the following sections:
 - **Pipeline metadata** — human-readable event label (e.g. "plan ready" for `plan_written`), review iteration count, subplan count
 - **Agents** — list of all agents with their status (●WORKING / ●IDLE / ○inactive) and provider/model info
 - **Research tasks** — progress on code and web research (if any)
-- **Documents** — workflow output files present: `plan.md`, `tasks.md`, `design.md`, `review.md`, `changes.md` (shown with ✓ when present)
+- **Documents** — workflow output files present: `planning/plan.md`, `planning/tasks.md`, `design/design.md`, `review/review.md`, `completion/changes.md` (shown with ✓ when present)
 - **Event log** — recent phase transitions with timestamps
 
 Key constants in the monitor:
@@ -185,30 +192,30 @@ src/prompts/commands/          — phase-specific command prompts (what to do at
 
 ### Code-researcher task dispatch
 
-During the planning phase, the architect can request deep codebase analysis by writing `research_request_<topic>.md` files (where `<topic>` is a descriptive slug like `auth-module` or `db-schema`). The orchestrator:
+During the planning phase, the architect can request deep codebase analysis by writing `research/code-<topic>/request.md` files (where `<topic>` is a descriptive slug like `auth-module` or `db-schema`). The orchestrator:
 
 1. Detects the new request file
 2. Spawns a code-researcher pane (parallel to architect, not exclusive)
 3. Injects the research assignment and tracks the topic in `state.json["research_tasks"]`
 4. Code-researcher analyzes the codebase and produces:
-   - `research_summary_<topic>.md` — concise answers for architect
-   - `research_detail_<topic>.md` — comprehensive analysis for coder/designer
-   - `research_done_<topic>` — empty completion marker
+   - `research/code-<topic>/summary.md` — concise answers for architect
+   - `research/code-<topic>/detail.md` — comprehensive analysis for coder/designer
+   - `research/code-<topic>/done` — empty completion marker
 5. Orchestrator notifies architect when analysis is complete
 
 Multiple research tasks can run in parallel. The architect can continue planning while research is underway and incorporate findings when ready.
 
 ### Web-researcher task dispatch
 
-During the planning phase, the architect can request internet research by writing `web_research_request_<topic>.md` files (where `<topic>` is a descriptive slug like `nodejs-versions` or `aws-pricing`). The orchestrator:
+During the planning phase, the architect can request internet research by writing `research/web-<topic>/request.md` files (where `<topic>` is a descriptive slug like `nodejs-versions` or `aws-pricing`). The orchestrator:
 
 1. Detects the new request file
 2. Spawns a web-researcher pane (parallel to architect, not exclusive)
 3. Injects the research assignment and tracks the topic in `state.json["web_research_tasks"]`
 4. Web-researcher searches the internet via WebFetch and WebSearch tools and produces:
-   - `web_research_summary_<topic>.md` — concise answers with version numbers and source URLs for architect
-   - `web_research_detail_<topic>.md` — comprehensive findings with full citations for coder/designer
-   - `web_research_done_<topic>` — empty completion marker
+   - `research/web-<topic>/summary.md` — concise answers with version numbers and source URLs for architect
+   - `research/web-<topic>/detail.md` — comprehensive findings with full citations for coder/designer
+   - `research/web-<topic>/done` — empty completion marker
 5. Orchestrator notifies architect when analysis is complete
 
 Multiple web research tasks can run in parallel and simultaneously with code-researcher tasks. The architect can continue planning while research is underway and incorporate findings when ready. Web-researcher is configured to use Sonnet (not Haiku) for better reasoning about sources and precision regarding version numbers and technical specifications.
@@ -219,9 +226,9 @@ When the review passes, the workflow enters the `documenting` phase (if docs upd
 
 1. **Confirmation prompt displays changed files** — The confirmation prompt shows all files detected by `git status --porcelain` from the project directory. This gives the architect full visibility into what will be committed.
 
-2. **Architect specifies exclusions (not inclusions)** — Instead of manually enumerating files to commit, the architect simply lists any files to **exclude** from the commit in the `approval.json` response. By default, an empty `exclude_files` list means commit all detected changes.
+2. **Architect specifies exclusions (not inclusions)** — Instead of manually enumerating files to commit, the architect simply lists any files to **exclude** from the commit in the `completion/approval.json` response. By default, an empty `exclude_files` list means commit all detected changes.
 
-3. **`approval.json` schema**:
+3. **`completion/approval.json` schema**:
    ```json
    {
      "action": "approve",
@@ -263,8 +270,9 @@ Agent prompts live as plain markdown under `src/prompts/agents/` (role definitio
 `src/prompts/commands/` (phase-specific instructions). Placeholders use `{name}` syntax
 (rendered via `str.format_map`).
 
-Every template receives `{feature_dir}` as the session directory and lists individual
-filenames (e.g. `plan.md`, `state.json`) rather than full paths. The `change.md` template
+Every template receives `{feature_dir}` as the session directory and references workflow
+files with phase subpaths (for example `planning/plan.md`, `review/review.md`, `state.json`).
+The `change.md` template
 additionally uses `<<<REQUIREMENTS_TEXT>>>`, `<<<PLAN_TEXT>>>`, and `<<<CHANGES_TEXT>>>`
 markers that are substituted after format_map to safely embed arbitrary file content.
 

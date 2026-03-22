@@ -19,8 +19,8 @@ class TasksRequirementsTests(unittest.TestCase):
             files = create_feature_files(project_dir, feature_dir, "add tasks list", "session")
             loaded = load_runtime_files(project_dir, feature_dir)
 
-            self.assertEqual(feature_dir / "tasks.md", files.tasks)
-            self.assertEqual(feature_dir / "tasks.md", loaded.tasks)
+            self.assertEqual(feature_dir / "planning" / "tasks.md", files.tasks)
+            self.assertEqual(feature_dir / "planning" / "tasks.md", loaded.tasks)
             self.assertFalse(files.plan.exists())
             self.assertFalse(files.tasks.exists())
             self.assertFalse(files.design.exists())
@@ -39,10 +39,10 @@ class TasksRequirementsTests(unittest.TestCase):
             architect_prompt = build_architect_prompt(files)
             coder_prompt = build_coder_prompt(files)
 
-            self.assertIn("write the final plan to plan.md", architect_prompt)
-            self.assertIn("also write `tasks.md`", architect_prompt)
-            self.assertIn("write `plan_meta.json`", architect_prompt)
-            self.assertIn("done_1", coder_prompt)
+            self.assertIn("write the final plan to `planning/plan.md`", architect_prompt)
+            self.assertIn("also write `planning/tasks.md`", architect_prompt)
+            self.assertIn("write `planning/plan_meta.json`", architect_prompt)
+            self.assertIn("implementation/done_1", coder_prompt)
             self.assertIn("Do not update state.json", coder_prompt)
 
     def test_change_prompt_includes_existing_tasks_text(self) -> None:
@@ -61,7 +61,7 @@ class TasksRequirementsTests(unittest.TestCase):
 
             self.assertIn("## Existing Task List", prompt)
             self.assertIn("1. Example task", prompt)
-            self.assertIn("plan_meta.json", prompt)
+            self.assertIn("planning/plan_meta.json", prompt)
 
 
 if __name__ == "__main__":

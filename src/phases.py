@@ -88,7 +88,7 @@ class PlanningPhase(Phase):
         is_replan = state.get("last_event") == "changes_requested" and ctx.files.changes.exists()
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            "changes_prompt.txt" if is_replan else "architect_prompt.md",
+            f"planning/{'changes_prompt.txt' if is_replan else 'architect_prompt.md'}",
             build_change_prompt(ctx.files) if is_replan else build_architect_prompt(ctx.files),
         )
         send_to_role(ctx, "architect", prompt_file)
@@ -98,22 +98,22 @@ class PlanningPhase(Phase):
         snapshot: dict[str, str | None] = {
             "plan": file_signature(ctx.files.plan),
             "tasks": file_signature(ctx.files.tasks),
-            "plan_meta": file_signature(ctx.files.feature_dir / "plan_meta.json"),
+            "plan_meta": file_signature(ctx.files.planning_dir / "plan_meta.json"),
         }
-        for request_path in sorted(ctx.files.feature_dir.glob("research_request_*.md")):
-            snapshot[request_path.name] = file_signature(request_path)
-        for done_path in sorted(ctx.files.feature_dir.glob("research_done_*")):
-            snapshot[done_path.name] = file_signature(done_path)
-        for request_path in sorted(ctx.files.feature_dir.glob("web_research_request_*.md")):
-            snapshot[request_path.name] = file_signature(request_path)
-        for done_path in sorted(ctx.files.feature_dir.glob("web_research_done_*")):
-            snapshot[done_path.name] = file_signature(done_path)
+        for request_path in sorted(ctx.files.research_dir.glob("code-*/request.md")):
+            snapshot[f"{request_path.parent.name}/request.md"] = file_signature(request_path)
+        for done_path in sorted(ctx.files.research_dir.glob("code-*/done")):
+            snapshot[f"{done_path.parent.name}/done"] = file_signature(done_path)
+        for request_path in sorted(ctx.files.research_dir.glob("web-*/request.md")):
+            snapshot[f"{request_path.parent.name}/request.md"] = file_signature(request_path)
+        for done_path in sorted(ctx.files.research_dir.glob("web-*/done")):
+            snapshot[f"{done_path.parent.name}/done"] = file_signature(done_path)
         return snapshot
 
     def detect_event(self, state: dict, ctx: PipelineContext) -> str | None:
         plan_sig = file_signature(ctx.files.plan)
         tasks_sig = file_signature(ctx.files.tasks)
-        meta_sig = file_signature(ctx.files.feature_dir / "plan_meta.json")
+        meta_sig = file_signature(ctx.files.planning_dir / "plan_meta.json")
         if all(
             phase_input_changed(ctx, key, value)
             for key, value in {
@@ -130,13 +130,13 @@ class PlanningPhase(Phase):
         }
         any_code_dispatched = any(v == "dispatched" for v in tracked_tasks.values())
         if not any_code_dispatched:
-            for request_path in sorted(ctx.files.feature_dir.glob("research_request_*.md")):
-                topic = request_path.name.removeprefix("research_request_").removesuffix(".md")
+            for request_path in sorted(ctx.files.research_dir.glob("code-*/request.md")):
+                topic = request_path.parent.name.removeprefix("code-")
                 if topic and topic not in tracked_tasks:
                     return "code_batch_requested"
 
-        for done_path in sorted(ctx.files.feature_dir.glob("research_done_*")):
-            topic = done_path.name.removeprefix("research_done_")
+        for done_path in sorted(ctx.files.research_dir.glob("code-*/done")):
+            topic = done_path.parent.name.removeprefix("code-")
             if tracked_tasks.get(topic) == "dispatched":
                 return f"task_completed:{topic}"
 
@@ -146,20 +146,20 @@ class PlanningPhase(Phase):
         }
         any_web_dispatched = any(v == "dispatched" for v in tracked_web_tasks.values())
         if not any_web_dispatched:
-            for request_path in sorted(ctx.files.feature_dir.glob("web_research_request_*.md")):
-                topic = request_path.name.removeprefix("web_research_request_").removesuffix(".md")
+            for request_path in sorted(ctx.files.research_dir.glob("web-*/request.md")):
+                topic = request_path.parent.name.removeprefix("web-")
                 if topic and topic not in tracked_web_tasks:
                     return "web_batch_requested"
 
-        for done_path in sorted(ctx.files.feature_dir.glob("web_research_done_*")):
-            topic = done_path.name.removeprefix("web_research_done_")
+        for done_path in sorted(ctx.files.research_dir.glob("web-*/done")):
+            topic = done_path.parent.name.removeprefix("web-")
             if tracked_web_tasks.get(topic) == "dispatched":
                 return f"web_task_completed:{topic}"
         return None
 
     def handle_event(self, state: dict, event: str, ctx: PipelineContext) -> str | None:
         if event == "plan_written":
-            meta = load_plan_meta(ctx.files.feature_dir)
+            meta = load_plan_meta(ctx.files.planning_dir)
             needs_design = bool(meta.get("needs_design")) and "designer" in ctx.agents
             if ctx.files.changes.exists():
                 ctx.files.changes.unlink()
@@ -177,18 +177,18 @@ class PlanningPhase(Phase):
                 for key, value in dict(state.get("research_tasks", {})).items()
             }
             pending = [
-                request_path.name.removeprefix("research_request_").removesuffix(".md")
-                for request_path in sorted(ctx.files.feature_dir.glob("research_request_*.md"))
-                if (topic := request_path.name.removeprefix("research_request_").removesuffix(".md"))
+                request_path.parent.name.removeprefix("code-")
+                for request_path in sorted(ctx.files.research_dir.glob("code-*/request.md"))
+                if (topic := request_path.parent.name.removeprefix("code-"))
                 and topic not in research_tasks
             ]
             for t in pending:
-                done_marker = ctx.files.feature_dir / f"research_done_{t}"
+                done_marker = ctx.files.research_dir / f"code-{t}" / "done"
                 if done_marker.exists():
                     done_marker.unlink()
                 prompt_file = write_prompt_file(
                     ctx.files.feature_dir,
-                    f"code_researcher_prompt_{t}.md",
+                    f"research/code-{t}/prompt.md",
                     build_code_researcher_prompt(t, ctx.files),
                 )
                 ctx.runtime.spawn_task("code-researcher", t, prompt_file)
@@ -208,7 +208,7 @@ class PlanningPhase(Phase):
                     architect_pane,
                     (
                         f"Code-research on '{topic}' is complete. Results are in "
-                        f"research_summary_{topic}.md and research_detail_{topic}.md."
+                        f"research/code-{topic}/summary.md and research/code-{topic}/detail.md."
                     ),
                 )
             research_tasks = {
@@ -228,18 +228,18 @@ class PlanningPhase(Phase):
                 for key, value in dict(state.get("web_research_tasks", {})).items()
             }
             pending = [
-                request_path.name.removeprefix("web_research_request_").removesuffix(".md")
-                for request_path in sorted(ctx.files.feature_dir.glob("web_research_request_*.md"))
-                if (topic := request_path.name.removeprefix("web_research_request_").removesuffix(".md"))
+                request_path.parent.name.removeprefix("web-")
+                for request_path in sorted(ctx.files.research_dir.glob("web-*/request.md"))
+                if (topic := request_path.parent.name.removeprefix("web-"))
                 and topic not in web_research_tasks
             ]
             for t in pending:
-                done_marker = ctx.files.feature_dir / f"web_research_done_{t}"
+                done_marker = ctx.files.research_dir / f"web-{t}" / "done"
                 if done_marker.exists():
                     done_marker.unlink()
                 prompt_file = write_prompt_file(
                     ctx.files.feature_dir,
-                    f"web_researcher_prompt_{t}.md",
+                    f"research/web-{t}/prompt.md",
                     build_web_researcher_prompt(t, ctx.files),
                 )
                 ctx.runtime.spawn_task("web-researcher", t, prompt_file)
@@ -259,7 +259,7 @@ class PlanningPhase(Phase):
                     architect_pane,
                     (
                         f"Web research on '{topic}' is complete. Results are in "
-                        f"web_research_summary_{topic}.md and web_research_detail_{topic}.md."
+                        f"research/web-{topic}/summary.md and research/web-{topic}/detail.md."
                     ),
                 )
             web_research_tasks = {
@@ -281,7 +281,7 @@ class DesigningPhase(Phase):
         _ = state
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            "designer_prompt.md",
+            "design/designer_prompt.md",
             build_designer_prompt(ctx.files),
         )
         send_to_role(ctx, "designer", prompt_file)
@@ -308,9 +308,9 @@ class ImplementingPhase(Phase):
     name = "implementing"
 
     def on_enter(self, state: dict, ctx: PipelineContext) -> None:
-        reset_markers(ctx.files.feature_dir, "done_*")
+        reset_markers(ctx.files.implementation_dir, "done_*")
 
-        subplan_paths = split_plan_into_subplans(ctx.files.plan, ctx.files.feature_dir)
+        subplan_paths = split_plan_into_subplans(ctx.files.plan, ctx.files.planning_dir)
         subplan_count = len(subplan_paths)
         state["subplan_count"] = subplan_count
         state["updated_at"] = now_iso()
@@ -320,7 +320,7 @@ class ImplementingPhase(Phase):
         if subplan_count == 1:
             prompt_file = write_prompt_file(
                 ctx.files.feature_dir,
-                "coder_prompt.md",
+                "implementation/coder_prompt.md",
                 build_coder_prompt(ctx.files),
             )
             send_to_role(ctx, "coder", prompt_file)
@@ -331,7 +331,7 @@ class ImplementingPhase(Phase):
             prompt_files.append(
                 write_prompt_file(
                     ctx.files.feature_dir,
-                    f"coder_prompt_{subplan_index}.txt",
+                    f"implementation/coder_prompt_{subplan_index}.txt",
                     build_coder_subplan_prompt(
                         ctx.files,
                         subplan_path=subplan_path,
@@ -345,7 +345,7 @@ class ImplementingPhase(Phase):
     def snapshot_inputs(self, state: dict, ctx: PipelineContext) -> dict[str, str | None]:
         count = max(1, int(state.get("subplan_count", 1)))
         return {
-            f"done_{idx}": file_signature(ctx.files.feature_dir / f"done_{idx}")
+            f"done_{idx}": file_signature(ctx.files.implementation_dir / f"done_{idx}")
             for idx in range(1, count + 1)
         }
 
@@ -357,7 +357,7 @@ class ImplementingPhase(Phase):
             phase_input_changed(
                 ctx,
                 f"done_{idx}",
-                file_signature(ctx.files.feature_dir / f"done_{idx}"),
+                file_signature(ctx.files.implementation_dir / f"done_{idx}"),
             )
             for idx in range(1, count + 1)
         ]
@@ -383,7 +383,7 @@ class ReviewingPhase(Phase):
             ctx.files.review.unlink()
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            "review_prompt.md",
+            "review/review_prompt.md",
             build_architect_prompt(ctx.files, is_review=True),
         )
         send_to_role(ctx, "architect", prompt_file)
@@ -430,10 +430,10 @@ class FixingPhase(Phase):
 
     def on_enter(self, state: dict, ctx: PipelineContext) -> None:
         _ = state
-        reset_markers(ctx.files.feature_dir, "done_*")
+        reset_markers(ctx.files.implementation_dir, "done_*")
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            "fix_prompt.txt",
+            "review/fix_prompt.txt",
             build_fix_prompt(ctx.files),
         )
         send_to_role(ctx, "coder", prompt_file)
@@ -441,7 +441,7 @@ class FixingPhase(Phase):
     def snapshot_inputs(self, state: dict, ctx: PipelineContext) -> dict[str, str | None]:
         count = max(1, int(state.get("subplan_count", 1)))
         return {
-            f"done_{idx}": file_signature(ctx.files.feature_dir / f"done_{idx}")
+            f"done_{idx}": file_signature(ctx.files.implementation_dir / f"done_{idx}")
             for idx in range(1, count + 1)
         }
 
@@ -453,7 +453,7 @@ class FixingPhase(Phase):
             phase_input_changed(
                 ctx,
                 f"done_{idx}",
-                file_signature(ctx.files.feature_dir / f"done_{idx}"),
+                file_signature(ctx.files.implementation_dir / f"done_{idx}"),
             )
             for idx in range(1, count + 1)
         ]
@@ -475,23 +475,23 @@ class DocumentingPhase(Phase):
 
     def on_enter(self, state: dict, ctx: PipelineContext) -> None:
         _ = state
-        docs_done = ctx.files.feature_dir / "docs_done"
+        docs_done = ctx.files.docs_dir / "docs_done"
         if docs_done.exists():
             docs_done.unlink()
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            "docs_prompt.txt",
+            "docs/docs_prompt.txt",
             build_docs_prompt(ctx.files),
         )
         send_to_role(ctx, "docs", prompt_file)
 
     def snapshot_inputs(self, state: dict, ctx: PipelineContext) -> dict[str, str | None]:
         _ = state
-        return {"docs_done": file_signature(ctx.files.feature_dir / "docs_done")}
+        return {"docs_done": file_signature(ctx.files.docs_dir / "docs_done")}
 
     def detect_event(self, state: dict, ctx: PipelineContext) -> str | None:
         _ = state
-        if phase_input_changed(ctx, "docs_done", file_signature(ctx.files.feature_dir / "docs_done")):
+        if phase_input_changed(ctx, "docs_done", file_signature(ctx.files.docs_dir / "docs_done")):
             return "docs_completed"
         return None
 
@@ -508,12 +508,12 @@ class CompletingPhase(Phase):
 
     def on_enter(self, state: dict, ctx: PipelineContext) -> None:
         _ = state
-        approval_path = ctx.files.feature_dir / "approval.json"
+        approval_path = ctx.files.completion_dir / "approval.json"
         if approval_path.exists():
             approval_path.unlink()
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            "confirmation_prompt.md",
+            "completion/confirmation_prompt.md",
             build_confirmation_prompt(ctx.files),
         )
         send_to_role(ctx, "architect", prompt_file)
@@ -521,13 +521,13 @@ class CompletingPhase(Phase):
     def snapshot_inputs(self, state: dict, ctx: PipelineContext) -> dict[str, str | None]:
         _ = state
         return {
-            "approval": file_signature(ctx.files.feature_dir / "approval.json"),
+            "approval": file_signature(ctx.files.completion_dir / "approval.json"),
             "changes": file_signature(ctx.files.changes),
         }
 
     def detect_event(self, state: dict, ctx: PipelineContext) -> str | None:
         _ = state
-        approval_path = ctx.files.feature_dir / "approval.json"
+        approval_path = ctx.files.completion_dir / "approval.json"
         if phase_input_changed(ctx, "approval", file_signature(approval_path)):
             payload = json.loads(approval_path.read_text(encoding="utf-8"))
             if payload.get("action") == "approve":
@@ -538,7 +538,7 @@ class CompletingPhase(Phase):
 
     def handle_event(self, state: dict, event: str, ctx: PipelineContext) -> str | None:
         if event == "approval_received":
-            approval_path = ctx.files.feature_dir / "approval.json"
+            approval_path = ctx.files.completion_dir / "approval.json"
             payload = json.loads(approval_path.read_text(encoding="utf-8"))
             changed_paths = _parse_changed_paths(_git_status_porcelain(ctx.files.project_dir))
             exclude_files = {

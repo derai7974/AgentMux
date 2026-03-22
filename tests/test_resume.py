@@ -93,52 +93,67 @@ class InferResumePhaseTests(unittest.TestCase):
     def test_failed_plan_with_design_required_resumes_designing(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            (feature_dir / "plan.md").write_text("# Plan", encoding="utf-8")
-            self._write_json(feature_dir / "plan_meta.json", '{"needs_design": true}')
+            (feature_dir / "planning").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "planning" / "plan.md").write_text("# Plan", encoding="utf-8")
+            self._write_json(feature_dir / "planning" / "plan_meta.json", '{"needs_design": true}')
             state = {"phase": "failed"}
             self.assertEqual("designing", infer_resume_phase(feature_dir, state))
 
     def test_failed_fix_iteration_with_incomplete_done_markers_resumes_fixing(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            (feature_dir / "plan.md").write_text("# Plan", encoding="utf-8")
-            (feature_dir / "fix_request.md").write_text("fix this", encoding="utf-8")
-            (feature_dir / "done_1").write_text("", encoding="utf-8")
+            (feature_dir / "planning").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "review").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "implementation").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "planning" / "plan.md").write_text("# Plan", encoding="utf-8")
+            (feature_dir / "review" / "fix_request.md").write_text("fix this", encoding="utf-8")
+            (feature_dir / "implementation" / "done_1").write_text("", encoding="utf-8")
             state = {"phase": "failed", "review_iteration": 1, "subplan_count": 2}
             self.assertEqual("fixing", infer_resume_phase(feature_dir, state))
 
     def test_failed_with_incomplete_done_markers_resumes_implementing(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            (feature_dir / "plan.md").write_text("# Plan", encoding="utf-8")
-            (feature_dir / "done_1").write_text("", encoding="utf-8")
+            (feature_dir / "planning").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "implementation").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "planning" / "plan.md").write_text("# Plan", encoding="utf-8")
+            (feature_dir / "implementation" / "done_1").write_text("", encoding="utf-8")
             state = {"phase": "failed", "subplan_count": 2}
             self.assertEqual("implementing", infer_resume_phase(feature_dir, state))
 
     def test_failed_with_done_markers_and_no_review_resumes_reviewing(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            (feature_dir / "plan.md").write_text("# Plan", encoding="utf-8")
-            (feature_dir / "done_1").write_text("", encoding="utf-8")
+            (feature_dir / "planning").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "implementation").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "planning" / "plan.md").write_text("# Plan", encoding="utf-8")
+            (feature_dir / "implementation" / "done_1").write_text("", encoding="utf-8")
             state = {"phase": "failed", "subplan_count": 1}
             self.assertEqual("reviewing", infer_resume_phase(feature_dir, state))
 
     def test_failed_review_pass_without_docs_done_resumes_documenting(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            (feature_dir / "plan.md").write_text("# Plan", encoding="utf-8")
-            (feature_dir / "done_1").write_text("", encoding="utf-8")
-            (feature_dir / "review.md").write_text("Verdict: pass\n", encoding="utf-8")
+            (feature_dir / "planning").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "implementation").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "review").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "planning" / "plan.md").write_text("# Plan", encoding="utf-8")
+            (feature_dir / "implementation" / "done_1").write_text("", encoding="utf-8")
+            (feature_dir / "review" / "review.md").write_text("Verdict: pass\n", encoding="utf-8")
             state = {"phase": "failed", "subplan_count": 1}
             self.assertEqual("documenting", infer_resume_phase(feature_dir, state))
 
     def test_failed_when_docs_done_resumes_completing(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            (feature_dir / "plan.md").write_text("# Plan", encoding="utf-8")
-            (feature_dir / "done_1").write_text("", encoding="utf-8")
-            (feature_dir / "review.md").write_text("Verdict: pass\n", encoding="utf-8")
-            (feature_dir / "docs_done").write_text("", encoding="utf-8")
+            (feature_dir / "planning").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "implementation").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "review").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "docs").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "planning" / "plan.md").write_text("# Plan", encoding="utf-8")
+            (feature_dir / "implementation" / "done_1").write_text("", encoding="utf-8")
+            (feature_dir / "review" / "review.md").write_text("Verdict: pass\n", encoding="utf-8")
+            (feature_dir / "docs" / "docs_done").write_text("", encoding="utf-8")
             state = {"phase": "failed", "subplan_count": 1}
             self.assertEqual("completing", infer_resume_phase(feature_dir, state))
 

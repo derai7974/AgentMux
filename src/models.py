@@ -17,6 +17,13 @@ class AgentConfig:
 class RuntimeFiles:
     project_dir: Path
     feature_dir: Path
+    planning_dir: Path
+    research_dir: Path
+    design_dir: Path
+    implementation_dir: Path
+    review_dir: Path
+    docs_dir: Path
+    completion_dir: Path
     context: Path
     requirements: Path
     plan: Path

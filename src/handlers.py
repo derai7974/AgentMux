@@ -33,8 +33,8 @@ def reset_markers(feature_dir: Path, pattern: str) -> None:
             path.unlink()
 
 
-def load_plan_meta(feature_dir: Path) -> dict[str, object]:
-    path = feature_dir / "plan_meta.json"
+def load_plan_meta(planning_dir: Path) -> dict[str, object]:
+    path = planning_dir / "plan_meta.json"
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))

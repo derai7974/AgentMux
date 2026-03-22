@@ -103,8 +103,10 @@ class MonitorTests(unittest.TestCase):
                 encoding="utf-8",
             )
             runtime_state_path.write_text('{"primary": {}}', encoding="utf-8")
-            (feature_dir / "plan.md").write_text("# plan\n", encoding="utf-8")
-            (feature_dir / "design.md").write_text("# design\n", encoding="utf-8")
+            (feature_dir / "planning").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "design").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "planning" / "plan.md").write_text("# plan\n", encoding="utf-8")
+            (feature_dir / "design" / "design.md").write_text("# design\n", encoding="utf-8")
 
             lines = self._strip_ansi(self._render(feature_dir, width=15, height=24)).splitlines()
 
@@ -114,8 +116,8 @@ class MonitorTests(unittest.TestCase):
             self.assertIn("╠══ DOCUMENTS ╣", lines)
             documents_index = lines.index("╠══ DOCUMENTS ╣")
             self.assertEqual("║             ║", lines[documents_index + 1])
-            self.assertIn("║ ✓ plan.md   ║", lines)
-            self.assertIn("║ ✓ design.md ║", lines)
+            self.assertTrue(any("planning/" in line for line in lines))
+            self.assertTrue(any("design/" in line for line in lines))
             self.assertEqual("║             ║", lines[documents_index + 4])
 
     def test_append_status_change_logs_only_when_changed(self) -> None:

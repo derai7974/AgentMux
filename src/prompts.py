@@ -20,6 +20,7 @@ def _load_template(subdir: str, name: str) -> str:
 
 def write_prompt_file(feature_dir: Path, name: str, content: str) -> Path:
     prompt_path = feature_dir / name
+    prompt_path.parent.mkdir(parents=True, exist_ok=True)
     prompt_path.write_text(content, encoding="utf-8")
     return prompt_path
 
@@ -33,7 +34,7 @@ def build_architect_prompt(files: RuntimeFiles, is_review: bool = False) -> str:
 def build_coder_prompt(files: RuntimeFiles) -> str:
     completion_instruction = (
         "FINAL STEP ONLY — once all code is written and nothing else remains, "
-        "create the completion marker file `done_1` in the session directory "
+        "create the completion marker file `implementation/done_1` in the session directory "
         "and leave it empty. This must be the very last action you take."
     )
     completion_constraints = "\n".join([
@@ -43,7 +44,7 @@ def build_coder_prompt(files: RuntimeFiles) -> str:
     return _load_template("agents", "coder").format_map({
         "feature_dir": files.feature_dir,
         "project_dir": files.project_dir,
-        "plan_file": "plan.md",
+        "plan_file": "planning/plan.md",
         "completion_instruction": completion_instruction,
         "completion_constraints": completion_constraints,
     })
@@ -74,7 +75,7 @@ def build_coder_subplan_prompt(
     marker_name = f"done_{subplan_index}"
     completion_instruction = (
         "FINAL STEP ONLY — once all code is written and nothing else remains, "
-        f"create the completion marker file `{marker_name}` in the session directory "
+        f"create the completion marker file `implementation/{marker_name}` in the session directory "
         "and leave it empty. This must be the very last action you take."
     )
     completion_constraints = "\n".join([
@@ -84,7 +85,7 @@ def build_coder_subplan_prompt(
     return _load_template("agents", "coder").format_map({
         "feature_dir": files.feature_dir,
         "project_dir": files.project_dir,
-        "plan_file": subplan_path.name,
+        "plan_file": f"planning/{subplan_path.name}",
         "completion_instruction": completion_instruction,
         "completion_constraints": completion_constraints,
     })
@@ -146,7 +147,7 @@ def build_initial_prompts(files: RuntimeFiles) -> dict[str, Path]:
     return {
         "architect": write_prompt_file(
             files.feature_dir,
-            "architect_prompt.md",
+            "planning/architect_prompt.md",
             build_architect_prompt(files),
         ),
     }

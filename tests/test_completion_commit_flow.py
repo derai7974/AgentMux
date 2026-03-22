@@ -79,7 +79,7 @@ class CompletionCommitFlowTests(unittest.TestCase):
                 "commit_message": "test commit",
                 "exclude_files": ["tests/skip.py"],
             }
-            (ctx.files.feature_dir / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
+            (ctx.files.completion_dir / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
 
             with patch(
                 "src.phases.subprocess.run",
@@ -111,7 +111,7 @@ class CompletionCommitFlowTests(unittest.TestCase):
                 "commit_message": "test commit",
                 "exclude_files": [],
             }
-            (ctx.files.feature_dir / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
+            (ctx.files.completion_dir / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
 
             with patch(
                 "src.phases.subprocess.run",

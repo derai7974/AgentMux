@@ -7,14 +7,14 @@ Topic: {topic}
 Read these files first:
 - context.md
 - requirements.md
-- research_request_{topic}.md
+- research/code-{topic}/request.md
 
 Your job:
-1. Analyze the request in `research_request_{topic}.md`.
+1. Analyze the request in `research/code-{topic}/request.md`.
 2. Investigate relevant code and documentation in the project directory.
-3. Write `research_summary_{topic}.md` with high-level answers for the architect.
-4. Write `research_detail_{topic}.md` with detailed findings for designer/coder agents.
-5. FINAL STEP ONLY — create the completion marker file `research_done_{topic}` in the session directory and leave it empty.
+3. Write `research/code-{topic}/summary.md` with high-level answers for the architect.
+4. Write `research/code-{topic}/detail.md` with detailed findings for designer/coder agents.
+5. FINAL STEP ONLY — create the completion marker file `research/code-{topic}/done` in the session directory and leave it empty.
 
 Constraints:
 - Communicate only through files in the session directory.

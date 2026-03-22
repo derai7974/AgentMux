@@ -6,7 +6,7 @@ from pathlib import Path
 SUBPLAN_HEADER_RE = re.compile(r"^##\s+Sub-plan\s+\d+\s*:\s+.+$")
 
 
-def split_plan_into_subplans(plan_path: Path, feature_dir: Path) -> list[Path]:
+def split_plan_into_subplans(plan_path: Path, planning_dir: Path) -> list[Path]:
     plan_text = plan_path.read_text(encoding="utf-8")
     lines = plan_text.splitlines(keepends=True)
 
@@ -31,7 +31,7 @@ def split_plan_into_subplans(plan_path: Path, feature_dir: Path) -> list[Path]:
         content_parts.append(section_text)
         subplan_text = "\n\n".join(content_parts).strip() + "\n"
 
-        subplan_path = feature_dir / f"plan_{index}.md"
+        subplan_path = planning_dir / f"plan_{index}.md"
         subplan_path.write_text(subplan_text, encoding="utf-8")
         subplan_paths.append(subplan_path)
 

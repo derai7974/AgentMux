@@ -51,8 +51,9 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
         project_dir.mkdir(parents=True, exist_ok=True)
         files = create_feature_files(project_dir, feature_dir, "add code researcher", "session-x")
 
-        prompts = {"architect": feature_dir / "architect_prompt.md"}
+        prompts = {"architect": feature_dir / "planning" / "architect_prompt.md"}
         for prompt in prompts.values():
+            prompt.parent.mkdir(parents=True, exist_ok=True)
             prompt.write_text(prompt.name, encoding="utf-8")
 
         agents = {
@@ -104,8 +105,8 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
 
             self.assertIn(str(feature_dir), prompt)
             self.assertIn(str(project_dir), prompt)
-            self.assertIn("research_request_auth-module.md", prompt)
-            self.assertIn("research_done_auth-module", prompt)
+            self.assertIn("research/code-auth-module/request.md", prompt)
+            self.assertIn("research/code-auth-module/done", prompt)
 
     def test_runtime_supports_string_task_keys_and_spawn_finish_task(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -159,7 +160,7 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
                 runtime.spawn_task("code-researcher", "db-schema", prompt_file)
                 runtime.finish_task("code-researcher", "db-schema")
 
-            self.assertEqual([("%77", False)], shown)
+            self.assertEqual([], shown)
             self.assertEqual(["%77:research_prompt_auth-module.md"], sent)
             self.assertEqual(["%77"], killed)
             snapshot = json.loads((feature_dir / "runtime_state.json").read_text(encoding="utf-8"))
@@ -177,16 +178,21 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             state["research_tasks"] = {"auth-module": "dispatched"}
             write_state(state_path, state)
 
-            (feature_dir / "research_request_db-schema.md").write_text("look at db", encoding="utf-8")
-            (feature_dir / "research_done_auth-module").touch()
+            (feature_dir / "research" / "code-db-schema").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "research" / "code-auth-module").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "research" / "code-db-schema" / "request.md").write_text("look at db", encoding="utf-8")
+            (feature_dir / "research" / "code-auth-module" / "done").touch()
 
             phase = PlanningPhase()
             event = phase.detect_event(load_state(state_path), ctx)
-            self.assertEqual("task_requested:db-schema", event)
-
-            (feature_dir / "research_request_db-schema.md").unlink()
-            event = phase.detect_event(load_state(state_path), ctx)
             self.assertEqual("task_completed:auth-module", event)
+
+            state = load_state(state_path)
+            state["research_tasks"] = {}
+            write_state(state_path, state)
+            (feature_dir / "research" / "code-auth-module" / "done").unlink()
+            event = phase.detect_event(load_state(state_path), ctx)
+            self.assertEqual("code_batch_requested", event)
 
     def test_planning_snapshot_inputs_include_research_request_and_done_markers(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -194,13 +200,14 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             feature_dir = tmp_path / "feature"
             ctx, state_path = self._make_ctx(feature_dir)
             _ = state_path
-            (feature_dir / "research_request_auth-module.md").write_text("look at auth", encoding="utf-8")
-            (feature_dir / "research_done_auth-module").touch()
+            (feature_dir / "research" / "code-auth-module").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "research" / "code-auth-module" / "request.md").write_text("look at auth", encoding="utf-8")
+            (feature_dir / "research" / "code-auth-module" / "done").touch()
 
             snapshot = PlanningPhase().snapshot_inputs({}, ctx)
 
-            self.assertIn("research_request_auth-module.md", snapshot)
-            self.assertIn("research_done_auth-module", snapshot)
+            self.assertIn("code-auth-module/request.md", snapshot)
+            self.assertIn("code-auth-module/done", snapshot)
 
     def test_planning_handle_task_requested_spawns_researcher_and_updates_state(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -211,16 +218,21 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             state["phase"] = "planning"
             write_state(state_path, state)
 
-            (feature_dir / "research_request_auth-module.md").write_text("investigate auth", encoding="utf-8")
-            stale_done = feature_dir / "research_done_auth-module"
+            (feature_dir / "research" / "code-auth-module").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "research" / "code-auth-module" / "request.md").write_text(
+                "investigate auth",
+                encoding="utf-8",
+            )
+            stale_done = feature_dir / "research" / "code-auth-module" / "done"
             stale_done.touch()
 
             phase = PlanningPhase()
-            result = phase.handle_event(load_state(state_path), "task_requested:auth-module", ctx)
+            result = phase.handle_event(load_state(state_path), "code_batch_requested", ctx)
 
             self.assertIsNone(result)
             self.assertFalse(stale_done.exists())
-            self.assertEqual(("spawn_task", "code-researcher", "auth-module", "code_researcher_prompt_auth-module.md"), ctx.runtime.calls[-1])
+            self.assertEqual(("spawn_task", "code-researcher", "auth-module", "prompt.md"), ctx.runtime.calls[-1])
+            self.assertTrue((feature_dir / "research" / "code-auth-module" / "prompt.md").exists())
             updated = load_state(state_path)
             self.assertEqual("dispatched", updated["research_tasks"]["auth-module"])
 
@@ -233,7 +245,8 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             state["phase"] = "planning"
             state["research_tasks"] = {"auth-module": "dispatched"}
             write_state(state_path, state)
-            (feature_dir / "research_done_auth-module").touch()
+            (feature_dir / "research" / "code-auth-module").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "research" / "code-auth-module" / "done").touch()
 
             phase = PlanningPhase()
             with patch("src.phases.send_text") as send_text:
@@ -243,7 +256,7 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             self.assertEqual(("finish_task", "code-researcher", "auth-module"), ctx.runtime.calls[-1])
             send_text.assert_called_once_with(
                 "%1",
-                "Code-research on 'auth-module' is complete. Results are in research_summary_auth-module.md and research_detail_auth-module.md.",
+                "Code-research on 'auth-module' is complete. Results are in research/code-auth-module/summary.md and research/code-auth-module/detail.md.",
             )
             updated = load_state(state_path)
             self.assertEqual("done", updated["research_tasks"]["auth-module"])

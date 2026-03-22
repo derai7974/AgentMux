@@ -37,7 +37,8 @@ def _make_ctx(feature_dir: Path, with_docs: bool = True) -> tuple[PipelineContex
     project_dir = feature_dir.parent / "project"
     project_dir.mkdir(parents=True, exist_ok=True)
     files = create_feature_files(project_dir, feature_dir, "on demand prompt generation", "session-x")
-    architect_prompt = feature_dir / "architect_prompt.md"
+    architect_prompt = feature_dir / "planning" / "architect_prompt.md"
+    architect_prompt.parent.mkdir(parents=True, exist_ok=True)
     architect_prompt.write_text("architect prompt", encoding="utf-8")
     agents = {
         "architect": AgentConfig(role="architect", cli="claude", model="opus", args=[]),
@@ -67,7 +68,7 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
 
             run_phase_cycle(load_state(state_path), ctx)
 
-            self.assertTrue((ctx.files.feature_dir / "coder_prompt.md").exists())
+            self.assertTrue((ctx.files.implementation_dir / "coder_prompt.md").exists())
             self.assertEqual([("send", "coder", "coder_prompt.md")], ctx.runtime.calls)
 
     def test_enter_reviewing_builds_review_prompt_inline(self) -> None:
@@ -80,7 +81,7 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
 
             run_phase_cycle(load_state(state_path), ctx)
 
-            self.assertTrue((ctx.files.feature_dir / "review_prompt.md").exists())
+            self.assertTrue((ctx.files.review_dir / "review_prompt.md").exists())
             self.assertEqual([("send", "architect", "review_prompt.md")], ctx.runtime.calls)
 
     def test_enter_completing_builds_confirmation_prompt_inline(self) -> None:
@@ -93,7 +94,7 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
 
             run_phase_cycle(load_state(state_path), ctx)
 
-            self.assertTrue((ctx.files.feature_dir / "confirmation_prompt.md").exists())
+            self.assertTrue((ctx.files.completion_dir / "confirmation_prompt.md").exists())
             self.assertEqual([("send", "architect", "confirmation_prompt.md")], ctx.runtime.calls)
 
 

@@ -71,7 +71,13 @@ EVENT_LABELS: dict[str, str] = {
     "plan_approved": "plan approved",
     "confirmation_sent": "awaiting ok",
 }
-DOCUMENT_FILES = ["plan.md", "tasks.md", "design.md", "review.md", "changes.md"]
+DOCUMENT_FILES = [
+    "planning/plan.md",
+    "planning/tasks.md",
+    "design/design.md",
+    "review/review.md",
+    "completion/changes.md",
+]
 
 
 def get_terminal_size() -> tuple[int, int]:
@@ -260,13 +266,14 @@ def _render_research_section(width: int, state: dict, feature_dir: Path) -> list
     if not code_tasks and not web_tasks:
         return []
 
+    research_dir = feature_dir / "research"
     all_tasks: list[tuple[str, str, str]] = [
-        ("c", topic, f"research_done_{topic}") for topic in code_tasks
+        ("c", topic, f"code-{topic}/done") for topic in code_tasks
     ] + [
-        ("w", topic, f"web_research_done_{topic}") for topic in web_tasks
+        ("w", topic, f"web-{topic}/done") for topic in web_tasks
     ]
 
-    done_count = sum(1 for _, _, marker in all_tasks if (feature_dir / marker).exists())
+    done_count = sum(1 for _, _, marker in all_tasks if (research_dir / marker).exists())
     total = len(all_tasks)
 
     rows: list[str] = []
@@ -277,7 +284,7 @@ def _render_research_section(width: int, state: dict, feature_dir: Path) -> list
     max_topic = max(1, width - 2 - 6)  # inner minus " X p· "
 
     for type_prefix, topic, marker in all_tasks:
-        done = (feature_dir / marker).exists()
+        done = (research_dir / marker).exists()
         slug = topic if len(topic) <= max_topic else topic[: max_topic - 1] + "…"
         if done:
             icon = f"{GREEN}✓{RESET}"

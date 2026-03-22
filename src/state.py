@@ -50,17 +50,31 @@ def update_phase(
 
 
 def _make_runtime_files(project_dir: Path, feature_dir: Path) -> RuntimeFiles:
+    planning_dir = feature_dir / "planning"
+    research_dir = feature_dir / "research"
+    design_dir = feature_dir / "design"
+    implementation_dir = feature_dir / "implementation"
+    review_dir = feature_dir / "review"
+    docs_dir = feature_dir / "docs"
+    completion_dir = feature_dir / "completion"
     return RuntimeFiles(
         project_dir=project_dir,
         feature_dir=feature_dir,
+        planning_dir=planning_dir,
+        research_dir=research_dir,
+        design_dir=design_dir,
+        implementation_dir=implementation_dir,
+        review_dir=review_dir,
+        docs_dir=docs_dir,
+        completion_dir=completion_dir,
         context=feature_dir / "context.md",
         requirements=feature_dir / "requirements.md",
-        plan=feature_dir / "plan.md",
-        tasks=feature_dir / "tasks.md",
-        design=feature_dir / "design.md",
-        review=feature_dir / "review.md",
-        fix_request=feature_dir / "fix_request.md",
-        changes=feature_dir / "changes.md",
+        plan=planning_dir / "plan.md",
+        tasks=planning_dir / "tasks.md",
+        design=design_dir / "design.md",
+        review=review_dir / "review.md",
+        fix_request=review_dir / "fix_request.md",
+        changes=completion_dir / "changes.md",
         state=feature_dir / STATE_FILE_NAME,
         runtime_state=feature_dir / "runtime_state.json",
         orchestrator_log=feature_dir / "orchestrator.log",
@@ -70,6 +84,16 @@ def _make_runtime_files(project_dir: Path, feature_dir: Path) -> RuntimeFiles:
 def create_feature_files(project_dir: Path, feature_dir: Path, prompt: str, session_name: str) -> RuntimeFiles:
     feature_dir.mkdir(parents=True, exist_ok=False)
     files = _make_runtime_files(project_dir, feature_dir)
+    for directory in (
+        files.planning_dir,
+        files.research_dir,
+        files.design_dir,
+        files.implementation_dir,
+        files.review_dir,
+        files.docs_dir,
+        files.completion_dir,
+    ):
+        directory.mkdir(parents=True, exist_ok=True)
 
     files.context.write_text(
         "\n".join([
@@ -152,17 +176,22 @@ def infer_resume_phase(feature_dir: Path, state: dict[str, Any]) -> str:
     if phase != "failed":
         return phase
 
-    plan_path = feature_dir / "plan.md"
+    planning_dir = feature_dir / "planning"
+    implementation_dir = feature_dir / "implementation"
+    review_dir = feature_dir / "review"
+    docs_dir = feature_dir / "docs"
+
+    plan_path = planning_dir / "plan.md"
     if not plan_path.exists():
         return "planning"
 
-    plan_meta_path = feature_dir / "plan_meta.json"
+    plan_meta_path = planning_dir / "plan_meta.json"
     if plan_meta_path.exists():
         try:
             plan_meta = json.loads(plan_meta_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             plan_meta = {}
-        if bool(plan_meta.get("needs_design")) and not (feature_dir / "design.md").exists():
+        if bool(plan_meta.get("needs_design")) and not (feature_dir / "design" / "design.md").exists():
             return "designing"
 
     subplan_count_raw = state.get("subplan_count")
@@ -174,12 +203,12 @@ def infer_resume_phase(feature_dir: Path, state: dict[str, Any]) -> str:
         subplan_count = 0
 
     if subplan_count > 0:
-        done_complete = all((feature_dir / f"done_{index}").exists() for index in range(1, subplan_count + 1))
+        done_complete = all((implementation_dir / f"done_{index}").exists() for index in range(1, subplan_count + 1))
     else:
-        done_complete = any(feature_dir.glob("done_*"))
+        done_complete = any(implementation_dir.glob("done_*"))
 
     if (
-        (feature_dir / "fix_request.md").exists()
+        (review_dir / "fix_request.md").exists()
         and int(state.get("review_iteration", 0)) > 0
         and not done_complete
     ):
@@ -188,7 +217,7 @@ def infer_resume_phase(feature_dir: Path, state: dict[str, Any]) -> str:
     if not done_complete:
         return "implementing"
 
-    review_path = feature_dir / "review.md"
+    review_path = review_dir / "review.md"
     if not review_path.exists():
         return "reviewing"
 
@@ -196,7 +225,7 @@ def infer_resume_phase(feature_dir: Path, state: dict[str, Any]) -> str:
     if verdict is None:
         return "reviewing"
 
-    if verdict == "pass" and not (feature_dir / "docs_done").exists():
+    if verdict == "pass" and not (docs_dir / "docs_done").exists():
         return "documenting"
 
     return "completing"

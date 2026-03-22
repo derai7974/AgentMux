@@ -186,7 +186,7 @@ def orchestrate(
     wake_event = threading.Event()
     observer = Observer()
     observer.schedule(
-        FeatureEventHandler(wake_event), str(files.feature_dir), recursive=False
+        FeatureEventHandler(wake_event), str(files.feature_dir), recursive=True
     )
     observer.start()
 

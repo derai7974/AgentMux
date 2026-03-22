@@ -40,8 +40,9 @@ class ReviewPassRequirementsTests(unittest.TestCase):
         project_dir.mkdir(parents=True, exist_ok=True)
         files = create_feature_files(project_dir, feature_dir, "review handling", "session-x")
 
-        prompts = {"architect": feature_dir / "architect_prompt.md"}
+        prompts = {"architect": feature_dir / "planning" / "architect_prompt.md"}
         for prompt in prompts.values():
+            prompt.parent.mkdir(parents=True, exist_ok=True)
             prompt.write_text(prompt.name, encoding="utf-8")
 
         agents = {
@@ -67,7 +68,7 @@ class ReviewPassRequirementsTests(unittest.TestCase):
 
             prompt = build_architect_prompt(files, is_review=True)
 
-            self.assertIn("Always write `review.md`", prompt)
+            self.assertIn("Always write `review/review.md`", prompt)
             self.assertIn("verdict: pass", prompt)
             self.assertIn("verdict: fail", prompt)
             self.assertIn("Do not update `state.json`", prompt)

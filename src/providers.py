@@ -48,9 +48,9 @@ PROVIDERS: dict[str, Provider] = {
         name="codex",
         cli="codex",
         models={
-            "max": "gpt-5.4-codex-medium",
-            "standard": "gpt-5.3-codex-high",
-            "low": "gpt-5.2-codex",
+            "max": "gpt-5.4",
+            "standard": "gpt-5.3-codex",
+            "low": "gpt-5.1-mini",
         },
         trust_snippet=None,
         default_args={
@@ -106,10 +106,14 @@ def get_provider(name: str) -> Provider:
         return PROVIDERS[name]
     except KeyError as exc:
         available = ", ".join(sorted(PROVIDERS))
-        raise ValueError(f"Unknown provider '{name}'. Expected one of: {available}") from exc
+        raise ValueError(
+            f"Unknown provider '{name}'. Expected one of: {available}"
+        ) from exc
 
 
-def resolve_agent(global_provider: Provider, role: str, role_config: dict) -> AgentConfig:
+def resolve_agent(
+    global_provider: Provider, role: str, role_config: dict
+) -> AgentConfig:
     provider_name = role_config.get("provider")
     provider = get_provider(provider_name) if provider_name else global_provider
 
