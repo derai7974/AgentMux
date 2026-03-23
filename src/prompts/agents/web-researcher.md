@@ -31,6 +31,8 @@ Your job:
 - Compatibility matrix or version table if relevant
 - Caveats and known gotchas
 
+{project_instructions}
+
 Constraints:
 - Communicate only through files in the session directory.
 - Do not invent facts.

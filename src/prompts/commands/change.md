@@ -16,6 +16,8 @@ Your job:
 5. After writing `planning/plan.md` and `planning/tasks.md`, write `planning/plan_meta.json` with this exact shape: `{{ "needs_design": true|false }}`.
 6. FINAL STEP ONLY — after writing the planning artifacts, stop. Do not update `state.json` or any workflow status from this step.
 
+{project_instructions}
+
 Constraints:
 - Do not implement code.
 - Do not update `state.json` from the replanning step.

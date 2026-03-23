@@ -22,6 +22,8 @@ Your job:
 5. Ask for exclusions only. Do not ask the user to enumerate all commit files.
 6. If the user requests changes, write the user feedback to `completion/changes.md`.
 
+{project_instructions}
+
 Constraints:
 - Keep this step focused on user confirmation.
 - Do not revise `planning/plan.md` in this step.

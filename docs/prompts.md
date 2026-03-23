@@ -13,6 +13,22 @@ Placeholders use `{name}` syntax, rendered via `str.format_map`.
 
 Every template receives `{feature_dir}` as the session directory and references workflow files with phase subpaths (for example `planning/plan.md`, `review/review.md`, `state.json`).
 Templates that need project-level context (for example product manager and coder) also receive `{project_dir}`.
+All built-in agent and command templates also include a `{project_instructions}` injection point.
+
+## Project-specific prompt extensions
+
+Projects can extend built-in prompt templates with plain markdown files in:
+
+- `.agentmux/prompts/agents/<role>.md`
+- `.agentmux/prompts/commands/<command>.md`
+
+The prompt loader merges project content into the matching built-in template via `{project_instructions}`.
+If a project file does not exist, `{project_instructions}` resolves to an empty string and behavior stays unchanged.
+
+Project extension files are plain markdown. They do not need template placeholder syntax.
+Curly braces in project content are automatically escaped before `format_map()` runs, so text like `{example}` is preserved literally and cannot trigger placeholder errors.
+
+`src/prompts/context.md` is pipeline-controlled and is not project-extendable.
 
 ## Prompt injection
 

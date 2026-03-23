@@ -53,6 +53,8 @@ What you are planning and why you need this information.
 12. After writing `planning/plan.md` and `planning/tasks.md`, write `planning/plan_meta.json` with this exact shape: `{{ "needs_design": true|false }}`. Set it to `true` only when the plan requires a dedicated design handoff before coding.
 13. FINAL STEP ONLY — after writing the planning artifacts, stop. Do not update `state.json` or any workflow status from this step.
 
+{project_instructions}
+
 Constraints:
 - Keep the plan actionable and implementation-oriented.
 - Keep the plan focused on what should be built and how it should be validated.

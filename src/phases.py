@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -23,7 +22,7 @@ from .prompts import (
     build_web_researcher_prompt,
     write_prompt_file,
 )
-from .state import cleanup_feature_dir, commit_changes, now_iso, write_state
+from .state import cleanup_feature_dir, commit_changes, feature_slug_from_dir, now_iso, write_state
 from .tmux import send_text
 from .transitions import EXIT_FAILURE, EXIT_SUCCESS, PipelineContext, file_signature, phase_input_changed
 
@@ -54,16 +53,6 @@ def _parse_changed_paths(status_output: str) -> list[str]:
         if path:
             paths.append(path)
     return paths
-
-
-def _feature_slug_from_dir(feature_dir: Path) -> str:
-    name = feature_dir.name.strip()
-    match = re.match(r"^\d{8}-\d{6}-(.+)$", name)
-    if match:
-        slug = match.group(1).strip()
-        if slug:
-            return slug
-    return name or "feature"
 
 
 class Phase(ABC):
@@ -635,7 +624,7 @@ class CompletingPhase(Phase):
                     issue_number = str(issue_number_raw) if issue_number_raw is not None else None
                     result = create_branch_and_pr(
                         project_dir=ctx.files.project_dir,
-                        feature_slug=_feature_slug_from_dir(ctx.files.feature_dir),
+                        feature_slug=feature_slug_from_dir(ctx.files.feature_dir),
                         github_config=ctx.github_config,
                         issue_number=issue_number,
                         feature_dir=ctx.files.feature_dir,

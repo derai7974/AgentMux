@@ -25,6 +25,8 @@ Your job:
 12. If implementation reveals that requirements or the plan need adjustment (e.g. a requirement turns out to be infeasible as written, or a task needs to be split or reordered), update `requirements.md` and `{plan_file}` / `planning/tasks.md` accordingly so they stay in sync with reality.
 13. {completion_instruction}
 
+{project_instructions}
+
 Constraints:
 - Communicate only through the files in the shared feature directory.
 - Make concrete repository changes rather than producing only prose.

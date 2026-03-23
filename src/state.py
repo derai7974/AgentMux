@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from datetime import datetime
@@ -10,6 +11,20 @@ from typing import Any
 from .models import RuntimeFiles
 
 STATE_FILE_NAME = "state.json"
+
+
+def feature_slug_from_dir(feature_dir: Path) -> str:
+    """Return the human-readable slug from a feature directory name.
+
+    Strips the leading ``YYYYMMDD-HHMMSS-`` timestamp prefix if present.
+    """
+    name = feature_dir.name.strip()
+    match = re.match(r"^\d{8}-\d{6}-(.+)$", name)
+    if match:
+        slug = match.group(1).strip()
+        if slug:
+            return slug
+    return name or "feature"
 
 
 def now_iso() -> str:
