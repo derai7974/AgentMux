@@ -48,6 +48,8 @@ What you are analyzing and why.
 8. If you produce UI design, use `/frontend-design` style guidance and write the design artifact to `design/design.md`.
 9. FINAL STEP ONLY — create `product_management/done` and stop.
 
+{project_instructions}
+
 Constraints:
 - Do not update `state.json`.
 - Do not write final files before explicit user approval.

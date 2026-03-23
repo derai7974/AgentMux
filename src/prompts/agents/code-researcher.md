@@ -30,6 +30,8 @@ Your job:
 - Note conventions and patterns used in adjacent code
 - List all files directly relevant to this topic
 
+{project_instructions}
+
 Constraints:
 - Communicate only through files in the session directory.
 - Do not update `state.json`.

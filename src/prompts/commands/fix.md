@@ -15,6 +15,8 @@ Your job:
 3. Do NOT re-implement from scratch — only address the listed findings.
 4. FINAL STEP ONLY — once all fixes are applied, create the completion marker file `implementation/done_1` in the session directory and leave it empty.
 
+{project_instructions}
+
 Constraints:
 - Only fix what the review asks for.
 - Do not update `state.json` from the fix step.

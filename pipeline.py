@@ -22,6 +22,7 @@ from src.config import LoadedConfig, load_explicit_config, load_layered_config
 from src.github import (
     check_gh_authenticated,
     check_gh_available,
+    create_branch,
     extract_issue_number,
     fetch_issue,
 )
@@ -31,6 +32,7 @@ from src.prompts import build_initial_prompts
 from src.runtime import TmuxAgentRuntime
 from src.state import (
     create_feature_files,
+    feature_slug_from_dir,
     infer_resume_phase,
     load_runtime_files,
     load_state,
@@ -386,6 +388,11 @@ def main() -> int:
         state["updated_at"] = now_iso()
         state["updated_by"] = "pipeline"
         write_state(files.state, state)
+
+        if issue_arg and gh_available:
+            branch_name = f"{loaded.github.branch_prefix}{feature_slug_from_dir(feature_dir)}"
+            if not create_branch(project_dir, branch_name):
+                print("Warning: Could not create feature branch now; will retry at completion.")
 
     current_state = load_state(files.state)
     pm_active = bool(current_state.get("product_manager"))

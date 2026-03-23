@@ -18,6 +18,8 @@ Your job:
 6. Do not implement business logic, state management, API integration, or dynamic application behavior.
 7. {completion_instruction}
 
+{project_instructions}
+
 Constraints:
 - Keep all communication and artifacts in the session directory.
 - Provide implementation-ready guidance for the coder.

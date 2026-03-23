@@ -17,6 +17,8 @@ Your job:
 5. On fail, include concrete findings, regressions, gaps, or residual risks.
 6. FINAL STEP ONLY — once `review/review.md` is fully written and nothing else remains, stop. Do not update `state.json` or any workflow status from review.
 
+{project_instructions}
+
 Constraints:
 - Communicate only through the files in the shared feature directory.
 - Do not rewrite the plan during review.

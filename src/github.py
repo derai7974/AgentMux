@@ -132,15 +132,8 @@ def assemble_pr_body(feature_dir: Path, issue_number: str | None) -> str:
     return "\n\n".join(parts).strip() + "\n"
 
 
-def create_branch_and_pr(
-    project_dir: Path,
-    feature_slug: str,
-    github_config: GitHubConfig,
-    issue_number: str | None,
-    feature_dir: Path,
-) -> dict[str, str] | None:
-    branch_name = f"{github_config.branch_prefix}{feature_slug}"
-
+def create_branch(project_dir: Path, branch_name: str) -> bool:
+    """Create a new branch and push it to origin. Returns True on success."""
     try:
         subprocess.run(
             ["git", "checkout", "-b", branch_name],
@@ -156,6 +149,44 @@ def create_branch_and_pr(
             text=True,
             check=True,
         )
+        return True
+    except FileNotFoundError as exc:
+        print(f"Branch creation skipped because git was not found: {exc}")
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.strip() if exc.stderr else "(no stderr)"
+        print(f"Branch creation failed: {stderr}")
+    return False
+
+
+def create_branch_and_pr(
+    project_dir: Path,
+    feature_slug: str,
+    github_config: GitHubConfig,
+    issue_number: str | None,
+    feature_dir: Path,
+) -> dict[str, str] | None:
+    branch_name = f"{github_config.branch_prefix}{feature_slug}"
+
+    try:
+        # If not already on this branch (created at pipeline startup), create it now.
+        current = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        if current.stdout.strip() != branch_name:
+            if not create_branch(project_dir, branch_name):
+                return None
+        else:
+            subprocess.run(
+                ["git", "push", "-u", "origin", branch_name],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
 
         pr_body = assemble_pr_body(feature_dir, issue_number)
         cmd = [

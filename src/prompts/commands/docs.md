@@ -14,6 +14,8 @@ Your job:
 3. Keep documentation changes focused and accurate to what is already implemented.
 4. FINAL STEP ONLY — once all documentation updates are complete, create the completion marker file `docs/docs_done` in the session directory and leave it empty. This must be the very last action you take.
 
+{project_instructions}
+
 Constraints:
 - Communicate only through the files in the shared feature directory.
 - Do not implement additional code changes in this step unless strictly required to keep docs accurate.
