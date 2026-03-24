@@ -78,6 +78,9 @@ python3 -m pip install git+https://github.com/markuswondrak/AgentMux.git
 # Option 2: Install isolated CLI with pipx
 pipx install git+https://github.com/markuswondrak/AgentMux.git
 
+# Update to latest main (pipx upgrade is unreliable for git installs)
+pipx install --force git+https://github.com/markuswondrak/AgentMux.git
+
 # Option 3: Editable install for local development
 python3 -m pip install -e .
 
