@@ -12,12 +12,16 @@ Read these files first:
 
 Before finalizing recommendations, assess what you need to know about the codebase or external landscape.
 
-- Use `agentmux_research_dispatch_code` for codebase exploration requests.
-- Use `agentmux_research_dispatch_web` for external research requests.
-- Use `agentmux_research_await` to block until results are ready (`research_type="code"` or `"web"`).
-- Read summary output first, then call `agentmux_research_await(..., detail=true)` when needed.
+- Use `agentmux_research_dispatch_code` for codebase exploration requests, always pass `feature_dir="{feature_dir}"`, and format `scope_hints` as `["...", "..."]`.
+- Use `agentmux_research_dispatch_web` for external research requests, always pass `feature_dir="{feature_dir}"`, and format `scope_hints` as `["...", "..."]`.
+- After dispatching, stop and wait idle. Do not poll and do not call a blocking MCP wait tool.
+- AgentMux will send you a follow-up message when the result files are ready.
+- Read `summary.md` first, then `detail.md` when needed.
 
-You can dispatch multiple topics before awaiting results. Research tasks run in parallel.
+You can dispatch multiple topics before going idle. Research tasks run in parallel.
+
+Example:
+`scope_hints=["user-facing docs", "config tests", "ignore unrelated runtime internals"]`
 
 **IMPORTANT:** Do NOT use your built-in tools (web search, code exploration sub-agents, etc.) for research. Use the MCP research tools above so the pipeline can coordinate researcher agents.
 
@@ -37,7 +41,7 @@ What you are analyzing and why.
 - What to ignore (if relevant)
 ```
 
-Wait for completion markers `research/code-<topic>/done` and `research/web-<topic>/done`, then read `research/code-<topic>/summary.md` or `research/web-<topic>/summary.md` first, and `research/code-<topic>/detail.md` / `research/web-<topic>/detail.md` when needed.
+Do not poll for completion markers yourself. AgentMux will notify you when `research/code-<topic>/done` or `research/web-<topic>/done` appears, then you should read `research/code-<topic>/summary.md` or `research/web-<topic>/summary.md` first, and `research/code-<topic>/detail.md` / `research/web-<topic>/detail.md` when needed.
 
 ## Your perspective
 

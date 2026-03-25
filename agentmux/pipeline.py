@@ -26,7 +26,7 @@ from .github import (
     extract_issue_number,
     fetch_issue,
 )
-from .mcp_config import McpServerSpec, cleanup_mcp, setup_mcp
+from .mcp_config import McpServerSpec, cleanup_mcp, ensure_mcp_config, setup_mcp
 from .models import AgentConfig, GitHubConfig
 from .phases import run_phase_cycle
 from .prompts import build_initial_prompts
@@ -189,6 +189,12 @@ def ensure_dependencies() -> None:
         raise SystemExit(
             "Missing dependency: watchdog. Install it with `python3 -m pip install -r requirements.txt`."
         )
+    try:
+        from mcp.server.fastmcp import FastMCP  # noqa: F401
+    except ImportError as exc:
+        raise SystemExit(
+            "Missing dependency: mcp. Install it with `python3 -m pip install -r requirements.txt`."
+        ) from exc
 
 
 class FeatureEventHandler(FileSystemEventHandler):
@@ -298,7 +304,7 @@ def main() -> int:
             McpServerSpec(
                 name="agentmux-research",
                 module="agentmux.mcp_research_server",
-                env={"FEATURE_DIR": str(feature_dir)},
+                env={},
             )
         ]
         agents = setup_mcp(
@@ -338,6 +344,15 @@ def main() -> int:
         raise SystemExit(
             f"tmux session `{session_name}` already exists. Stop it or change the resolved session name in your config."
         )
+
+    ensure_mcp_config(
+        agents,
+        [McpServerSpec(name="agentmux-research", module="agentmux.mcp_research_server", env={})],
+        MCP_RESEARCH_ROLES,
+        project_dir,
+        interactive=sys.stdin.isatty(),
+        output=sys.stdout,
+    )
 
     issue_payload: dict[str, str] | None = None
     issue_number: str | None = None
@@ -446,7 +461,7 @@ def main() -> int:
         McpServerSpec(
             name="agentmux-research",
             module="agentmux.mcp_research_server",
-            env={"FEATURE_DIR": str(feature_dir)},
+            env={},
         )
     ]
     agents = setup_mcp(

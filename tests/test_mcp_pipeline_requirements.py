@@ -40,6 +40,22 @@ class _FakeRuntime:
 
 
 class McpPipelineRequirementsTests(unittest.TestCase):
+    def test_ensure_dependencies_requires_mcp_sdk(self) -> None:
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "mcp.server.fastmcp":
+                raise ImportError("missing mcp")
+            return real_import(name, globals, locals, fromlist, level)
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            with self.assertRaises(SystemExit) as exc:
+                pipeline.ensure_dependencies()
+
+        self.assertIn("Missing dependency: mcp.", str(exc.exception))
+
     def test_build_agent_command_prepends_env_prefix_when_present(self) -> None:
         command = build_agent_command(
             AgentConfig(
@@ -47,13 +63,12 @@ class McpPipelineRequirementsTests(unittest.TestCase):
                 cli="codex",
                 model="gpt-5.3-codex",
                 args=["-a", "never"],
-                env={"CODEX_HOME": "/tmp/codex home", "FEATURE_DIR": "/tmp/feature"},
+                env={"PYTHONPATH": "/tmp/project"},
             )
         )
 
         self.assertIn("env ", command)
-        self.assertIn("CODEX_HOME='/tmp/codex home'", command)
-        self.assertIn("FEATURE_DIR=/tmp/feature", command)
+        self.assertIn("PYTHONPATH=/tmp/project", command)
         self.assertIn("codex --model gpt-5.3-codex -a never", command)
 
     def test_orchestrate_cleans_up_mcp_artifacts_on_exit(self) -> None:
@@ -92,8 +107,8 @@ class McpPipelineRequirementsTests(unittest.TestCase):
                 "product-manager": AgentConfig(role="product-manager", cli="claude", model="opus", args=[]),
             }
             injected_agents = {
-                "architect": AgentConfig(role="architect", cli="claude", model="opus", args=["--mcp-config", "x"]),
-                "product-manager": AgentConfig(role="product-manager", cli="claude", model="opus", args=["--mcp-config", "x"]),
+                "architect": AgentConfig(role="architect", cli="claude", model="opus", args=[], env={"PYTHONPATH": "/tmp/p"}),
+                "product-manager": AgentConfig(role="product-manager", cli="claude", model="opus", args=[], env={"PYTHONPATH": "/tmp/p"}),
             }
             loaded = SimpleNamespace(
                 session_name="session-x",
@@ -128,6 +143,9 @@ class McpPipelineRequirementsTests(unittest.TestCase):
                 "agentmux.pipeline.check_gh_available",
                 return_value=False,
             ), patch(
+                "agentmux.pipeline.ensure_mcp_config",
+                return_value=None,
+            ), patch(
                 "agentmux.pipeline.setup_mcp",
                 return_value=injected_agents,
             ) as setup_mock, patch(
@@ -155,7 +173,7 @@ class McpPipelineRequirementsTests(unittest.TestCase):
                 "architect": AgentConfig(role="architect", cli="claude", model="opus", args=[]),
             }
             injected_agents = {
-                "architect": AgentConfig(role="architect", cli="claude", model="opus", args=["--mcp-config", "x"]),
+                "architect": AgentConfig(role="architect", cli="claude", model="opus", args=[], env={"PYTHONPATH": "/tmp/p"}),
             }
             loaded = SimpleNamespace(
                 session_name="session-x",
@@ -183,6 +201,9 @@ class McpPipelineRequirementsTests(unittest.TestCase):
             ), patch(
                 "agentmux.pipeline.load_runtime_config",
                 return_value=loaded,
+            ), patch(
+                "agentmux.pipeline.ensure_mcp_config",
+                side_effect=AssertionError("ensure_mcp_config should not run in orchestrate mode"),
             ), patch(
                 "agentmux.pipeline.setup_mcp",
                 return_value=injected_agents,
@@ -222,7 +243,11 @@ class McpPipelineRequirementsTests(unittest.TestCase):
             for prompt in (architect_prompt, product_prompt):
                 self.assertIn("agentmux_research_dispatch_code", prompt)
                 self.assertIn("agentmux_research_dispatch_web", prompt)
-                self.assertIn("agentmux_research_await", prompt)
+                self.assertNotIn("agentmux_research_await", prompt)
+                self.assertIn(f'feature_dir="{feature_dir}"', prompt)
+                self.assertIn("scope_hints=[", prompt)
+                self.assertIn("stop and wait idle", prompt)
+                self.assertIn("summary.md", prompt)
                 self.assertIn("Fallback", prompt)
                 self.assertIn("research/code-<topic>/request.md", prompt)
                 self.assertIn("research/web-<topic>/request.md", prompt)

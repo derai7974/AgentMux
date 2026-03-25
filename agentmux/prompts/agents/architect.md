@@ -14,15 +14,20 @@ Before drafting the plan, assess what you need to know about the codebase or ext
 **Look it up yourself** when reading 1–3 specific files whose paths you already know (e.g. checking a function signature, a config schema). Do this directly with your file-reading tool.
 
 **Delegate to code-researcher** for anything requiring broad exploration — tracing a feature across modules, understanding patterns you haven't seen, surveying all usages of something:
-1. Call `agentmux_research_dispatch_code` with your topic, context, questions, and scope hints.
-2. Call `agentmux_research_await` with the same topic and `research_type="code"`. This blocks until results are ready and returns the summary.
-3. For detailed findings, call `agentmux_research_await` again with `detail=true`.
+1. Call `agentmux_research_dispatch_code` with your topic, context, `questions=[...]`, `feature_dir="{feature_dir}"`, and `scope_hints=[...]`.
+2. After dispatching, stop and wait idle. Do not poll and do not call another MCP wait tool.
+3. AgentMux will send you a follow-up message when research is complete.
+4. When that message arrives, read `research/code-<topic>/summary.md` first and `research/code-<topic>/detail.md` only if needed.
 
 **Delegate to web-researcher** for external information — library APIs, version compatibility, ecosystem best practices:
-1. Call `agentmux_research_dispatch_web` with your topic, context, questions, and scope hints.
-2. Call `agentmux_research_await` with the same topic and `research_type="web"`.
+1. Call `agentmux_research_dispatch_web` with your topic, context, `questions=[...]`, `feature_dir="{feature_dir}"`, and `scope_hints=[...]`.
+2. After dispatching, stop and wait idle for AgentMux to notify you that the result files are ready.
+3. Then read `research/web-<topic>/summary.md` first and `research/web-<topic>/detail.md` if needed.
 
-You can dispatch multiple topics before awaiting any of them. Research tasks run in parallel.
+You can dispatch multiple topics before going idle. Research tasks run in parallel.
+
+Use a JSON-style array for `scope_hints`, not a single string. Example:
+`scope_hints=["agent prompts", "planning tests", "ignore runtime internals"]`
 
 **IMPORTANT:** Do NOT use your built-in tools (web search, code exploration sub-agents, etc.) for research. Use the MCP research tools described above. Your built-in tools bypass the pipeline's agent coordination.
 
@@ -41,7 +46,7 @@ What you are planning and why you need this information.
 - What to ignore (if relevant)
 ```
 
-Wait for `research/code-<topic>/done` or `research/web-<topic>/done`, then read `research/code-<topic>/summary.md` or `research/web-<topic>/summary.md`; detailed artifacts are `research/code-<topic>/detail.md` and `research/web-<topic>/detail.md`.
+Do not poll for `done` yourself. AgentMux will notify you when `research/code-<topic>/done` or `research/web-<topic>/done` appears. After that, read `research/code-<topic>/summary.md` or `research/web-<topic>/summary.md`; detailed artifacts are `research/code-<topic>/detail.md` and `research/web-<topic>/detail.md`.
 
 ## Your job
 

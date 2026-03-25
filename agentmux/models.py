@@ -13,6 +13,7 @@ class AgentConfig:
     args: list[str] = None
     env: dict[str, str] | None = None
     trust_snippet: str | None = None
+    provider: str | None = None
 
 
 @dataclass(frozen=True)

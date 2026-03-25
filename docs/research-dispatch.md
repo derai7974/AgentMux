@@ -2,34 +2,30 @@
 
 > Related source files: `agentmux/mcp_research_server.py`, `agentmux/mcp_config.py`, `agentmux/pipeline.py`, `agentmux/defaults/config.yaml`, `agentmux/prompts/agents/architect.md`, `agentmux/prompts/agents/product-manager.md`
 
-Research dispatch is now MCP-first. The architect and product-manager should call MCP tools to create research requests and await results.
+Research dispatch is now MCP-first. The architect and product-manager should call MCP tools to create research requests, then wait for AgentMux to push a completion message.
 
 ## MCP tools
 
 The `agentmux-research` MCP server exposes:
 
-- `agentmux_research_dispatch_code(topic, context, questions, scope_hints)`
-- `agentmux_research_dispatch_web(topic, context, questions, scope_hints)`
-- `agentmux_research_await(topic, research_type, detail=false, timeout=300)`
+- `agentmux_research_dispatch_code(topic, context, questions, feature_dir, scope_hints)`
+- `agentmux_research_dispatch_web(topic, context, questions, feature_dir, scope_hints)`
 
 Validation and behavior:
 
 - `topic` must be a slug: lowercase alphanumeric words joined by `-` (for example `auth-module`)
 - `questions` must include at least one non-empty item
-- `research_type` must be `"code"` or `"web"`
+- `feature_dir` should be the session directory shown in the architect or product-manager prompt
+- `scope_hints` may be omitted, passed as a single string, or passed as a list of strings; list form is preferred
 - dispatch writes `research/<type>-<topic>/request.md` with `## Context`, `## Questions`, and `## Scope hints`
-- await returns `"No research task found. Did you dispatch it first?"` when the topic directory is missing
-- await returns `"Research on '<topic>' timed out after <timeout>s."` on timeout
-- await returns `summary.md` by default, or `detail.md` when `detail=true` (with a clear missing-file message if absent)
 
 Typical flow:
 
 1. Dispatch one or more research topics (`code` and/or `web`).
-2. Await each topic with `agentmux_research_await`.
-3. Use `detail=true` when full findings are required.
+2. Stop and wait idle. AgentMux will send the owner agent a completion message when each topic finishes.
+3. Read `summary.md` first and `detail.md` only when needed.
 
-`agentmux_research_await` blocks until the corresponding `done` marker exists (or timeout), so agents do not need polling loops.
-The server requires `FEATURE_DIR` in its environment so requests map to the active session directory.
+Research completion stays file-driven: the orchestrator detects `done`, updates task state, and sends a follow-up message telling the owner agent which `summary.md` / `detail.md` files to read. AgentMux passes the active session directory explicitly as `feature_dir`, so the server does not rely on provider-specific environment propagation.
 
 ## File protocol fallback
 
@@ -45,15 +41,18 @@ Request files should include:
 - `## Questions`
 - `## Scope hints`
 
-## Provider injection strategy
+## Provider setup strategy
 
-The pipeline injects the same MCP server for `architect` and `product-manager` across providers:
+AgentMux expects an MCP registration named `agentmux-research` for the effective `architect` and `product-manager` providers at the provider's native config scope:
 
-- Claude: `--mcp-config <feature_dir>/mcp_claude.json`
-- Codex: `CODEX_HOME=<feature_dir>/codex_home` (staged `config.toml` with `mcp_servers` blocks)
-- Gemini: project `.gemini/settings.json` only when absent (skip injection if user config exists)
-- OpenCode: `OPENCODE_CONFIG=<feature_dir>/mcp_opencode.json`
+- Claude: project `.claude/settings.json`
+- Codex: user `~/.codex/config.toml`
+- Gemini: project `.gemini/settings.json`
+- OpenCode: project `opencode.json`
+
+`agentmux init` and interactive pipeline startup prompt to create that entry only when it is missing. The registered command uses the current Python interpreter and launches `-m agentmux.mcp_research_server`.
+
+For each run, AgentMux may inject `PYTHONPATH` into the launched `architect` / `product-manager` process so the MCP server can import the project checkout. Feature routing now comes from the `feature_dir` MCP tool argument.
 
 For Claude, default launcher args allow MCP calls via `mcp__agentmux-research__*` in `--allowedTools`.
-Gemini cleanup removes generated project config only when the pipeline created it (tracked via marker file in the feature directory).
-Cleanup runs during orchestrator shutdown.
+If the user declines setup, architect/product-manager should use the file-protocol fallback instead.

@@ -347,6 +347,7 @@ def _resolve_loaded_config(raw: dict[str, Any], sources: tuple[Path, ...]) -> Lo
             model_flag=str(launcher.get("model_flag", "--model")),
             args=list(args),
             trust_snippet=launcher.get("trust_snippet"),
+            provider=provider_name,
         )
 
     return LoadedConfig(

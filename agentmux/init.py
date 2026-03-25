@@ -10,6 +10,7 @@ from typing import Any
 import yaml
 
 from .config import load_builtin_catalog, load_layered_config
+from .mcp_config import McpServerSpec, ensure_mcp_config
 
 try:
     import questionary
@@ -236,6 +237,11 @@ def prompt_role_config(detected_providers: list[str], defaults_config: dict[str,
         detected_providers,
         default=builtin_default_provider if builtin_default_provider in detected_providers else detected_providers[0],
     )
+    setup_mode = _select(
+        "Role setup",
+        ["Use default provider for all roles", "Customize roles"],
+        default="Use default provider for all roles",
+    )
 
     result: dict[str, Any] = {}
     defaults_override: dict[str, Any] = {}
@@ -243,6 +249,17 @@ def prompt_role_config(detected_providers: list[str], defaults_config: dict[str,
         defaults_override["provider"] = selected_default
     if defaults_override:
         result["defaults"] = defaults_override
+
+    if setup_mode == "Use default provider for all roles":
+        roles_override: dict[str, Any] = {}
+        for role, role_cfg_raw in role_defaults.items():
+            role_cfg = dict(role_cfg_raw) if isinstance(role_cfg_raw, dict) else {}
+            baseline_provider = str(role_cfg.get("provider", selected_default))
+            if baseline_provider != selected_default:
+                roles_override[role] = {"provider": selected_default}
+        if roles_override:
+            result["roles"] = roles_override
+        return result
 
     roles_override: dict[str, Any] = {}
     for role in PROMPTED_ROLES:
@@ -527,6 +544,17 @@ def run_init(defaults_mode: bool = False) -> int:
 
     if not validate_config(project_dir, output):
         raise SystemExit(1)
+
+    if not defaults_mode:
+        loaded = load_layered_config(project_dir)
+        ensure_mcp_config(
+            loaded.agents,
+            [McpServerSpec(name="agentmux-research", module="agentmux.mcp_research_server", env={})],
+            ("architect", "product-manager"),
+            project_dir,
+            interactive=True,
+            output=sys.stdout,
+        )
 
     display_summary(output, created_files, skipped_files, project_dir)
     return 0

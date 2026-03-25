@@ -19,12 +19,19 @@ Legacy `pipeline_config.json` is still supported as a project config and as an e
 
 Use `python3 -m agentmux init` to scaffold a new project with configuration:
 
-- **Interactive mode** — Guides you through role assignments, GitHub settings, and optional prompt stubs
+- **Interactive mode** — Guides you through a quick setup or custom role assignments, GitHub settings, optional MCP setup, and optional prompt stubs
 - **Non-interactive mode** (`--defaults`) — Creates config with built-in defaults and CLAUDE.md template
 - **CLI detection** — Automatically detects installed providers (claude, codex, gemini, opencode)
 - **Config generation** — Creates `.agentmux/config.yaml` with only necessary overrides (minimal config files)
 - **CLAUDE.md setup** — Creates a template, symlinks an existing file, or skips
 - **Prompt stubs** — Optionally generates role-specific instruction files in `.agentmux/prompts/agents/`
+
+Interactive init first asks for a default provider, then offers:
+
+- **Use default provider for all roles** — keeps built-in role profile defaults and skips per-role provider/profile prompts
+- **Customize roles** — preserves the original per-role provider/profile flow
+
+After config validation, init checks the effective `architect` and `product-manager` providers. If their persistent `agentmux-research` MCP entry is missing, init asks once to add it to the provider's native config scope.
 
 ## Primary project config
 
@@ -151,13 +158,17 @@ Each role resolves to an `AgentConfig` with:
 
 The tmux runtime launches agents from that fully resolved config. The orchestrator still never talks to model APIs directly.
 
-## Runtime MCP injection for research tools
+## Runtime MCP setup for research tools
 
-MCP server wiring for research is applied at runtime (not authored in project config). During pipeline startup, `setup_mcp(...)` injects the `agentmux-research` server for `architect` and `product-manager` only:
+MCP setup for research now follows each provider's native config scope. `agentmux init` and foreground pipeline startup both check whether the effective `architect` / `product-manager` providers already have an `agentmux-research` entry in the correct location:
 
-- Claude: appends `--mcp-config <feature_dir>/mcp_claude.json`
-- Codex: sets `CODEX_HOME=<feature_dir>/codex_home` with staged `config.toml`
-- Gemini: writes `.gemini/settings.json` only if absent; skips injection when user config already exists
-- OpenCode: sets `OPENCODE_CONFIG=<feature_dir>/mcp_opencode.json`
+- Claude: project `.claude/settings.json`
+- Codex: user `~/.codex/config.toml`
+- Gemini: project `.gemini/settings.json`
+- OpenCode: project `opencode.json`
+
+When the entry is missing, the user is prompted to create or refresh it in that provider-specific file. Codex remains a user-scope prompt because Codex MCP servers are configured globally; the other bundled providers use repo-local project config.
+
+At runtime, `setup_mcp(...)` no longer rewrites provider config. It only injects `PYTHONPATH=<project_dir>[...existing entries]` into the launched `architect` / `product-manager` process when needed so `agentmux.mcp_research_server` can import the project checkout. Research requests identify the active session explicitly via the `feature_dir` MCP tool argument.
 
 Claude additionally needs explicit allowlisting, so defaults include `mcp__agentmux-research__*` in architect/product-manager `--allowedTools`. Other bundled providers already run in approval modes that auto-approve tool calls.

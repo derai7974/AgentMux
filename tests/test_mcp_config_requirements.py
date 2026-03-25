@@ -1,157 +1,23 @@
 from __future__ import annotations
 
+import io
 import json
+import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agentmux.mcp_config import (
-    ClaudeInjector,
-    CodexInjector,
-    GeminiInjector,
-    McpServerSpec,
-    OpenCodeInjector,
-    cleanup_mcp,
-    setup_mcp,
-)
+from agentmux.mcp_config import McpServerSpec, cleanup_mcp, ensure_mcp_config, setup_mcp
 from agentmux.models import AgentConfig
 
 
 class McpConfigRequirementsTests(unittest.TestCase):
-    def _server(self, feature_dir: Path) -> McpServerSpec:
-        return McpServerSpec(
-            name="agentmux-research",
-            module="agentmux.mcp_research_server",
-            env={"FEATURE_DIR": str(feature_dir)},
-        )
+    def _server(self) -> McpServerSpec:
+        return McpServerSpec(name="agentmux-research", module="agentmux.mcp_research_server", env={})
 
-    def test_claude_injector_writes_config_and_appends_flag(self) -> None:
-        with tempfile.TemporaryDirectory() as td:
-            tmp_path = Path(td)
-            feature_dir = tmp_path / "feature"
-            project_dir = tmp_path / "project"
-            feature_dir.mkdir()
-            project_dir.mkdir()
-            agent = AgentConfig(role="architect", cli="claude", model="opus", args=["--permission-mode", "acceptEdits"])
-
-            injected = ClaudeInjector().inject(agent, [self._server(feature_dir)], feature_dir, project_dir)
-
-            self.assertIsNotNone(injected)
-            assert injected is not None
-            self.assertEqual(
-                [
-                    "--permission-mode",
-                    "acceptEdits",
-                    "--mcp-config",
-                    str(feature_dir / "mcp_claude.json"),
-                ],
-                injected.args,
-            )
-            config = json.loads((feature_dir / "mcp_claude.json").read_text(encoding="utf-8"))
-            self.assertIn("agentmux-research", config["mcpServers"])
-            server = config["mcpServers"]["agentmux-research"]
-            self.assertEqual("stdio", server["type"])
-            self.assertEqual("python3", server["command"])
-            self.assertEqual(["-m", "agentmux.mcp_research_server"], server["args"])
-            self.assertEqual({"FEATURE_DIR": str(feature_dir)}, server["env"])
-
-    def test_codex_injector_stages_config_sets_codex_home_and_is_idempotent(self) -> None:
-        with tempfile.TemporaryDirectory() as td:
-            tmp_path = Path(td)
-            feature_dir = tmp_path / "feature"
-            project_dir = tmp_path / "project"
-            home_dir = tmp_path / "home"
-            (home_dir / ".codex").mkdir(parents=True)
-            (home_dir / ".codex" / "config.toml").write_text('foo = "bar"\n', encoding="utf-8")
-            feature_dir.mkdir()
-            project_dir.mkdir()
-            agent = AgentConfig(role="architect", cli="codex", model="gpt-5.3-codex", args=["-a", "never"])
-
-            with patch("agentmux.mcp_config.Path.home", return_value=home_dir):
-                injected = CodexInjector().inject(agent, [self._server(feature_dir)], feature_dir, project_dir)
-                assert injected is not None
-                injected_again = CodexInjector().inject(injected, [self._server(feature_dir)], feature_dir, project_dir)
-                assert injected_again is not None
-
-            codex_home = feature_dir / "codex_home"
-            config_path = codex_home / "config.toml"
-            content = config_path.read_text(encoding="utf-8")
-            self.assertIn('foo = "bar"', content)
-            self.assertIn("[mcp_servers.agentmux-research]", content)
-            self.assertIn('command = "python3"', content)
-            self.assertIn('args = ["-m", "agentmux.mcp_research_server"]', content)
-            self.assertIn("enabled = true", content)
-            self.assertIn("[mcp_servers.agentmux-research.env]", content)
-            self.assertIn(f'FEATURE_DIR = "{feature_dir}"', content)
-            self.assertEqual(1, content.count("[mcp_servers.agentmux-research]"))
-            self.assertEqual(str(codex_home), injected_again.env["CODEX_HOME"])
-            self.assertEqual(["-a", "never"], injected_again.args)
-
-    def test_gemini_injector_creates_owned_config_and_cleanup_removes_it(self) -> None:
-        with tempfile.TemporaryDirectory() as td:
-            tmp_path = Path(td)
-            feature_dir = tmp_path / "feature"
-            project_dir = tmp_path / "project"
-            feature_dir.mkdir()
-            project_dir.mkdir()
-            agent = AgentConfig(role="architect", cli="gemini", model="gemini-2.5-pro", args=[])
-
-            injected = GeminiInjector().inject(agent, [self._server(feature_dir)], feature_dir, project_dir)
-
-            self.assertEqual(agent, injected)
-            settings_path = project_dir / ".gemini" / "settings.json"
-            marker_path = feature_dir / "gemini_config_created"
-            settings = json.loads(settings_path.read_text(encoding="utf-8"))
-            self.assertTrue(marker_path.exists())
-            self.assertTrue(settings["mcpServers"]["agentmux-research"]["trust"])
-
-            GeminiInjector().cleanup(feature_dir, project_dir)
-            self.assertFalse(settings_path.exists())
-            self.assertFalse(marker_path.exists())
-            self.assertFalse((project_dir / ".gemini").exists())
-
-            # idempotent
-            GeminiInjector().cleanup(feature_dir, project_dir)
-
-    def test_gemini_injector_skips_when_project_settings_already_exists(self) -> None:
-        with tempfile.TemporaryDirectory() as td:
-            tmp_path = Path(td)
-            feature_dir = tmp_path / "feature"
-            project_dir = tmp_path / "project"
-            feature_dir.mkdir()
-            (project_dir / ".gemini").mkdir(parents=True)
-            (project_dir / ".gemini" / "settings.json").write_text('{"existing": true}\n', encoding="utf-8")
-            agent = AgentConfig(role="architect", cli="gemini", model="gemini-2.5-pro", args=[])
-
-            injected = GeminiInjector().inject(agent, [self._server(feature_dir)], feature_dir, project_dir)
-
-            self.assertIsNone(injected)
-            self.assertFalse((feature_dir / "gemini_config_created").exists())
-            self.assertEqual('{"existing": true}\n', (project_dir / ".gemini" / "settings.json").read_text(encoding="utf-8"))
-
-    def test_opencode_injector_writes_config_and_sets_env(self) -> None:
-        with tempfile.TemporaryDirectory() as td:
-            tmp_path = Path(td)
-            feature_dir = tmp_path / "feature"
-            project_dir = tmp_path / "project"
-            feature_dir.mkdir()
-            project_dir.mkdir()
-            agent = AgentConfig(role="architect", cli="opencode", model="anthropic/claude-sonnet-4-20250514", args=[])
-
-            injected = OpenCodeInjector().inject(agent, [self._server(feature_dir)], feature_dir, project_dir)
-
-            self.assertIsNotNone(injected)
-            assert injected is not None
-            self.assertEqual(str(feature_dir / "mcp_opencode.json"), injected.env["OPENCODE_CONFIG"])
-            config = json.loads((feature_dir / "mcp_opencode.json").read_text(encoding="utf-8"))
-            server = config["mcp"]["agentmux-research"]
-            self.assertEqual("local", server["type"])
-            self.assertEqual(["python3", "-m", "agentmux.mcp_research_server"], server["command"])
-            self.assertEqual({"FEATURE_DIR": str(feature_dir)}, server["environment"])
-            self.assertTrue(server["enabled"])
-
-    def test_setup_mcp_injects_only_selected_roles_and_preserves_other_agents(self) -> None:
+    def test_setup_mcp_adds_pythonpath_for_selected_roles(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             feature_dir = tmp_path / "feature"
@@ -159,40 +25,223 @@ class McpConfigRequirementsTests(unittest.TestCase):
             feature_dir.mkdir()
             project_dir.mkdir()
             agents = {
-                "architect": AgentConfig(role="architect", cli="claude", model="opus", args=[]),
-                "product-manager": AgentConfig(role="product-manager", cli="gemini", model="gemini-2.5-pro", args=[]),
+                "architect": AgentConfig(role="architect", cli="codex", model="gpt-5.3-codex", args=["-a", "never"]),
+                "product-manager": AgentConfig(role="product-manager", cli="claude", model="opus", args=[]),
                 "reviewer": AgentConfig(role="reviewer", cli="claude", model="sonnet", args=[]),
             }
 
             updated = setup_mcp(
                 agents,
-                [self._server(feature_dir)],
+                [self._server()],
                 ["architect", "product-manager"],
                 feature_dir,
                 project_dir,
             )
 
-            self.assertIn("--mcp-config", updated["architect"].args)
-            self.assertEqual(agents["reviewer"], updated["reviewer"])
-            self.assertTrue((feature_dir / "gemini_config_created").exists())
-            self.assertTrue((project_dir / ".gemini" / "settings.json").exists())
+            self.assertEqual(str(project_dir), updated["architect"].env["PYTHONPATH"])
+            self.assertEqual(str(project_dir), updated["product-manager"].env["PYTHONPATH"])
+            self.assertIsNone(updated["reviewer"].env)
 
-    def test_cleanup_mcp_removes_only_owned_gemini_file(self) -> None:
+    def test_setup_mcp_prepends_existing_pythonpath(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             feature_dir = tmp_path / "feature"
             project_dir = tmp_path / "project"
             feature_dir.mkdir()
-            (project_dir / ".gemini").mkdir(parents=True)
-            marker = feature_dir / "gemini_config_created"
-            settings = project_dir / ".gemini" / "settings.json"
-            marker.touch()
-            settings.write_text("{}\n", encoding="utf-8")
+            project_dir.mkdir()
+            agent = AgentConfig(
+                role="architect",
+                cli="claude",
+                model="opus",
+                env={"PYTHONPATH": "/existing/path"},
+            )
+
+            updated = setup_mcp(
+                {"architect": agent},
+                [self._server()],
+                ["architect"],
+                feature_dir,
+                project_dir,
+            )
+
+            self.assertEqual(
+                os.pathsep.join([str(project_dir), "/existing/path"]),
+                updated["architect"].env["PYTHONPATH"],
+            )
+
+    def test_ensure_mcp_config_writes_claude_project_config(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            project_dir = Path(td)
+            config_path = project_dir / ".claude" / "settings.json"
+            config_path.parent.mkdir(parents=True)
+            config_path.write_text('{"existing": true}\n', encoding="utf-8")
+            agents = {
+                "architect": AgentConfig(role="architect", cli="claude", model="opus", provider="claude"),
+            }
+
+            ensure_mcp_config(
+                agents,
+                [self._server()],
+                ["architect"],
+                project_dir,
+                interactive=True,
+                confirm=lambda _message: True,
+            )
+
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            server = config["mcpServers"]["agentmux-research"]
+            self.assertTrue(config["existing"])
+            self.assertEqual("stdio", server["type"])
+            self.assertEqual(sys.executable, server["command"])
+            self.assertEqual(["-m", "agentmux.mcp_research_server"], server["args"])
+
+    def test_ensure_mcp_config_writes_gemini_project_config(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            project_dir = Path(td)
+            agents = {
+                "product-manager": AgentConfig(
+                    role="product-manager",
+                    cli="gemini",
+                    model="gemini-2.5-pro",
+                    provider="gemini",
+                ),
+            }
+
+            ensure_mcp_config(
+                agents,
+                [self._server()],
+                ["product-manager"],
+                project_dir,
+                interactive=True,
+                confirm=lambda _message: True,
+            )
+
+            config = json.loads((project_dir / ".gemini" / "settings.json").read_text(encoding="utf-8"))
+            server = config["mcpServers"]["agentmux-research"]
+            self.assertEqual(sys.executable, server["command"])
+            self.assertEqual(["-m", "agentmux.mcp_research_server"], server["args"])
+            self.assertTrue(server["trust"])
+
+    def test_ensure_mcp_config_writes_opencode_project_config(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            project_dir = Path(td)
+            config_path = project_dir / "opencode.json"
+            config_path.write_text('{"tools": {"x": true}}\n', encoding="utf-8")
+            agents = {
+                "architect": AgentConfig(role="architect", cli="opencode", model="sonnet", provider="opencode"),
+            }
+
+            ensure_mcp_config(
+                agents,
+                [self._server()],
+                ["architect"],
+                project_dir,
+                interactive=True,
+                confirm=lambda _message: True,
+            )
+
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            server = config["mcp"]["agentmux-research"]
+            self.assertEqual({"x": True}, config["tools"])
+            self.assertEqual("local", server["type"])
+            self.assertEqual([sys.executable, "-m", "agentmux.mcp_research_server"], server["command"])
+            self.assertTrue(server["enabled"])
+
+    def test_ensure_mcp_config_writes_codex_user_config_and_refreshes_existing_block(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            home_dir = Path(td)
+            project_dir = home_dir / "project"
+            project_dir.mkdir()
+            config_path = home_dir / ".codex" / "config.toml"
+            config_path.parent.mkdir(parents=True)
+            config_path.write_text(
+                'foo = "bar"\n\n'
+                '[mcp_servers.agentmux-research]\n'
+                'command = "python3"\n'
+                'args = ["-m", "agentmux.mcp_research_server"]\n'
+                'enabled = true\n\n'
+                '[mcp_servers.agentmux-research.env]\n'
+                'FEATURE_DIR = "/old/feature"\n',
+                encoding="utf-8",
+            )
+            agents = {
+                "architect": AgentConfig(role="architect", cli="codex", model="gpt-5.3-codex", provider="codex"),
+            }
+
+            with patch("agentmux.mcp_config.Path.home", return_value=home_dir):
+                ensure_mcp_config(
+                    agents,
+                    [self._server()],
+                    ["architect"],
+                    project_dir,
+                    interactive=True,
+                    confirm=lambda _message: True,
+                )
+
+            content = config_path.read_text(encoding="utf-8")
+            self.assertIn('foo = "bar"', content)
+            self.assertIn(f'command = "{sys.executable}"', content)
+            self.assertIn('args = ["-m", "agentmux.mcp_research_server"]', content)
+            self.assertEqual(1, content.count("[mcp_servers.agentmux-research]"))
+            self.assertNotIn('FEATURE_DIR = "/old/feature"', content)
+
+    def test_ensure_mcp_config_warns_when_noninteractive_and_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            home_dir = Path(td)
+            project_dir = home_dir / "project"
+            project_dir.mkdir()
+            agents = {
+                "architect": AgentConfig(role="architect", cli="codex", model="gpt-5.3-codex", provider="codex"),
+            }
+            output = io.StringIO()
+
+            with patch("agentmux.mcp_config.Path.home", return_value=home_dir):
+                ensure_mcp_config(
+                    agents,
+                    [self._server()],
+                    ["architect"],
+                    project_dir,
+                    interactive=False,
+                    output=output,
+                )
+
+            self.assertIn("Missing MCP config for codex", output.getvalue())
+            self.assertFalse((home_dir / ".codex" / "config.toml").exists())
+
+    def test_ensure_mcp_config_dedupes_shared_provider_prompt(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            project_dir = Path(td)
+            agents = {
+                "architect": AgentConfig(role="architect", cli="claude", model="opus", provider="claude"),
+                "product-manager": AgentConfig(role="product-manager", cli="claude", model="opus", provider="claude"),
+            }
+            prompts: list[str] = []
+
+            ensure_mcp_config(
+                agents,
+                [self._server()],
+                ["architect", "product-manager"],
+                project_dir,
+                interactive=True,
+                confirm=lambda message: prompts.append(message) or True,
+            )
+
+            self.assertEqual(1, len(prompts))
+            self.assertIn("architect, product-manager", prompts[0])
+            self.assertIn(str(project_dir / ".claude" / "settings.json"), prompts[0])
+
+    def test_cleanup_mcp_is_noop(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp_path = Path(td)
+            feature_dir = tmp_path / "feature"
+            project_dir = tmp_path / "project"
+            feature_dir.mkdir()
+            project_dir.mkdir()
 
             cleanup_mcp(feature_dir, project_dir)
 
-            self.assertFalse(marker.exists())
-            self.assertFalse(settings.exists())
+            self.assertTrue(feature_dir.exists())
+            self.assertTrue(project_dir.exists())
 
 
 if __name__ == "__main__":
