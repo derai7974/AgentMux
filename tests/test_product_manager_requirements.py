@@ -155,6 +155,8 @@ class ProductManagerRequirementsTests(unittest.TestCase):
             updated = load_state(state_path)
             self.assertEqual("planning", updated["phase"])
             self.assertEqual("pm_completed", updated["last_event"])
+            self.assertIn(("kill_primary", "product-manager"), ctx.runtime.calls)
+            self.assertNotIn(("deactivate", "product-manager"), ctx.runtime.calls)
 
     def test_product_management_research_dispatch_and_completion(self) -> None:
         with tempfile.TemporaryDirectory() as td:

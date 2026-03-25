@@ -450,14 +450,13 @@ def _render_pipeline_section(
             stage_idx = current_idx + 1
 
         if stage == status:
-            spinner = _spinner_frame()
             lines.append(
                 _compose_line(
                     width,
                     prefix_plain=gutter_plain,
                     prefix_rendered=f" {CYAN}│{RESET} ",
-                    left_plain=f"{spinner} {stage_label}",
-                    left_rendered=f"{BOLD}{CYAN}{spinner} {stage_label}{RESET}",
+                    left_plain=f"▶ {stage_label}",
+                    left_rendered=f"{BOLD}{CYAN}▶ {stage_label}{RESET}",
                 )
             )
             if last_event:
@@ -513,15 +512,14 @@ def _render_pipeline_section(
             )
 
     if status not in PIPELINE_STATES and status != "waiting…" and not active_added:
-        spinner = _spinner_frame()
         status_label = status.replace("_", " ")
         lines.append(
             _compose_line(
                 width,
                 prefix_plain=gutter_plain,
                 prefix_rendered=f" {CYAN}│{RESET} ",
-                left_plain=f"{spinner} {status_label}",
-                left_rendered=f"{BOLD}{CYAN}{spinner} {status_label}{RESET}",
+                left_plain=f"▶ {status_label}",
+                left_rendered=f"{BOLD}{CYAN}▶ {status_label}{RESET}",
             )
         )
 
@@ -543,10 +541,10 @@ def _render_agents_section(
                     width,
                     prefix_plain=" ",
                     prefix_rendered=" ",
-                    left_plain=f"■ {display_name}",
-                    left_rendered=f"{CYAN}■{RESET} {BOLD}{display_name}{RESET}",
-                    right_plain="working",
-                    right_rendered=f"{DIM}working{RESET}",
+                    left_plain=f"● {display_name}",
+                    left_rendered=f"{CYAN}●{RESET} {BOLD}{display_name}{RESET}",
+                    right_plain="[ WORKING ]",
+                    right_rendered=f"{GREEN}[ WORKING ]{RESET}",
                 )
             )
         elif agent_state == "idle":
@@ -555,10 +553,10 @@ def _render_agents_section(
                     width,
                     prefix_plain=" ",
                     prefix_rendered=" ",
-                    left_plain=f"■ {display_name}",
-                    left_rendered=f"{DIM}■{RESET} {display_name}",
-                    right_plain="idle",
-                    right_rendered=f"{DIM}idle{RESET}",
+                    left_plain=f"○ {display_name}",
+                    left_rendered=f"{DIM}○{RESET} {display_name}",
+                    right_plain="[ IDLE ]",
+                    right_rendered=f"{YELLOW}[ IDLE ]{RESET}",
                 )
             )
         else:
