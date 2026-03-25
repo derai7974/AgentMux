@@ -11,7 +11,7 @@
 
 Placeholders use `{name}` syntax, rendered via `str.format_map`.
 
-Every template receives `{feature_dir}` as the session directory and references workflow files with phase subpaths (for example `planning/plan.md`, `review/review.md`, `state.json`).
+Every template receives `{feature_dir}` as the session directory and references workflow files with phase subpaths (for example `02_planning/plan.md`, `06_review/review.md`, `state.json`).
 Templates that need project-level context (for example product manager and coder) also receive `{project_dir}`.
 All built-in agent and command templates also include a `{project_instructions}` injection point.
 
@@ -38,7 +38,7 @@ Prompts are not injected as full text. Instead, `send_prompt()` in `agentmux/tmu
 Read and follow the instructions in /full/path/to/prompt_file.md
 ```
 
-Agents read the referenced file themselves, reducing keystroke overhead and allowing agents to reuse file content without re-transmission. All prompt templates use file references (e.g., `requirements.md`, `planning/plan.md`) — agents fetch what they need.
+Agents read the referenced file themselves, reducing keystroke overhead and allowing agents to reuse file content without re-transmission. All prompt templates use file references (e.g., `requirements.md`, `02_planning/plan.md`) — agents fetch what they need.
 
 ## Lazy build
 

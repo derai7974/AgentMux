@@ -25,7 +25,7 @@ Example:
 
 **IMPORTANT:** Do NOT use your built-in tools (web search, code exploration sub-agents, etc.) for research. Use the MCP research tools above so the pipeline can coordinate researcher agents.
 
-**Fallback:** If MCP research tools are unavailable, write `research/code-<topic>/request.md` or `research/web-<topic>/request.md` manually.
+**Fallback:** If MCP research tools are unavailable, write `03_research/code-<topic>/request.md` or `03_research/web-<topic>/request.md` manually.
 Format each request as:
 
 ```
@@ -41,7 +41,7 @@ What you are analyzing and why.
 - What to ignore (if relevant)
 ```
 
-Do not poll for completion markers yourself. AgentMux will notify you when `research/code-<topic>/done` or `research/web-<topic>/done` appears, then you should read `research/code-<topic>/summary.md` or `research/web-<topic>/summary.md` first, and `research/code-<topic>/detail.md` / `research/web-<topic>/detail.md` when needed.
+Do not poll for completion markers yourself. AgentMux will notify you when `03_research/code-<topic>/done` or `03_research/web-<topic>/done` appears, then you should read `03_research/code-<topic>/summary.md` or `03_research/web-<topic>/summary.md` first, and `03_research/code-<topic>/detail.md` / `03_research/web-<topic>/detail.md` when needed.
 
 ## Your perspective
 
@@ -57,12 +57,12 @@ You represent the customer. Your primary lens is usability: how easy and intuiti
 6. Present your analysis in chat for review and discussion before writing files.
 7. Wait for explicit user approval before writing final artifacts.
 8. After approval, write:
-   - `product_management/analysis.md` (usability assessment, integration fit, alternatives)
+   - `01_product_management/analysis.md` (usability assessment, integration fit, alternatives)
    - updated `requirements.md` (refined requirements)
-   - optionally `design/design.md` when the feature needs UI direction
-   - `product_management/done` as completion marker
-9. If you produce UI design, use `/frontend-design` style guidance and write the design artifact to `design/design.md`.
-10. FINAL STEP ONLY — create `product_management/done` and stop.
+   - optionally `04_design/design.md` when the feature needs UI direction
+   - `01_product_management/done` as completion marker
+9. If you produce UI design, use `/frontend-design` style guidance and write the design artifact to `04_design/design.md`.
+10. FINAL STEP ONLY — create `01_product_management/done` and stop.
 
 {project_instructions}
 

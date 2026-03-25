@@ -100,6 +100,7 @@ class CompletionCommitFlowTests(unittest.TestCase):
                 "commit_message": "test commit",
                 "exclude_files": ["tests/skip.py"],
             }
+            ctx.files.completion_dir.mkdir(parents=True, exist_ok=True)
             (ctx.files.completion_dir / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
 
             with patch(
@@ -132,6 +133,7 @@ class CompletionCommitFlowTests(unittest.TestCase):
                 "commit_message": "test commit",
                 "exclude_files": [],
             }
+            ctx.files.completion_dir.mkdir(parents=True, exist_ok=True)
             (ctx.files.completion_dir / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
 
             with patch(
@@ -161,6 +163,7 @@ class CompletionCommitFlowTests(unittest.TestCase):
                 "commit_message": "test commit",
                 "exclude_files": [],
             }
+            ctx.files.completion_dir.mkdir(parents=True, exist_ok=True)
             (ctx.files.completion_dir / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
 
             with patch(
@@ -197,6 +200,7 @@ class CompletionCommitFlowTests(unittest.TestCase):
                 "commit_message": "test commit",
                 "exclude_files": [],
             }
+            ctx.files.completion_dir.mkdir(parents=True, exist_ok=True)
             (ctx.files.completion_dir / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
 
             with patch(

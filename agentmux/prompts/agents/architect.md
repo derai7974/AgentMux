@@ -17,12 +17,12 @@ Before drafting the plan, assess what you need to know about the codebase or ext
 1. Call `agentmux_research_dispatch_code` with your topic, context, `questions=[...]`, `feature_dir="{feature_dir}"`, and `scope_hints=[...]`.
 2. After dispatching, stop and wait idle. Do not poll and do not call another MCP wait tool.
 3. AgentMux will send you a follow-up message when research is complete.
-4. When that message arrives, read `research/code-<topic>/summary.md` first and `research/code-<topic>/detail.md` only if needed.
+4. When that message arrives, read `03_research/code-<topic>/summary.md` first and `03_research/code-<topic>/detail.md` only if needed.
 
 **Delegate to web-researcher** for external information — library APIs, version compatibility, ecosystem best practices:
 1. Call `agentmux_research_dispatch_web` with your topic, context, `questions=[...]`, `feature_dir="{feature_dir}"`, and `scope_hints=[...]`.
 2. After dispatching, stop and wait idle for AgentMux to notify you that the result files are ready.
-3. Then read `research/web-<topic>/summary.md` first and `research/web-<topic>/detail.md` if needed.
+3. Then read `03_research/web-<topic>/summary.md` first and `03_research/web-<topic>/detail.md` if needed.
 
 You can dispatch multiple topics before going idle. Research tasks run in parallel.
 
@@ -31,7 +31,7 @@ Use a JSON-style array for `scope_hints`, not a single string. Example:
 
 **IMPORTANT:** Do NOT use your built-in tools (web search, code exploration sub-agents, etc.) for research. Use the MCP research tools described above. Your built-in tools bypass the pipeline's agent coordination.
 
-**Fallback:** If the MCP research tools are not available, create `research/code-<topic>/request.md` or `research/web-<topic>/request.md` manually. Format each request file as:
+**Fallback:** If the MCP research tools are not available, create `03_research/code-<topic>/request.md` or `03_research/web-<topic>/request.md` manually. Format each request file as:
 
 ```
 ## Context
@@ -46,7 +46,7 @@ What you are planning and why you need this information.
 - What to ignore (if relevant)
 ```
 
-Do not poll for `done` yourself. AgentMux will notify you when `research/code-<topic>/done` or `research/web-<topic>/done` appears. After that, read `research/code-<topic>/summary.md` or `research/web-<topic>/summary.md`; detailed artifacts are `research/code-<topic>/detail.md` and `research/web-<topic>/detail.md`.
+Do not poll for `done` yourself. AgentMux will notify you when `03_research/code-<topic>/done` or `03_research/web-<topic>/done` appears. After that, read `03_research/code-<topic>/summary.md` or `03_research/web-<topic>/summary.md`; detailed artifacts are `03_research/code-<topic>/detail.md` and `03_research/web-<topic>/detail.md`.
 
 ## Your job
 
@@ -59,9 +59,9 @@ Do not poll for `done` yourself. AgentMux will notify you when `research/code-<t
 7. If not parallelizable, write a single implementation plan without sub-plan headers.
 8. Do not implement code, run implementation validation, or produce UI design artifacts.
 9. Wait for the user to review. Incorporate any feedback and revise the draft as needed. Repeat until the user explicitly approves.
-10. Only after the user explicitly approves (e.g. says 'approved', 'looks good', 'go ahead'), write the final plan to `planning/plan.md`.
-11. After writing `planning/plan.md`, also write `planning/tasks.md` as a numbered checklist derived from the plan. Each task must be a concrete, testable unit of work (for example: "Create function X in file Y", "Add test for Z"). If you created sub-plans, group tasks under the corresponding `## Sub-plan <N>: <title>` header.
-12. After writing `planning/plan.md` and `planning/tasks.md`, write `planning/plan_meta.json` with this exact shape: `{{ "needs_design": true|false }}`. Set it to `true` only when the plan requires a dedicated design handoff before coding.
+10. Only after the user explicitly approves (e.g. says 'approved', 'looks good', 'go ahead'), write the final plan to `02_planning/plan.md`.
+11. After writing `02_planning/plan.md`, also write `02_planning/tasks.md` as a numbered checklist derived from the plan. Each task must be a concrete, testable unit of work (for example: "Create function X in file Y", "Add test for Z"). If you created sub-plans, group tasks under the corresponding `## Sub-plan <N>: <title>` header.
+12. After writing `02_planning/plan.md` and `02_planning/tasks.md`, write `02_planning/plan_meta.json` with this exact shape: `{{ "needs_design": true|false }}`. Set it to `true` only when the plan requires a dedicated design handoff before coding.
 13. FINAL STEP ONLY — after writing the planning artifacts, stop. Do not update `state.json` or any workflow status from this step.
 
 {project_instructions}
@@ -69,7 +69,7 @@ Do not poll for `done` yourself. AgentMux will notify you when `research/code-<t
 Constraints:
 - Keep the plan actionable and implementation-oriented.
 - Keep the plan focused on what should be built and how it should be validated.
-- Do not write to `planning/plan.md`/`planning/tasks.md`/`planning/plan_meta.json` before the user approves.
+- Do not write to `02_planning/plan.md`/`02_planning/tasks.md`/`02_planning/plan_meta.json` before the user approves.
 - Do not update `state.json` from the architect planning step.
 - When a topic requires reading more than 3 project files or exploring code patterns you are unfamiliar with, delegate to code-researcher instead of exploring directly.
 - Never use built-in web search or code-exploration tools for research.

@@ -8,12 +8,16 @@ from unittest.mock import patch
 
 import agentmux.pipeline as pipeline
 from agentmux import monitor
-from agentmux.models import AgentConfig
+from agentmux.models import AgentConfig, SESSION_DIR_NAMES
 from agentmux.phases import PHASES, ProductManagementPhase
 from agentmux.prompts import build_product_manager_prompt
 from agentmux.runtime import TmuxAgentRuntime
 from agentmux.state import create_feature_files, infer_resume_phase, load_state, write_state
 from agentmux.transitions import PipelineContext
+
+PRODUCT_MANAGEMENT_DIR = SESSION_DIR_NAMES["product_management"]
+PLANNING_DIR = SESSION_DIR_NAMES["planning"]
+RESEARCH_DIR = SESSION_DIR_NAMES["research"]
 
 
 class FakeRuntime:
@@ -55,7 +59,7 @@ class ProductManagerRequirementsTests(unittest.TestCase):
         project_dir.mkdir(parents=True, exist_ok=True)
         files = create_feature_files(project_dir, feature_dir, "add product manager", "session-x")
 
-        prompts = {"architect": feature_dir / "planning" / "architect_prompt.md"}
+        prompts = {"architect": feature_dir / PLANNING_DIR / "architect_prompt.md"}
         for prompt in prompts.values():
             prompt.parent.mkdir(parents=True, exist_ok=True)
             prompt.write_text(prompt.name, encoding="utf-8")
@@ -129,9 +133,9 @@ class ProductManagerRequirementsTests(unittest.TestCase):
 
             self.assertIn(str(feature_dir), prompt)
             self.assertIn(str(project_dir), prompt)
-            self.assertIn("product_management/analysis.md", prompt)
-            self.assertIn("product_management/done", prompt)
-            self.assertIn("design/design.md", prompt)
+            self.assertIn("01_product_management/analysis.md", prompt)
+            self.assertIn("01_product_management/done", prompt)
+            self.assertIn("04_design/design.md", prompt)
 
     def test_product_management_phase_entry_and_completion_transition(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -146,8 +150,8 @@ class ProductManagerRequirementsTests(unittest.TestCase):
             phase.on_enter(load_state(state_path), ctx)
             self.assertEqual(("send", "product-manager", "product_manager_prompt.md"), ctx.runtime.calls[-1])
 
-            (feature_dir / "product_management").mkdir(parents=True, exist_ok=True)
-            (feature_dir / "product_management" / "done").touch()
+            (feature_dir / PRODUCT_MANAGEMENT_DIR).mkdir(parents=True, exist_ok=True)
+            (feature_dir / PRODUCT_MANAGEMENT_DIR / "done").touch()
             event = phase.detect_event(load_state(state_path), ctx)
             self.assertEqual("pm_completed", event)
 
@@ -168,8 +172,8 @@ class ProductManagerRequirementsTests(unittest.TestCase):
             state["research_tasks"] = {}
             write_state(state_path, state)
 
-            (feature_dir / "research" / "code-market-fit").mkdir(parents=True, exist_ok=True)
-            (feature_dir / "research" / "code-market-fit" / "request.md").write_text("analyze", encoding="utf-8")
+            (feature_dir / RESEARCH_DIR / "code-market-fit").mkdir(parents=True, exist_ok=True)
+            (feature_dir / RESEARCH_DIR / "code-market-fit" / "request.md").write_text("analyze", encoding="utf-8")
 
             phase = ProductManagementPhase()
             self.assertEqual("code_batch_requested", phase.detect_event(load_state(state_path), ctx))
@@ -181,24 +185,24 @@ class ProductManagerRequirementsTests(unittest.TestCase):
 
             updated["research_tasks"] = {"market-fit": "dispatched"}
             write_state(state_path, updated)
-            (feature_dir / "research" / "code-market-fit" / "done").touch()
+            (feature_dir / RESEARCH_DIR / "code-market-fit" / "done").touch()
             with patch("agentmux.phases.send_text") as send_text:
                 phase.handle_event(load_state(state_path), "task_completed:market-fit", ctx)
 
             send_text.assert_called_once_with(
                 "%7",
-                "Code-research on 'market-fit' is complete. Read research/code-market-fit/summary.md first, then research/code-market-fit/detail.md if you need more detail, and continue from there.",
+                "Code-research on 'market-fit' is complete. Read 03_research/code-market-fit/summary.md first, then 03_research/code-market-fit/detail.md if you need more detail, and continue from there.",
             )
 
     def test_infer_resume_phase_handles_product_management_marker(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            (feature_dir / "product_management").mkdir(parents=True, exist_ok=True)
+            (feature_dir / PRODUCT_MANAGEMENT_DIR).mkdir(parents=True, exist_ok=True)
 
             state = {"phase": "planning", "product_manager": True}
             self.assertEqual("product_management", infer_resume_phase(feature_dir, state))
 
-            (feature_dir / "product_management" / "done").touch()
+            (feature_dir / PRODUCT_MANAGEMENT_DIR / "done").touch()
             self.assertEqual("planning", infer_resume_phase(feature_dir, state))
 
     def test_runtime_create_uses_product_manager_as_initial_pane_when_selected(self) -> None:

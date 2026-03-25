@@ -6,11 +6,17 @@ import unittest
 from pathlib import Path
 
 import agentmux.pipeline as pipeline
-from agentmux.models import AgentConfig
+from agentmux.models import AgentConfig, SESSION_DIR_NAMES
 from agentmux.phases import PHASES, get_phase, run_phase_cycle
 from agentmux.prompts import build_coder_prompt, build_designer_prompt, build_initial_prompts
 from agentmux.state import create_feature_files, load_runtime_files, load_state, write_state
 from agentmux.transitions import PipelineContext
+
+PLANNING_DIR = SESSION_DIR_NAMES["planning"]
+DESIGN_DIR = SESSION_DIR_NAMES["design"]
+IMPLEMENTATION_DIR = SESSION_DIR_NAMES["implementation"]
+REVIEW_DIR = SESSION_DIR_NAMES["review"]
+COMPLETION_DIR = SESSION_DIR_NAMES["completion"]
 
 
 class FakeRuntime:
@@ -54,7 +60,7 @@ def _make_ctx(feature_dir: Path, with_designer: bool = True) -> tuple[PipelineCo
     project_dir.mkdir(parents=True, exist_ok=True)
     files = create_feature_files(project_dir, feature_dir, "add designer", "session-x")
 
-    prompts = {"architect": feature_dir / "planning" / "architect_prompt.md"}
+    prompts = {"architect": feature_dir / PLANNING_DIR / "architect_prompt.md"}
     for path in prompts.values():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(path.name, encoding="utf-8")
@@ -102,8 +108,8 @@ class DesignerRequirementsTests(unittest.TestCase):
             files = create_feature_files(project_dir, feature_dir, "do ui", "session")
             loaded = load_runtime_files(project_dir, feature_dir)
 
-            self.assertEqual(feature_dir / "design" / "design.md", files.design)
-            self.assertEqual(feature_dir / "design" / "design.md", loaded.design)
+            self.assertEqual(feature_dir / DESIGN_DIR / "design.md", files.design)
+            self.assertEqual(feature_dir / DESIGN_DIR / "design.md", loaded.design)
             self.assertFalse(files.design.exists())
 
     def test_build_initial_prompts_only_writes_architect_prompt(self) -> None:
@@ -121,13 +127,13 @@ class DesignerRequirementsTests(unittest.TestCase):
 
             self.assertIn("done_1", coder_prompt)
             self.assertIn("frontend-design", designer_prompt)
-            self.assertIn("design/design.md", designer_prompt)
+            self.assertIn("04_design/design.md", designer_prompt)
             self.assertEqual(["architect"], list(initial_prompts.keys()))
             self.assertEqual("architect_prompt.md", initial_prompts["architect"].name)
-            self.assertFalse((feature_dir / "implementation" / "coder_prompt.md").exists())
-            self.assertFalse((feature_dir / "review" / "review_prompt.md").exists())
-            self.assertFalse((feature_dir / "design" / "designer_prompt.md").exists())
-            self.assertFalse((feature_dir / "completion" / "confirmation_prompt.md").exists())
+            self.assertFalse((feature_dir / IMPLEMENTATION_DIR / "coder_prompt.md").exists())
+            self.assertFalse((feature_dir / REVIEW_DIR / "review_prompt.md").exists())
+            self.assertFalse((feature_dir / DESIGN_DIR / "designer_prompt.md").exists())
+            self.assertFalse((feature_dir / COMPLETION_DIR / "confirmation_prompt.md").exists())
 
     def test_plan_written_moves_to_designing_when_plan_meta_requests_design(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -138,7 +144,8 @@ class DesignerRequirementsTests(unittest.TestCase):
             state = load_state(state_path)
             state["phase"] = "planning"
             write_state(state_path, state)
-            (feature_dir / "planning" / "plan_meta.json").write_text('{"needs_design": true}\n', encoding="utf-8")
+            (feature_dir / PLANNING_DIR).mkdir(parents=True, exist_ok=True)
+            (feature_dir / PLANNING_DIR / "plan_meta.json").write_text('{"needs_design": true}\n', encoding="utf-8")
 
             phase = get_phase(load_state(state_path))
             phase.handle_event(load_state(state_path), "plan_written", ctx)
@@ -161,7 +168,7 @@ class DesignerRequirementsTests(unittest.TestCase):
             run_phase_cycle(load_state(state_path), ctx)
 
             self.assertEqual([("send", "designer", "designer_prompt.md")], ctx.runtime.calls)
-            self.assertTrue((feature_dir / "design" / "designer_prompt.md").exists())
+            self.assertTrue((feature_dir / DESIGN_DIR / "designer_prompt.md").exists())
 
     def test_design_written_hands_off_to_implementing(self) -> None:
         with tempfile.TemporaryDirectory() as td:

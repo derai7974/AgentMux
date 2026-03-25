@@ -6,12 +6,12 @@ The project codebase is at `{project_dir}`; reference it for existing patterns a
 Read these files first:
 - context.md
 - requirements.md
-- planning/plan.md
+- 02_planning/plan.md
 - state.json
 
 Your job:
 1. First run `/frontend-design` to load the frontend design skill.
-2. Create a detailed design handoff in `design/design.md` for any new UI views/components.
+2. Create a detailed design handoff in `04_design/design.md` for any new UI views/components.
 3. The design handoff must cover component structure, layout behavior, visual system details, interaction states, accessibility expectations, and any notable design decisions the coder must preserve.
 4. Respect the existing product styles, patterns, and design system unless the plan explicitly calls for a new direction.
 5. You may create presentational design artifacts in the session directory (for example `.css`, `.html`, `.svg`) when useful.

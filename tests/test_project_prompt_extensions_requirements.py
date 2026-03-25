@@ -71,7 +71,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
                     "agents",
                     "coder",
                     "EXT-CODER",
-                    lambda runtime: build_coder_subplan_prompt(runtime, Path("subplan_1.md"), 1),
+                    lambda runtime: build_coder_subplan_prompt(runtime, feature_dir / "02_planning" / "subplan_1.md", 1),
                 ),
                 (
                     "agents",

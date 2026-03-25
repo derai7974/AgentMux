@@ -14,8 +14,8 @@ pipeline handles through its file protocol. Use the file protocol instead.
 
 - **product-manager** — clarifies business requirements and proposes a design direction (optional phase)
 - **architect** — tightens requirements, creates the plan, dispatches research tasks
-- **code-researcher** — explores the codebase on architect request (file: `research/code-<topic>/request.md`)
-- **web-researcher** — searches the web on architect request (file: `research/web-<topic>/request.md`)
+- **code-researcher** — explores the codebase on architect request (file: `03_research/code-<topic>/request.md`)
+- **web-researcher** — searches the web on architect request (file: `03_research/web-<topic>/request.md`)
 - **coder** — implements the plan in the project directory
 - **reviewer** — reviews the implementation and handles final user confirmation
 

@@ -7,4 +7,4 @@ You review implementations against requirements and plans, and handle user confi
 {project_instructions}
 
 Constraints:
-- Keep review and confirmation guidance aligned with `requirements.md` and `planning/plan.md`.
+- Keep review and confirmation guidance aligned with `requirements.md` and `02_planning/plan.md`.

@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .models import RuntimeFiles
+from .models import RuntimeFiles, SESSION_DIR_NAMES
 
 STATE_FILE_NAME = "state.json"
 
@@ -65,16 +65,18 @@ def update_phase(
 
 
 def _make_runtime_files(project_dir: Path, feature_dir: Path) -> RuntimeFiles:
-    planning_dir = feature_dir / "planning"
-    research_dir = feature_dir / "research"
-    design_dir = feature_dir / "design"
-    implementation_dir = feature_dir / "implementation"
-    review_dir = feature_dir / "review"
-    docs_dir = feature_dir / "docs"
-    completion_dir = feature_dir / "completion"
+    product_management_dir = feature_dir / SESSION_DIR_NAMES["product_management"]
+    planning_dir = feature_dir / SESSION_DIR_NAMES["planning"]
+    research_dir = feature_dir / SESSION_DIR_NAMES["research"]
+    design_dir = feature_dir / SESSION_DIR_NAMES["design"]
+    implementation_dir = feature_dir / SESSION_DIR_NAMES["implementation"]
+    review_dir = feature_dir / SESSION_DIR_NAMES["review"]
+    docs_dir = feature_dir / SESSION_DIR_NAMES["docs"]
+    completion_dir = feature_dir / SESSION_DIR_NAMES["completion"]
     return RuntimeFiles(
         project_dir=project_dir,
         feature_dir=feature_dir,
+        product_management_dir=product_management_dir,
         planning_dir=planning_dir,
         research_dir=research_dir,
         design_dir=design_dir,
@@ -105,17 +107,6 @@ def create_feature_files(
 ) -> RuntimeFiles:
     feature_dir.mkdir(parents=True, exist_ok=False)
     files = _make_runtime_files(project_dir, feature_dir)
-    for directory in (
-        feature_dir / "product_management",
-        files.planning_dir,
-        files.research_dir,
-        files.design_dir,
-        files.implementation_dir,
-        files.review_dir,
-        files.docs_dir,
-        files.completion_dir,
-    ):
-        directory.mkdir(parents=True, exist_ok=True)
 
     _context_template = (Path(__file__).resolve().parent / "prompts" / "context.md").read_text(encoding="utf-8")
     files.context.write_text(
@@ -178,7 +169,7 @@ def infer_resume_phase(feature_dir: Path, state: dict[str, Any]) -> str:
                 if str(status) != "dispatched"
             }
 
-    product_management_done = feature_dir / "product_management" / "done"
+    product_management_done = feature_dir / SESSION_DIR_NAMES["product_management"] / "done"
     if bool(state.get("product_manager")) and not product_management_done.exists():
         return "product_management"
 
@@ -186,10 +177,10 @@ def infer_resume_phase(feature_dir: Path, state: dict[str, Any]) -> str:
     if phase != "failed":
         return phase
 
-    planning_dir = feature_dir / "planning"
-    implementation_dir = feature_dir / "implementation"
-    review_dir = feature_dir / "review"
-    docs_dir = feature_dir / "docs"
+    planning_dir = feature_dir / SESSION_DIR_NAMES["planning"]
+    implementation_dir = feature_dir / SESSION_DIR_NAMES["implementation"]
+    review_dir = feature_dir / SESSION_DIR_NAMES["review"]
+    docs_dir = feature_dir / SESSION_DIR_NAMES["docs"]
 
     plan_path = planning_dir / "plan.md"
     if not plan_path.exists():
@@ -201,7 +192,7 @@ def infer_resume_phase(feature_dir: Path, state: dict[str, Any]) -> str:
             plan_meta = json.loads(plan_meta_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             plan_meta = {}
-        if bool(plan_meta.get("needs_design")) and not (feature_dir / "design" / "design.md").exists():
+        if bool(plan_meta.get("needs_design")) and not (feature_dir / SESSION_DIR_NAMES["design"] / "design.md").exists():
             return "designing"
 
     subplan_count_raw = state.get("subplan_count")

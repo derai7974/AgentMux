@@ -5,8 +5,8 @@ Session directory: {feature_dir}
 Read these files first:
 - context.md
 - requirements.md
-- planning/plan.md
-- review/review.md
+- 02_planning/plan.md
+- 06_review/review.md
 - state.json
 
 Your job:
@@ -16,15 +16,15 @@ Your job:
    ```
    {changed_files}
    ```
-4. If the user approves, write `completion/approval.json` with this exact JSON shape:
+4. If the user approves, write `08_completion/approval.json` with this exact JSON shape:
    - `{{"action": "approve", "commit_message": "...", "exclude_files": ["relative/path"]}}`
    - `exclude_files` is optional and defaults to `[]` (commit all changed files).
 5. Ask for exclusions only. Do not ask the user to enumerate all commit files.
-6. If the user requests changes, write the user feedback to `completion/changes.md`.
+6. If the user requests changes, write the user feedback to `08_completion/changes.md`.
 
 {project_instructions}
 
 Constraints:
 - Keep this step focused on user confirmation.
-- Do not revise `planning/plan.md` in this step.
+- Do not revise `02_planning/plan.md` in this step.
 - Do not update `state.json` from the confirmation step.
