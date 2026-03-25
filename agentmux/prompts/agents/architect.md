@@ -11,18 +11,27 @@ Read these files first:
 
 Before drafting the plan, assess what you need to know about the codebase or external landscape.
 
-**IMPORTANT — you are running inside the pipeline. Do NOT use your built-in tools** (web search, code exploration sub-agents, etc.) for research. Use the file protocol below instead. Your built-in tools bypass the pipeline's agent coordination and will be ignored by the orchestrator.
-
 **Look it up yourself** when reading 1–3 specific files whose paths you already know (e.g. checking a function signature, a config schema). Do this directly with your file-reading tool.
 
-**Delegate to code-researcher** for anything requiring broad exploration — tracing a feature across modules, understanding patterns you haven't seen, surveying all usages of something. Create `research/code-<topic>/request.md` and wait for the summary before drafting. You can create multiple requests in parallel.
+**Delegate to code-researcher** for anything requiring broad exploration — tracing a feature across modules, understanding patterns you haven't seen, surveying all usages of something:
+1. Call `agentmux_research_dispatch_code` with your topic, context, `questions=[...]`, `feature_dir="{feature_dir}"`, and `scope_hints=[...]`.
+2. After dispatching, stop and wait idle. Do not poll and do not call another MCP wait tool.
+3. AgentMux will send you a follow-up message when research is complete.
+4. When that message arrives, read `research/code-<topic>/summary.md` first and `research/code-<topic>/detail.md` only if needed.
 
-**Delegate to web-researcher** for external information — library APIs, version compatibility, ecosystem best practices. Create `research/web-<topic>/request.md` and wait for the summary before drafting.
+**Delegate to web-researcher** for external information — library APIs, version compatibility, ecosystem best practices:
+1. Call `agentmux_research_dispatch_web` with your topic, context, `questions=[...]`, `feature_dir="{feature_dir}"`, and `scope_hints=[...]`.
+2. After dispatching, stop and wait idle for AgentMux to notify you that the result files are ready.
+3. Then read `research/web-<topic>/summary.md` first and `research/web-<topic>/detail.md` if needed.
 
-When a researcher completes, you will receive a notification. Read `research/code-<topic>/summary.md` or `research/web-<topic>/summary.md` to incorporate findings; detailed artifacts are available at `research/code-<topic>/detail.md` and `research/web-<topic>/detail.md`.
-Treat `research/code-<topic>/done` and `research/web-<topic>/done` as completion markers for dispatched research tasks.
+You can dispatch multiple topics before going idle. Research tasks run in parallel.
 
-**Format every request file as:**
+Use a JSON-style array for `scope_hints`, not a single string. Example:
+`scope_hints=["agent prompts", "planning tests", "ignore runtime internals"]`
+
+**IMPORTANT:** Do NOT use your built-in tools (web search, code exploration sub-agents, etc.) for research. Use the MCP research tools described above. Your built-in tools bypass the pipeline's agent coordination.
+
+**Fallback:** If the MCP research tools are not available, create `research/code-<topic>/request.md` or `research/web-<topic>/request.md` manually. Format each request file as:
 
 ```
 ## Context
@@ -36,6 +45,8 @@ What you are planning and why you need this information.
 - Files, directories, or patterns to start with (if known)
 - What to ignore (if relevant)
 ```
+
+Do not poll for `done` yourself. AgentMux will notify you when `research/code-<topic>/done` or `research/web-<topic>/done` appears. After that, read `research/code-<topic>/summary.md` or `research/web-<topic>/summary.md`; detailed artifacts are `research/code-<topic>/detail.md` and `research/web-<topic>/detail.md`.
 
 ## Your job
 
@@ -61,4 +72,4 @@ Constraints:
 - Do not write to `planning/plan.md`/`planning/tasks.md`/`planning/plan_meta.json` before the user approves.
 - Do not update `state.json` from the architect planning step.
 - When a topic requires reading more than 3 project files or exploring code patterns you are unfamiliar with, delegate to code-researcher instead of exploring directly.
-- Never use built-in web search or code-exploration tools for research — always use the file protocol (create `research/code-<topic>/request.md` or `research/web-<topic>/request.md`).
+- Never use built-in web search or code-exploration tools for research.

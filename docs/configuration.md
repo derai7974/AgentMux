@@ -1,6 +1,6 @@
 # Agent Configuration
 
-> Related source files: `agentmux/config.py`, `agentmux/init.py`, `agentmux/providers.py`, `agentmux/models.py`, `.agentmux/config.yaml`
+> Related source files: `agentmux/config.py`, `agentmux/init.py`, `agentmux/providers.py`, `agentmux/models.py`, `agentmux/mcp_config.py`, `agentmux/pipeline.py`, `agentmux/tmux.py`, `agentmux/defaults/config.yaml`, `.agentmux/config.yaml`
 
 ## Overview
 
@@ -19,12 +19,19 @@ Legacy `pipeline_config.json` is still supported as a project config and as an e
 
 Use `python3 -m agentmux init` to scaffold a new project with configuration:
 
-- **Interactive mode** — Guides you through role assignments, GitHub settings, and optional prompt stubs
+- **Interactive mode** — Guides you through a quick setup or custom role assignments, GitHub settings, optional MCP setup, and optional prompt stubs
 - **Non-interactive mode** (`--defaults`) — Creates config with built-in defaults and CLAUDE.md template
 - **CLI detection** — Automatically detects installed providers (claude, codex, gemini, opencode)
 - **Config generation** — Creates `.agentmux/config.yaml` with only necessary overrides (minimal config files)
 - **CLAUDE.md setup** — Creates a template, symlinks an existing file, or skips
 - **Prompt stubs** — Optionally generates role-specific instruction files in `.agentmux/prompts/agents/`
+
+Interactive init first asks for a default provider, then offers:
+
+- **Use default provider for all roles** — keeps built-in role profile defaults and skips per-role provider/profile prompts
+- **Customize roles** — preserves the original per-role provider/profile flow
+
+After config validation, init checks the effective `architect` and `product-manager` providers. If their persistent `agentmux-research` MCP entry is missing, init asks once to add it to the provider's native config scope.
 
 ## Primary project config
 
@@ -136,7 +143,7 @@ Compatibility rules:
 |---------|--------|-------|--------|----------|
 | max | `opus` | `gpt-5.4` | `gemini-2.5-pro` | `anthropic/claude-opus-4-6` |
 | standard | `sonnet` | `gpt-5.3-codex` | `gemini-2.5-flash` | `anthropic/claude-sonnet-4-20250514` |
-| low | `haiku` | `gpt-5.1-mini` | `gemini-2.5-flash-lite` | `anthropic/claude-haiku-4-5-20251001` |
+| low | `haiku` | `gpt-5.1-codex-mini` | `gemini-2.5-flash-lite` | `anthropic/claude-haiku-4-5-20251001` |
 
 ## Resolution
 
@@ -146,6 +153,22 @@ Each role resolves to an `AgentConfig` with:
 - `model_flag`
 - `model`
 - `args`
+- `env` (optional runtime environment variables to prepend via `env KEY=VALUE ...`)
 - `trust_snippet`
 
 The tmux runtime launches agents from that fully resolved config. The orchestrator still never talks to model APIs directly.
+
+## Runtime MCP setup for research tools
+
+MCP setup for research now follows each provider's native config scope. `agentmux init` and foreground pipeline startup both check whether the effective `architect` / `product-manager` providers already have an `agentmux-research` entry in the correct location:
+
+- Claude: project `.claude/settings.json`
+- Codex: user `~/.codex/config.toml`
+- Gemini: project `.gemini/settings.json`
+- OpenCode: project `opencode.json`
+
+When the entry is missing, the user is prompted to create or refresh it in that provider-specific file. Codex remains a user-scope prompt because Codex MCP servers are configured globally; the other bundled providers use repo-local project config.
+
+At runtime, `setup_mcp(...)` no longer rewrites provider config. It only injects `PYTHONPATH=<project_dir>[...existing entries]` into the launched `architect` / `product-manager` process when needed so `agentmux.mcp_research_server` can import the project checkout. Research requests identify the active session explicitly via the `feature_dir` MCP tool argument.
+
+Claude additionally needs explicit allowlisting, so defaults include `mcp__agentmux-research__*` in architect/product-manager `--allowedTools`. Other bundled providers already run in approval modes that auto-approve tool calls.

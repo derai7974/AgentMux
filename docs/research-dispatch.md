@@ -1,37 +1,58 @@
 # Research Task Dispatch
 
-> Related source files: `agentmux/phases.py` (PlanningPhase, ProductManagementPhase), `agentmux/prompts.py`, `agentmux/prompts/agents/code-researcher.md`, `agentmux/prompts/agents/web-researcher.md`
+> Related source files: `agentmux/mcp_research_server.py`, `agentmux/mcp_config.py`, `agentmux/pipeline.py`, `agentmux/defaults/config.yaml`, `agentmux/prompts/agents/architect.md`, `agentmux/prompts/agents/product-manager.md`
 
-During the planning phase, the architect can request research by writing request files. During the product management phase, the product manager can also request research. Both code-researcher and web-researcher follow the same dispatch pattern.
+Research dispatch is now MCP-first. The architect and product-manager should call MCP tools to create research requests, then wait for AgentMux to push a completion message.
 
-## Code-researcher
+## MCP tools
 
-The architect writes `research/code-<topic>/request.md` files (where `<topic>` is a descriptive slug like `auth-module` or `db-schema`). The orchestrator:
+The `agentmux-research` MCP server exposes:
 
-1. Detects the new request file
-2. Spawns a code-researcher pane (parallel to architect, not exclusive)
-3. Injects the research assignment and tracks the topic in `state.json["research_tasks"]`
-4. Code-researcher analyzes the codebase and produces:
-   - `research/code-<topic>/summary.md` — concise answers for architect
-   - `research/code-<topic>/detail.md` — comprehensive analysis for coder/designer
-   - `research/code-<topic>/done` — empty completion marker
-5. Orchestrator notifies architect when analysis is complete
+- `agentmux_research_dispatch_code(topic, context, questions, feature_dir, scope_hints)`
+- `agentmux_research_dispatch_web(topic, context, questions, feature_dir, scope_hints)`
 
-## Web-researcher
+Validation and behavior:
 
-The architect writes `research/web-<topic>/request.md` files (where `<topic>` is a descriptive slug like `nodejs-versions` or `aws-pricing`). The orchestrator:
+- `topic` must be a slug: lowercase alphanumeric words joined by `-` (for example `auth-module`)
+- `questions` must include at least one non-empty item
+- `feature_dir` should be the session directory shown in the architect or product-manager prompt
+- `scope_hints` may be omitted, passed as a single string, or passed as a list of strings; list form is preferred
+- dispatch writes `research/<type>-<topic>/request.md` with `## Context`, `## Questions`, and `## Scope hints`
 
-1. Detects the new request file
-2. Spawns a web-researcher pane (parallel to architect, not exclusive)
-3. Injects the research assignment and tracks the topic in `state.json["web_research_tasks"]`
-4. Web-researcher searches the internet via WebFetch and WebSearch tools and produces:
-   - `research/web-<topic>/summary.md` — concise answers with version numbers and source URLs for architect
-   - `research/web-<topic>/detail.md` — comprehensive findings with full citations for coder/designer
-   - `research/web-<topic>/done` — empty completion marker
-5. Orchestrator notifies architect when analysis is complete
+Typical flow:
 
-## Parallel execution
+1. Dispatch one or more research topics (`code` and/or `web`).
+2. Stop and wait idle. AgentMux will send the owner agent a completion message when each topic finishes.
+3. Read `summary.md` first and `detail.md` only when needed.
 
-Multiple research tasks can run in parallel and simultaneously across both types. The architect can continue planning while research is underway and incorporate findings when ready.
+Research completion stays file-driven: the orchestrator detects `done`, updates task state, and sends a follow-up message telling the owner agent which `summary.md` / `detail.md` files to read. AgentMux passes the active session directory explicitly as `feature_dir`, so the server does not rely on provider-specific environment propagation.
 
-Web-researcher is configured to use Sonnet (not Haiku) for better reasoning about sources and precision regarding version numbers and technical specifications.
+## File protocol fallback
+
+If MCP tools are unavailable, the legacy file protocol still works:
+
+- Write `research/code-<topic>/request.md` or `research/web-<topic>/request.md`
+- Wait for `research/<type>-<topic>/done`
+- Read `summary.md` and optionally `detail.md`
+
+Request files should include:
+
+- `## Context`
+- `## Questions`
+- `## Scope hints`
+
+## Provider setup strategy
+
+AgentMux expects an MCP registration named `agentmux-research` for the effective `architect` and `product-manager` providers at the provider's native config scope:
+
+- Claude: project `.claude/settings.json`
+- Codex: user `~/.codex/config.toml`
+- Gemini: project `.gemini/settings.json`
+- OpenCode: project `opencode.json`
+
+`agentmux init` and interactive pipeline startup prompt to create that entry only when it is missing. The registered command uses the current Python interpreter and launches `-m agentmux.mcp_research_server`.
+
+For each run, AgentMux may inject `PYTHONPATH` into the launched `architect` / `product-manager` process so the MCP server can import the project checkout. Feature routing now comes from the `feature_dir` MCP tool argument.
+
+For Claude, default launcher args allow MCP calls via `mcp__agentmux-research__*` in `--allowedTools`.
+If the user declines setup, architect/product-manager should use the file-protocol fallback instead.

@@ -107,6 +107,7 @@ class InitRequirementsTests(unittest.TestCase):
         answers = iter(
             [
                 "claude",
+                "Customize roles",
                 "default",
                 "max",
                 "default",
@@ -119,6 +120,24 @@ class InitRequirementsTests(unittest.TestCase):
                 "standard",
                 "default",
                 "low",
+            ]
+        )
+
+        def fake_select(*_args, **_kwargs):
+            return _FakePrompt(next(answers))
+
+        fake_questionary = SimpleNamespace(select=fake_select)
+        with patch("agentmux.init.questionary", fake_questionary):
+            overrides = prompt_role_config(["claude", "codex"], defaults)
+
+        self.assertEqual({"roles": {"coder": {"provider": "claude"}}}, overrides)
+
+    def test_prompt_role_config_quick_setup_uses_default_provider_for_all_roles(self) -> None:
+        defaults = load_builtin_catalog()
+        answers = iter(
+            [
+                "claude",
+                "Use default provider for all roles",
             ]
         )
 

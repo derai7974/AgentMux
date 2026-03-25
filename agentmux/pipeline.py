@@ -26,6 +26,7 @@ from .github import (
     extract_issue_number,
     fetch_issue,
 )
+from .mcp_config import McpServerSpec, cleanup_mcp, ensure_mcp_config, setup_mcp
 from .models import AgentConfig, GitHubConfig
 from .phases import run_phase_cycle
 from .prompts import build_initial_prompts
@@ -44,6 +45,7 @@ from .tmux import tmux_session_exists
 from .transitions import EXIT_FAILURE, EXIT_SUCCESS, PipelineContext
 
 DEFAULT_CONFIG_HINT = ".agentmux/config.yaml"
+MCP_RESEARCH_ROLES = ("architect", "product-manager")
 
 
 def parse_init_args(argv: list[str]) -> argparse.Namespace:
@@ -187,6 +189,12 @@ def ensure_dependencies() -> None:
         raise SystemExit(
             "Missing dependency: watchdog. Install it with `python3 -m pip install -r requirements.txt`."
         )
+    try:
+        from mcp.server.fastmcp import FastMCP  # noqa: F401
+    except ImportError as exc:
+        raise SystemExit(
+            "Missing dependency: mcp. Install it with `python3 -m pip install -r requirements.txt`."
+        ) from exc
 
 
 class FeatureEventHandler(FileSystemEventHandler):
@@ -239,7 +247,10 @@ def orchestrate(
     finally:
         observer.stop()
         observer.join()
-        runtime.shutdown(keep_session)
+        try:
+            cleanup_mcp(files.feature_dir, files.project_dir)
+        finally:
+            runtime.shutdown(keep_session)
 
 
 def start_background_orchestrator(
@@ -289,16 +300,30 @@ def main() -> int:
         project_dir = Path.cwd().resolve()
         loaded = load_runtime_config(project_dir, config_path)
         feature_dir = Path(args.orchestrate).resolve()
+        mcp_servers = [
+            McpServerSpec(
+                name="agentmux-research",
+                module="agentmux.mcp_research_server",
+                env={},
+            )
+        ]
+        agents = setup_mcp(
+            loaded.agents,
+            mcp_servers,
+            MCP_RESEARCH_ROLES,
+            feature_dir,
+            project_dir,
+        )
         files = load_runtime_files(project_dir, feature_dir)
         runtime = TmuxAgentRuntime.attach(
             feature_dir=feature_dir,
             session_name=loaded.session_name,
-            agents=loaded.agents,
+            agents=agents,
         )
         return orchestrate(
             files,
             runtime,
-            loaded.agents,
+            agents,
             loaded.max_review_iterations,
             args.keep_session,
             args.product_manager,
@@ -319,6 +344,15 @@ def main() -> int:
         raise SystemExit(
             f"tmux session `{session_name}` already exists. Stop it or change the resolved session name in your config."
         )
+
+    ensure_mcp_config(
+        agents,
+        [McpServerSpec(name="agentmux-research", module="agentmux.mcp_research_server", env={})],
+        MCP_RESEARCH_ROLES,
+        project_dir,
+        interactive=sys.stdin.isatty(),
+        output=sys.stdout,
+    )
 
     issue_payload: dict[str, str] | None = None
     issue_number: str | None = None
@@ -422,6 +456,21 @@ def main() -> int:
             branch_name = f"{loaded.github.branch_prefix}{feature_slug_from_dir(feature_dir)}"
             if not create_branch(project_dir, branch_name):
                 print("Warning: Could not create feature branch now; will retry at completion.")
+
+    mcp_servers = [
+        McpServerSpec(
+            name="agentmux-research",
+            module="agentmux.mcp_research_server",
+            env={},
+        )
+    ]
+    agents = setup_mcp(
+        agents,
+        mcp_servers,
+        MCP_RESEARCH_ROLES,
+        feature_dir,
+        project_dir,
+    )
 
     current_state = load_state(files.state)
     pm_active = bool(current_state.get("product_manager"))

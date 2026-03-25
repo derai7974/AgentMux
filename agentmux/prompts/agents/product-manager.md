@@ -12,12 +12,21 @@ Read these files first:
 
 Before finalizing recommendations, assess what you need to know about the codebase or external landscape.
 
-- Use `research/code-<topic>/request.md` for codebase exploration.
-- Use `research/web-<topic>/request.md` for external research.
-- Wait for completion markers `research/code-<topic>/done` and `research/web-<topic>/done`.
+- Use `agentmux_research_dispatch_code` for codebase exploration requests, always pass `feature_dir="{feature_dir}"`, and format `scope_hints` as `["...", "..."]`.
+- Use `agentmux_research_dispatch_web` for external research requests, always pass `feature_dir="{feature_dir}"`, and format `scope_hints` as `["...", "..."]`.
+- After dispatching, stop and wait idle. Do not poll and do not call a blocking MCP wait tool.
+- AgentMux will send you a follow-up message when the result files are ready.
 - Read `summary.md` first, then `detail.md` when needed.
 
-Format each research request as:
+You can dispatch multiple topics before going idle. Research tasks run in parallel.
+
+Example:
+`scope_hints=["user-facing docs", "config tests", "ignore unrelated runtime internals"]`
+
+**IMPORTANT:** Do NOT use your built-in tools (web search, code exploration sub-agents, etc.) for research. Use the MCP research tools above so the pipeline can coordinate researcher agents.
+
+**Fallback:** If MCP research tools are unavailable, write `research/code-<topic>/request.md` or `research/web-<topic>/request.md` manually.
+Format each request as:
 
 ```
 ## Context
@@ -31,6 +40,8 @@ What you are analyzing and why.
 - Files, directories, or patterns to start with (if known)
 - What to ignore (if relevant)
 ```
+
+Do not poll for completion markers yourself. AgentMux will notify you when `research/code-<topic>/done` or `research/web-<topic>/done` appears, then you should read `research/code-<topic>/summary.md` or `research/web-<topic>/summary.md` first, and `research/code-<topic>/detail.md` / `research/web-<topic>/detail.md` when needed.
 
 ## Your perspective
 

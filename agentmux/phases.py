@@ -173,8 +173,9 @@ class _ResearchDispatchMixin:
                 send_text(
                     owner_pane,
                     (
-                        f"Code-research on '{topic}' is complete. Results are in "
-                        f"research/code-{topic}/summary.md and research/code-{topic}/detail.md."
+                        f"Code-research on '{topic}' is complete. Read "
+                        f"research/code-{topic}/summary.md first, then "
+                        f"research/code-{topic}/detail.md if you need more detail, and continue from there."
                     ),
                 )
             research_tasks = {
@@ -224,8 +225,9 @@ class _ResearchDispatchMixin:
                 send_text(
                     owner_pane,
                     (
-                        f"Web research on '{topic}' is complete. Results are in "
-                        f"research/web-{topic}/summary.md and research/web-{topic}/detail.md."
+                        f"Web research on '{topic}' is complete. Read "
+                        f"research/web-{topic}/summary.md first, then "
+                        f"research/web-{topic}/detail.md if you need more detail, and continue from there."
                     ),
                 )
             web_research_tasks = {
