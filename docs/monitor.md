@@ -14,7 +14,7 @@ The control pane renders a live status box with the following sections:
   - Inactive agents are filtered out of the AGENTS section
   - For parallel coder mode, only non-inactive `coder_<n>` workers are shown
 - **Research tasks** — progress on code and web research (if any)
-- **Documents** — workflow output files present: `planning/plan.md`, `planning/tasks.md`, `design/design.md`, `review/review.md`, `completion/changes.md` (shown with ✓ when present)
+- **Documents** — workflow output files present: `02_planning/plan.md`, `02_planning/tasks.md`, `04_design/design.md`, `06_review/review.md`, `08_completion/changes.md` (shown with ✓ when present)
 - **Event log** — recent phase transitions with timestamps
 
 ## Key constants

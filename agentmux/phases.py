@@ -154,7 +154,7 @@ class _ResearchDispatchMixin:
                     done_marker.unlink()
                 prompt_file = write_prompt_file(
                     ctx.files.feature_dir,
-                    f"research/code-{t}/prompt.md",
+                    ctx.files.relative_path(ctx.files.research_dir / f"code-{t}" / "prompt.md"),
                     build_code_researcher_prompt(t, ctx.files),
                 )
                 ctx.runtime.spawn_task("code-researcher", t, prompt_file)
@@ -174,8 +174,8 @@ class _ResearchDispatchMixin:
                     owner_pane,
                     (
                         f"Code-research on '{topic}' is complete. Read "
-                        f"research/code-{topic}/summary.md first, then "
-                        f"research/code-{topic}/detail.md if you need more detail, and continue from there."
+                        f"{ctx.files.relative_path(ctx.files.research_dir / f'code-{topic}' / 'summary.md')} first, then "
+                        f"{ctx.files.relative_path(ctx.files.research_dir / f'code-{topic}' / 'detail.md')} if you need more detail, and continue from there."
                     ),
                 )
             research_tasks = {
@@ -206,7 +206,7 @@ class _ResearchDispatchMixin:
                     done_marker.unlink()
                 prompt_file = write_prompt_file(
                     ctx.files.feature_dir,
-                    f"research/web-{t}/prompt.md",
+                    ctx.files.relative_path(ctx.files.research_dir / f"web-{t}" / "prompt.md"),
                     build_web_researcher_prompt(t, ctx.files),
                 )
                 ctx.runtime.spawn_task("web-researcher", t, prompt_file)
@@ -226,8 +226,8 @@ class _ResearchDispatchMixin:
                     owner_pane,
                     (
                         f"Web research on '{topic}' is complete. Read "
-                        f"research/web-{topic}/summary.md first, then "
-                        f"research/web-{topic}/detail.md if you need more detail, and continue from there."
+                        f"{ctx.files.relative_path(ctx.files.research_dir / f'web-{topic}' / 'summary.md')} first, then "
+                        f"{ctx.files.relative_path(ctx.files.research_dir / f'web-{topic}' / 'detail.md')} if you need more detail, and continue from there."
                     ),
                 )
             web_research_tasks = {
@@ -250,7 +250,7 @@ class ProductManagementPhase(_ResearchDispatchMixin, Phase):
         _ = state
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            "product_management/product_manager_prompt.md",
+            ctx.files.relative_path(ctx.files.product_management_dir / "product_manager_prompt.md"),
             build_product_manager_prompt(ctx.files),
         )
         send_to_role(ctx, "product-manager", prompt_file)
@@ -258,7 +258,7 @@ class ProductManagementPhase(_ResearchDispatchMixin, Phase):
     def snapshot_inputs(self, state: dict, ctx: PipelineContext) -> dict[str, str | None]:
         _ = state
         snapshot = {
-            "pm_done": file_signature(ctx.files.feature_dir / "product_management" / "done"),
+            "pm_done": file_signature(ctx.files.product_management_dir / "done"),
         }
         snapshot.update(self._research_snapshot(ctx))
         return snapshot
@@ -267,7 +267,7 @@ class ProductManagementPhase(_ResearchDispatchMixin, Phase):
         if phase_input_changed(
             ctx,
             "pm_done",
-            file_signature(ctx.files.feature_dir / "product_management" / "done"),
+            file_signature(ctx.files.product_management_dir / "done"),
         ):
             return "pm_completed"
         return self._detect_research_event(state, ctx)
@@ -288,7 +288,9 @@ class PlanningPhase(_ResearchDispatchMixin, Phase):
         is_replan = state.get("last_event") == "changes_requested" and ctx.files.changes.exists()
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            f"planning/{'changes_prompt.txt' if is_replan else 'architect_prompt.md'}",
+            ctx.files.relative_path(
+                ctx.files.planning_dir / ("changes_prompt.txt" if is_replan else "architect_prompt.md")
+            ),
             build_change_prompt(ctx.files) if is_replan else build_architect_prompt(ctx.files),
         )
         send_to_role(ctx, "architect", prompt_file)
@@ -344,7 +346,7 @@ class DesigningPhase(Phase):
         _ = state
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            "design/designer_prompt.md",
+            ctx.files.relative_path(ctx.files.design_dir / "designer_prompt.md"),
             build_designer_prompt(ctx.files),
         )
         send_to_role(ctx, "designer", prompt_file)
@@ -372,6 +374,7 @@ class ImplementingPhase(Phase):
 
     def on_enter(self, state: dict, ctx: PipelineContext) -> None:
         reset_markers(ctx.files.implementation_dir, "done_*")
+        ctx.runtime.kill_primary("coder")
 
         subplan_paths = split_plan_into_subplans(ctx.files.plan, ctx.files.planning_dir)
         subplan_count = len(subplan_paths)
@@ -383,7 +386,7 @@ class ImplementingPhase(Phase):
         if subplan_count == 1:
             prompt_file = write_prompt_file(
                 ctx.files.feature_dir,
-                "implementation/coder_prompt.md",
+                ctx.files.relative_path(ctx.files.implementation_dir / "coder_prompt.md"),
                 build_coder_prompt(ctx.files),
             )
             send_to_role(ctx, "coder", prompt_file)
@@ -394,7 +397,9 @@ class ImplementingPhase(Phase):
             prompt_files.append(
                 write_prompt_file(
                     ctx.files.feature_dir,
-                    f"implementation/coder_prompt_{subplan_index}.txt",
+                    ctx.files.relative_path(
+                        ctx.files.implementation_dir / f"coder_prompt_{subplan_index}.txt"
+                    ),
                     build_coder_subplan_prompt(
                         ctx.files,
                         subplan_path=subplan_path,
@@ -446,7 +451,7 @@ class ReviewingPhase(Phase):
             ctx.files.review.unlink()
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            "review/review_prompt.md",
+            ctx.files.relative_path(ctx.files.review_dir / "review_prompt.md"),
             build_reviewer_prompt(ctx.files, is_review=True),
         )
         send_to_role(ctx, "reviewer", prompt_file)
@@ -496,9 +501,10 @@ class FixingPhase(Phase):
     def on_enter(self, state: dict, ctx: PipelineContext) -> None:
         _ = state
         reset_markers(ctx.files.implementation_dir, "done_*")
+        ctx.runtime.kill_primary("coder")
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            "review/fix_prompt.txt",
+            ctx.files.relative_path(ctx.files.review_dir / "fix_prompt.txt"),
             build_fix_prompt(ctx.files),
         )
         send_to_role(ctx, "coder", prompt_file)
@@ -545,7 +551,7 @@ class DocumentingPhase(Phase):
             docs_done.unlink()
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            "docs/docs_prompt.txt",
+            ctx.files.relative_path(ctx.files.docs_dir / "docs_prompt.txt"),
             build_docs_prompt(ctx.files),
         )
         send_to_role(ctx, "docs", prompt_file)
@@ -578,7 +584,7 @@ class CompletingPhase(Phase):
             approval_path.unlink()
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
-            "completion/confirmation_prompt.md",
+            ctx.files.relative_path(ctx.files.completion_dir / "confirmation_prompt.md"),
             build_confirmation_prompt(ctx.files),
         )
         send_to_role(ctx, "reviewer", prompt_file)

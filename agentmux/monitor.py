@@ -78,11 +78,11 @@ EVENT_LABELS: dict[str, str] = {
     "pm_completed": "pm done",
 }
 DOCUMENT_FILES = [
-    "planning/plan.md",
-    "planning/tasks.md",
-    "design/design.md",
-    "review/review.md",
-    "completion/changes.md",
+    "02_planning/plan.md",
+    "02_planning/tasks.md",
+    "04_design/design.md",
+    "06_review/review.md",
+    "08_completion/changes.md",
 ]
 
 

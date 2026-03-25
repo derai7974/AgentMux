@@ -4,11 +4,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agentmux.models import AgentConfig
+from agentmux.models import AgentConfig, SESSION_DIR_NAMES
 from agentmux.phases import PHASES, get_phase
 from agentmux.prompts import build_reviewer_prompt
 from agentmux.state import create_feature_files, load_state, write_state
 from agentmux.transitions import PipelineContext
+
+PLANNING_DIR = SESSION_DIR_NAMES["planning"]
 
 
 class FakeRuntime:
@@ -43,7 +45,7 @@ class ReviewPassRequirementsTests(unittest.TestCase):
         project_dir.mkdir(parents=True, exist_ok=True)
         files = create_feature_files(project_dir, feature_dir, "review handling", "session-x")
 
-        prompts = {"architect": feature_dir / "planning" / "architect_prompt.md"}
+        prompts = {"architect": feature_dir / PLANNING_DIR / "architect_prompt.md"}
         for prompt in prompts.values():
             prompt.parent.mkdir(parents=True, exist_ok=True)
             prompt.write_text(prompt.name, encoding="utf-8")
@@ -72,7 +74,7 @@ class ReviewPassRequirementsTests(unittest.TestCase):
 
             prompt = build_reviewer_prompt(files, is_review=True)
 
-            self.assertIn("Always write `review/review.md`", prompt)
+            self.assertIn("Always write `06_review/review.md`", prompt)
             self.assertIn("verdict: pass", prompt)
             self.assertIn("verdict: fail", prompt)
             self.assertIn("Do not update `state.json`", prompt)
@@ -81,6 +83,7 @@ class ReviewPassRequirementsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             ctx, state_path = self._make_ctx(tmp_path / "feature", with_docs=False)
+            ctx.files.review.parent.mkdir(parents=True, exist_ok=True)
             ctx.files.review.write_text("verdict: pass\n", encoding="utf-8")
 
             state = load_state(state_path)
@@ -132,6 +135,7 @@ class ReviewPassRequirementsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             ctx, state_path = self._make_ctx(tmp_path / "feature", with_docs=False)
+            ctx.files.review.parent.mkdir(parents=True, exist_ok=True)
             ctx.files.review.write_text("verdict: fail\n- finding\n", encoding="utf-8")
 
             state = load_state(state_path)

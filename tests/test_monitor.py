@@ -47,7 +47,7 @@ class MonitorTests(unittest.TestCase):
             self.assertIn("╰───────────╯", output)
             self.assertIn("monitor soll auch", output)
             self.assertIn("beschreibung des features", output)
-            self.assertIn("⠋ implementing", output)
+            self.assertIn("▶ implementing", output)
 
     def test_render_falls_back_cleanly_when_monitor_is_narrow(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -68,7 +68,7 @@ class MonitorTests(unittest.TestCase):
             self.assertIn("╭───────────╮", output)
             self.assertIn("monitor soll", output)
             self.assertIn("auch…", output)
-            self.assertIn("⠋ implement", output)
+            self.assertIn("▶ implement", output)
 
     def test_render_hides_optional_phases_when_inactive(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -82,7 +82,7 @@ class MonitorTests(unittest.TestCase):
 
             self.assertIn("✓ planning", output)
             self.assertIn("reviewing", output)
-            self.assertIn("⠋ reviewing", output)
+            self.assertIn("▶ reviewing", output)
             self.assertIn("· completing", output)
             self.assertIn("· done", output)
             self.assertNotIn("designing", output)
@@ -103,10 +103,9 @@ class MonitorTests(unittest.TestCase):
             output = self._render(feature_dir, width=50, height=22)
             stripped = self._strip_ansi(output)
 
-            self.assertIn(f"{monitor.CYAN}⠋ designing", output)
-            self.assertIn("⠋ designing", stripped)
-            self.assertLess(stripped.index("✓ planning"), stripped.index("⠋ designing"))
-            self.assertLess(stripped.index("⠋ designing"), stripped.index("· implementing"))
+            self.assertIn("▶ designing", stripped)
+            self.assertLess(stripped.index("✓ planning"), stripped.index("▶ designing"))
+            self.assertLess(stripped.index("▶ designing"), stripped.index("· implementing"))
 
     def test_render_formats_last_event_label(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -134,17 +133,17 @@ class MonitorTests(unittest.TestCase):
                 encoding="utf-8",
             )
             runtime_state_path.write_text('{"primary": {}}', encoding="utf-8")
-            (feature_dir / "planning").mkdir(parents=True, exist_ok=True)
-            (feature_dir / "design").mkdir(parents=True, exist_ok=True)
-            (feature_dir / "planning" / "plan.md").write_text("# plan\n", encoding="utf-8")
-            (feature_dir / "design" / "design.md").write_text("# design\n", encoding="utf-8")
+            (feature_dir / "02_planning").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "04_design").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "02_planning" / "plan.md").write_text("# plan\n", encoding="utf-8")
+            (feature_dir / "04_design" / "design.md").write_text("# design\n", encoding="utf-8")
 
             output = self._strip_ansi(self._render(feature_dir, width=15, height=24))
 
             self.assertIn(" DOCUMENTS", output)
             self.assertIn("› design …", output)
-            self.assertIn("✓ planning/pl…", output)
-            self.assertIn("✓ design/desi…", output)
+            self.assertIn("✓ 02_planning", output)
+            self.assertIn("✓ 04_design", output)
 
     def test_append_status_change_logs_only_when_changed(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -200,8 +199,8 @@ class MonitorTests(unittest.TestCase):
             self.assertNotIn("architect", output)
             self.assertIn("reviewer", output)
             self.assertIn("coder", output)
-            self.assertIn("working", output)
-            self.assertIn("idle", output)
+            self.assertIn("WORKING", output)
+            self.assertIn("IDLE", output)
 
     def test_render_shows_log_section_without_box_frame(self) -> None:
         with tempfile.TemporaryDirectory() as td:

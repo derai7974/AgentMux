@@ -9,13 +9,13 @@ Then inspect the current repository state and compare the implementation against
 
 Your job:
 1. Review the implementation against requirements and plan.
-2. Always write `review/review.md`.
-3. The first line of `review/review.md` must be exactly one of:
+2. Always write `06_review/review.md`.
+3. The first line of `06_review/review.md` must be exactly one of:
    - `verdict: pass`
    - `verdict: fail`
 4. On pass, keep the body brief and summarize what was validated.
 5. On fail, include concrete findings, regressions, gaps, or residual risks.
-6. FINAL STEP ONLY — once `review/review.md` is fully written and nothing else remains, stop. Do not update `state.json` or any workflow status from review.
+6. FINAL STEP ONLY — once `06_review/review.md` is fully written and nothing else remains, stop. Do not update `state.json` or any workflow status from review.
 
 {project_instructions}
 

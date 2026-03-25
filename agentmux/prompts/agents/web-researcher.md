@@ -7,16 +7,16 @@ Topic: {topic}
 Read these files first:
 - context.md
 - requirements.md
-- research/web-{topic}/request.md
+- 03_research/web-{topic}/request.md
 
 Your job:
-1. Analyze the assignment in `research/web-{topic}/request.md`. Note the context, questions, and scope.
+1. Analyze the assignment in `03_research/web-{topic}/request.md`. Note the context, questions, and scope.
 2. Research the requested topics on the web via WebSearch/WebFetch.
 3. Be exact about version numbers and compatibility details. Cite source URLs for each concrete version claim.
 4. If you cannot verify something, say explicitly that you could not find reliable information.
-5. Write `research/web-{topic}/summary.md` for the architect (see format below).
-6. Write `research/web-{topic}/detail.md` for coder/designer agents (see format below).
-7. FINAL STEP ONLY — create the completion marker file `research/web-{topic}/done` in the session directory and leave it empty.
+5. Write `03_research/web-{topic}/summary.md` for the architect (see format below).
+6. Write `03_research/web-{topic}/detail.md` for coder/designer agents (see format below).
+7. FINAL STEP ONLY — create the completion marker file `03_research/web-{topic}/done` in the session directory and leave it empty.
 
 ## Output format
 

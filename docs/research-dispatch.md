@@ -17,7 +17,7 @@ Validation and behavior:
 - `questions` must include at least one non-empty item
 - `feature_dir` should be the session directory shown in the architect or product-manager prompt
 - `scope_hints` may be omitted, passed as a single string, or passed as a list of strings; list form is preferred
-- dispatch writes `research/<type>-<topic>/request.md` with `## Context`, `## Questions`, and `## Scope hints`
+- dispatch writes `03_research/<type>-<topic>/request.md` with `## Context`, `## Questions`, and `## Scope hints`
 
 Typical flow:
 
@@ -31,8 +31,8 @@ Research completion stays file-driven: the orchestrator detects `done`, updates 
 
 If MCP tools are unavailable, the legacy file protocol still works:
 
-- Write `research/code-<topic>/request.md` or `research/web-<topic>/request.md`
-- Wait for `research/<type>-<topic>/done`
+- Write `03_research/code-<topic>/request.md` or `03_research/web-<topic>/request.md`
+- Wait for `03_research/<type>-<topic>/done`
 - Read `summary.md` and optionally `detail.md`
 
 Request files should include:

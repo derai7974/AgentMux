@@ -24,8 +24,8 @@ class TasksRequirementsTests(unittest.TestCase):
             files = create_feature_files(project_dir, feature_dir, "add tasks list", "session")
             loaded = load_runtime_files(project_dir, feature_dir)
 
-            self.assertEqual(feature_dir / "planning" / "tasks.md", files.tasks)
-            self.assertEqual(feature_dir / "planning" / "tasks.md", loaded.tasks)
+            self.assertEqual(feature_dir / "02_planning" / "tasks.md", files.tasks)
+            self.assertEqual(feature_dir / "02_planning" / "tasks.md", loaded.tasks)
             self.assertFalse(files.plan.exists())
             self.assertFalse(files.tasks.exists())
             self.assertFalse(files.design.exists())
@@ -44,10 +44,10 @@ class TasksRequirementsTests(unittest.TestCase):
             architect_prompt = build_architect_prompt(files)
             coder_prompt = build_coder_prompt(files)
 
-            self.assertIn("write the final plan to `planning/plan.md`", architect_prompt)
-            self.assertIn("also write `planning/tasks.md`", architect_prompt)
-            self.assertIn("write `planning/plan_meta.json`", architect_prompt)
-            self.assertIn("implementation/done_1", coder_prompt)
+            self.assertIn("write the final plan to `02_planning/plan.md`", architect_prompt)
+            self.assertIn("also write `02_planning/tasks.md`", architect_prompt)
+            self.assertIn("write `02_planning/plan_meta.json`", architect_prompt)
+            self.assertIn("05_implementation/done_1", coder_prompt)
             self.assertIn("Do not update state.json", coder_prompt)
 
     def test_change_prompt_references_files_instead_of_embedding_text(self) -> None:
@@ -58,6 +58,8 @@ class TasksRequirementsTests(unittest.TestCase):
             project_dir.mkdir()
 
             files = create_feature_files(project_dir, feature_dir, "add tasks list", "session")
+            files.changes.parent.mkdir(parents=True, exist_ok=True)
+            files.plan.parent.mkdir(parents=True, exist_ok=True)
             files.changes.write_text("change request", encoding="utf-8")
             files.plan.write_text("# Plan\n\n1. Example step\n", encoding="utf-8")
             files.tasks.write_text("# Tasks\n\n1. Example task\n", encoding="utf-8")
@@ -66,10 +68,10 @@ class TasksRequirementsTests(unittest.TestCase):
 
             self.assertIn("Read these files first:", prompt)
             self.assertIn("- requirements.md", prompt)
-            self.assertIn("- planning/plan.md", prompt)
-            self.assertIn("- planning/tasks.md", prompt)
-            self.assertIn("- completion/changes.md", prompt)
-            self.assertIn("planning/plan_meta.json", prompt)
+            self.assertIn("- 02_planning/plan.md", prompt)
+            self.assertIn("- 02_planning/tasks.md", prompt)
+            self.assertIn("- 08_completion/changes.md", prompt)
+            self.assertIn("02_planning/plan_meta.json", prompt)
             self.assertNotIn("1. Example task", prompt)
 
     def test_architect_prompt_no_longer_accepts_review_mode_and_reviewer_prompt_handles_review(self) -> None:

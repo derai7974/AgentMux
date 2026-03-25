@@ -40,7 +40,7 @@ def _make_ctx(feature_dir: Path, with_docs: bool = True) -> tuple[PipelineContex
     project_dir = feature_dir.parent / "project"
     project_dir.mkdir(parents=True, exist_ok=True)
     files = create_feature_files(project_dir, feature_dir, "on demand prompt generation", "session-x")
-    architect_prompt = feature_dir / "planning" / "architect_prompt.md"
+    architect_prompt = feature_dir / "02_planning" / "architect_prompt.md"
     architect_prompt.parent.mkdir(parents=True, exist_ok=True)
     architect_prompt.write_text("architect prompt", encoding="utf-8")
     agents = {
@@ -65,6 +65,7 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             ctx, state_path = _make_ctx(tmp_path / "feature")
+            ctx.files.plan.parent.mkdir(parents=True, exist_ok=True)
             ctx.files.plan.write_text("# Plan\n\n1. Implement\n", encoding="utf-8")
             state = load_state(state_path)
             state["phase"] = "implementing"
@@ -73,7 +74,10 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
             run_phase_cycle(load_state(state_path), ctx)
 
             self.assertTrue((ctx.files.implementation_dir / "coder_prompt.md").exists())
-            self.assertEqual([("send", "coder", "coder_prompt.md")], ctx.runtime.calls)
+            self.assertEqual(
+                [("kill_primary", "coder"), ("send", "coder", "coder_prompt.md")],
+                ctx.runtime.calls,
+            )
 
     def test_enter_reviewing_builds_review_prompt_inline(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -87,6 +91,22 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
 
             self.assertTrue((ctx.files.review_dir / "review_prompt.md").exists())
             self.assertEqual([("send", "reviewer", "review_prompt.md")], ctx.runtime.calls)
+
+    def test_enter_fixing_kills_stale_coder_and_builds_fix_prompt_inline(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp_path = Path(td)
+            ctx, state_path = _make_ctx(tmp_path / "feature")
+            state = load_state(state_path)
+            state["phase"] = "fixing"
+            write_state(state_path, state)
+
+            run_phase_cycle(load_state(state_path), ctx)
+
+            self.assertTrue((ctx.files.review_dir / "fix_prompt.txt").exists())
+            self.assertEqual(
+                [("kill_primary", "coder"), ("send", "coder", "fix_prompt.txt")],
+                ctx.runtime.calls,
+            )
 
     def test_enter_completing_builds_confirmation_prompt_inline(self) -> None:
         with tempfile.TemporaryDirectory() as td:
