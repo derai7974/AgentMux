@@ -1,8 +1,8 @@
 # AgentMux
 
-**Multi-agent software development pipelines using the AI CLI tools you already have.**
-
 [![test](https://github.com/markuswondrak/AgentMux/actions/workflows/ci.yml/badge.svg)](https://github.com/markuswondrak/AgentMux/actions/workflows/ci.yml)
+
+**Multi-agent software development pipelines using the AI CLI tools you already have.**
 
 AgentMux orchestrates a structured workflow across multiple AI agents — architect, coder, reviewer, and more — by driving existing CLI tools like `claude`, `codex`, `gemini`, and `opencode` through tmux. No new API keys. No per-token billing. Just your existing subscriptions, composed into a team.
 
