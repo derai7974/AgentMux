@@ -227,6 +227,11 @@ class CompletionCommitFlowTests(unittest.TestCase):
             state["phase"] = "completing"
             state["subplan_count"] = 3
             state["review_iteration"] = 2
+            state["implementation_group_total"] = 2
+            state["implementation_group_index"] = 1
+            state["implementation_group_mode"] = "parallel"
+            state["implementation_active_plan_ids"] = ["plan_3", "plan_4"]
+            state["implementation_completed_group_ids"] = ["group_1"]
 
             result = CompletingPhase().handle_event(state, "changes_requested", ctx)
 
@@ -242,6 +247,11 @@ class CompletionCommitFlowTests(unittest.TestCase):
             self.assertEqual("changes_requested", updated["last_event"])
             self.assertEqual(0, updated["subplan_count"])
             self.assertEqual(0, updated["review_iteration"])
+            self.assertEqual(0, updated["implementation_group_total"])
+            self.assertEqual(0, updated["implementation_group_index"])
+            self.assertIsNone(updated["implementation_group_mode"])
+            self.assertEqual([], updated["implementation_active_plan_ids"])
+            self.assertEqual([], updated["implementation_completed_group_ids"])
 
 
 if __name__ == "__main__":

@@ -125,6 +125,137 @@ class MonitorTests(unittest.TestCase):
             self.assertIn("› plan ready", output)
             self.assertNotIn("plan_written", output)
 
+    def test_render_implementing_shows_serial_group_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            runtime_state_path = feature_dir / "runtime_state.json"
+            state_path.write_text(
+                (
+                    '{"phase":"implementing","execution_progress":{'
+                    '"total_groups":3,'
+                    '"completed_groups":1,'
+                    '"active_group_index":1,'
+                    '"active_group_mode":"serial",'
+                    '"active_plan_ids":["plan_2"],'
+                    '"groups":[{"id":"g1"},{"id":"g2"},{"id":"g3"}]'
+                    "}}"
+                ),
+                encoding="utf-8",
+            )
+            runtime_state_path.write_text('{"primary": {}}', encoding="utf-8")
+
+            output = self._strip_ansi(self._render(feature_dir, width=80, height=24))
+
+            self.assertIn("› groups: 1/3 done", output)
+            self.assertIn("› active: g2 serial · plan_2", output)
+            self.assertIn("› done: g1 · queued: g3", output)
+
+    def test_render_implementing_shows_parallel_group_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            runtime_state_path = feature_dir / "runtime_state.json"
+            state_path.write_text(
+                (
+                    '{"phase":"implementing","execution_progress":{'
+                    '"total_groups":2,'
+                    '"completed_groups":0,'
+                    '"active_group_index":0,'
+                    '"active_group_mode":"parallel",'
+                    '"active_plan_ids":["plan_1","plan_2"],'
+                    '"groups":[{"id":"g1"},{"id":"g2"}]'
+                    "}}"
+                ),
+                encoding="utf-8",
+            )
+            runtime_state_path.write_text('{"primary": {}}', encoding="utf-8")
+
+            output = self._strip_ansi(self._render(feature_dir, width=80, height=24))
+
+            self.assertIn("› groups: 0/2 done", output)
+            self.assertIn("› active: g1 parallel · plan_1, plan_2", output)
+            self.assertIn("› queued: g2", output)
+
+    def test_render_implementing_mixed_schedule_summarizes_future_groups(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            runtime_state_path = feature_dir / "runtime_state.json"
+            state_path.write_text(
+                (
+                    '{"phase":"implementing","execution_progress":{'
+                    '"total_groups":4,'
+                    '"completed_groups":1,'
+                    '"active_group_index":1,'
+                    '"active_group_mode":"parallel",'
+                    '"active_plan_ids":["plan_2","plan_3","plan_4"],'
+                    '"groups":[{"id":"g1"},{"id":"g2"},{"id":"g3"},{"id":"g4"}]'
+                    "}}"
+                ),
+                encoding="utf-8",
+            )
+            runtime_state_path.write_text('{"primary": {}}', encoding="utf-8")
+
+            output = self._strip_ansi(self._render(feature_dir, width=80, height=24))
+
+            self.assertIn("› groups: 1/4 done", output)
+            self.assertIn("› active: g2 parallel · 3 plans", output)
+            self.assertIn("› done: g1 · queued: g3, g4", output)
+
+    def test_render_implementing_reads_root_level_implementation_progress_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            runtime_state_path = feature_dir / "runtime_state.json"
+            state_path.write_text(
+                (
+                    '{"phase":"implementing",'
+                    '"subplan_count":4,'
+                    '"implementation_group_total":3,'
+                    '"implementation_group_index":2,'
+                    '"implementation_group_mode":"parallel",'
+                    '"implementation_active_plan_ids":["plan_2","plan_3"],'
+                    '"implementation_completed_group_ids":["group_1"]'
+                    "}"
+                ),
+                encoding="utf-8",
+            )
+            runtime_state_path.write_text('{"primary": {}}', encoding="utf-8")
+
+            output = self._strip_ansi(self._render(feature_dir, width=80, height=24))
+
+            self.assertIn("› groups: 1/3 done", output)
+            self.assertIn("› active: g2 parallel · plan_2, plan_3", output)
+            self.assertIn("› done: g1 · queued: g3", output)
+            self.assertNotIn("› 4 subplans", output)
+
+    def test_render_implementing_staged_details_remain_readable_when_narrow(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            runtime_state_path = feature_dir / "runtime_state.json"
+            state_path.write_text(
+                (
+                    '{"phase":"implementing","execution_progress":{'
+                    '"total_groups":3,'
+                    '"completed_groups":1,'
+                    '"active_group_index":1,'
+                    '"active_group_mode":"parallel",'
+                    '"active_plan_ids":["plan_2","plan_3"],'
+                    '"groups":[{"id":"g1"},{"id":"g2"},{"id":"g3"}]'
+                    "}}"
+                ),
+                encoding="utf-8",
+            )
+            runtime_state_path.write_text('{"primary": {}}', encoding="utf-8")
+
+            output = self._strip_ansi(self._render(feature_dir, width=34, height=24))
+
+            self.assertIn("› groups:", output)
+            self.assertIn("› active:", output)
+            self.assertIn("› done:", output)
+
     def test_render_does_not_show_documents_section_even_when_docs_exist(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)

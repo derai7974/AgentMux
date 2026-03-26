@@ -75,10 +75,27 @@ class PhaseDirectoryRequirementsTests(unittest.TestCase):
             self.assertFalse(files.completion_dir.exists())
             self.assertEqual(feature_dir / "02_planning" / "plan.md", files.plan)
             self.assertEqual(feature_dir / "02_planning" / "tasks.md", files.tasks)
+            self.assertEqual(feature_dir / "02_planning" / "execution_plan.json", files.execution_plan)
             self.assertEqual(feature_dir / "04_design" / "design.md", files.design)
             self.assertEqual(feature_dir / "06_review" / "review.md", files.review)
             self.assertEqual(feature_dir / "06_review" / "fix_request.md", files.fix_request)
             self.assertEqual(feature_dir / "08_completion" / "changes.md", files.changes)
+
+    def test_create_feature_files_initializes_staged_execution_state_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp_path = Path(td)
+            project_dir = tmp_path / "project"
+            feature_dir = tmp_path / "feature"
+            project_dir.mkdir()
+
+            files = create_feature_files(project_dir, feature_dir, "phase dirs", "session-x")
+            state = load_state(files.state)
+
+            self.assertEqual(0, state["implementation_group_total"])
+            self.assertEqual(0, state["implementation_group_index"])
+            self.assertEqual([], state["implementation_active_plan_ids"])
+            self.assertEqual([], state["implementation_completed_group_ids"])
+            self.assertIsNone(state["implementation_group_mode"])
 
     def test_write_prompt_file_creates_parent_directories(self) -> None:
         with tempfile.TemporaryDirectory() as td:

@@ -72,12 +72,44 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
             write_state(state_path, state)
 
             run_phase_cycle(load_state(state_path), ctx)
+            updated = load_state(state_path)
 
             self.assertTrue((ctx.files.implementation_dir / "coder_prompt.md").exists())
             self.assertEqual(
                 [("kill_primary", "coder"), ("send", "coder", "coder_prompt.md")],
                 ctx.runtime.calls,
             )
+            self.assertEqual(1, updated["implementation_group_total"])
+            self.assertEqual(1, updated["implementation_group_index"])
+            self.assertEqual("serial", updated["implementation_group_mode"])
+            self.assertEqual(["plan_1"], updated["implementation_active_plan_ids"])
+            self.assertEqual([], updated["implementation_completed_group_ids"])
+
+    def test_enter_implementing_with_subplans_records_parallel_group_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp_path = Path(td)
+            ctx, state_path = _make_ctx(tmp_path / "feature")
+            ctx.files.plan.parent.mkdir(parents=True, exist_ok=True)
+            ctx.files.plan.write_text(
+                "# Plan\n\n## Sub-plan 1: A\n\nDo A\n\n## Sub-plan 2: B\n\nDo B\n",
+                encoding="utf-8",
+            )
+            state = load_state(state_path)
+            state["phase"] = "implementing"
+            write_state(state_path, state)
+
+            run_phase_cycle(load_state(state_path), ctx)
+            updated = load_state(state_path)
+
+            self.assertEqual(
+                [("kill_primary", "coder"), ("send_many", "coder", ["coder_prompt_1.txt", "coder_prompt_2.txt"])],
+                ctx.runtime.calls,
+            )
+            self.assertEqual(1, updated["implementation_group_total"])
+            self.assertEqual(1, updated["implementation_group_index"])
+            self.assertEqual("parallel", updated["implementation_group_mode"])
+            self.assertEqual(["plan_1", "plan_2"], updated["implementation_active_plan_ids"])
+            self.assertEqual([], updated["implementation_completed_group_ids"])
 
     def test_enter_reviewing_builds_review_prompt_inline(self) -> None:
         with tempfile.TemporaryDirectory() as td:
