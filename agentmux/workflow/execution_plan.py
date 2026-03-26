@@ -10,10 +10,16 @@ _GROUP_MODES = {"serial", "parallel"}
 
 
 @dataclass(frozen=True)
+class ExecutionPlanRef:
+    file: str
+    name: str | None = None
+
+
+@dataclass(frozen=True)
 class ExecutionGroup:
     group_id: str
     mode: str
-    plans: list[str]
+    plans: list[ExecutionPlanRef]
 
 
 @dataclass(frozen=True)
@@ -71,11 +77,24 @@ def load_execution_plan(planning_dir: Path) -> ExecutionPlan | None:
         if not isinstance(plans_raw, list) or not plans_raw:
             raise _error(path, f"groups[{index}].plans must be a non-empty list.")
 
-        plans: list[str] = []
+        plans: list[ExecutionPlanRef] = []
         for plan_index, plan_raw in enumerate(plans_raw, start=1):
-            if not isinstance(plan_raw, str) or not plan_raw.strip():
-                raise _error(path, f"groups[{index}].plans[{plan_index}] must be a non-empty string.")
-            plan_ref = plan_raw.strip()
+            plan_name: str | None = None
+            if isinstance(plan_raw, str):
+                if not plan_raw.strip():
+                    raise _error(path, f"groups[{index}].plans[{plan_index}] must be a non-empty string.")
+                plan_ref = plan_raw.strip()
+            elif isinstance(plan_raw, dict):
+                plan_file_raw = plan_raw.get("file")
+                if not isinstance(plan_file_raw, str) or not plan_file_raw.strip():
+                    raise _error(path, f"groups[{index}].plans[{plan_index}].file must be a non-empty string.")
+                plan_name_raw = plan_raw.get("name")
+                if not isinstance(plan_name_raw, str) or not plan_name_raw.strip():
+                    raise _error(path, f"groups[{index}].plans[{plan_index}].name must be a non-empty string.")
+                plan_ref = plan_file_raw.strip()
+                plan_name = plan_name_raw.strip()
+            else:
+                raise _error(path, f"groups[{index}].plans[{plan_index}] must be a string or object.")
             if not _PLAN_FILE_RE.match(plan_ref):
                 raise _error(
                     path,
@@ -87,7 +106,7 @@ def load_execution_plan(planning_dir: Path) -> ExecutionPlan | None:
             if not plan_path.is_file():
                 raise _error(path, f"groups[{index}].plans[{plan_index}] references missing file '{plan_ref}'.")
             seen_plan_refs.add(plan_ref)
-            plans.append(plan_ref)
+            plans.append(ExecutionPlanRef(file=plan_ref, name=plan_name))
 
         groups.append(ExecutionGroup(group_id=group_id, mode=mode_raw, plans=plans))
 

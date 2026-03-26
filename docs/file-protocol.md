@@ -25,8 +25,9 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 - `plan_<N>.md` — executable per-unit implementation plans referenced by scheduler metadata
 - `execution_plan.json` — machine-readable schedule of ordered execution groups
   - Each group has a unique `group_id` and an execution mode (`serial` or `parallel`)
-  - `serial` groups must reference exactly one `plan_<N>.md` file
-  - `parallel` groups reference one or more `plan_<N>.md` files
+  - `serial` groups must reference exactly one named `plan_<N>.md` entry
+  - `parallel` groups reference one or more named `plan_<N>.md` entries
+  - Canonical plan-entry shape is `{ "file": "plan_<N>.md", "name": "Human title" }`
   - Plan references must be unique across groups
   - Group ordering defines implementation wave order
 - `tasks.md` — architect implementation checklist derived from the same staged plan
@@ -38,6 +39,7 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 Compatibility behavior:
 
 - Legacy flat plans without `execution_plan.json` still rely on `plan.md` `## Sub-plan <N>: ...` splitting into generated `plan_*.md` files.
+- Legacy execution plans with `plans: ["plan_1.md"]` remain readable, but new architect output must use named plan objects.
 - Staged execution should be preferred for new plans; legacy splitting is retained for backward compatibility.
 
 ## Research (`03_research/`)

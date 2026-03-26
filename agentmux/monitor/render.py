@@ -12,6 +12,7 @@ from .state_reader import (
     PIPELINE_STATES,
     SESSION_DIR_NAMES,
     format_event,
+    get_role_labels,
     get_role_states,
     load_state,
     read_feature_request,
@@ -610,7 +611,13 @@ def _render_pipeline_section(
     return lines
 
 
-def _render_agents_section(width: int, *, agents: dict[str, dict[str, str]], role_states: dict[str, str]) -> list[str]:
+def _render_agents_section(
+    width: int,
+    *,
+    agents: dict[str, dict[str, str]],
+    role_states: dict[str, str],
+    role_labels: dict[str, str],
+) -> list[str]:
     lines = [_section_title("AGENTS"), ""]
 
     def _agent_row(display_name: str, agent_state: str, cfg: dict[str, str]) -> None:
@@ -656,11 +663,15 @@ def _render_agents_section(width: int, *, agents: dict[str, dict[str, str]], rol
                 for coder_key in parallel_keys:
                     if role_states.get(coder_key, "inactive") == "inactive":
                         continue
-                    _agent_row(f"coder {coder_key.split('_')[1]}", role_states.get(coder_key, "inactive"), cfg)
+                    _agent_row(
+                        role_labels.get(coder_key, f"coder {coder_key.split('_')[1]}"),
+                        role_states.get(coder_key, "inactive"),
+                        cfg,
+                    )
             elif role_states.get("coder", "inactive") != "inactive":
-                _agent_row("coder", role_states.get("coder", "inactive"), cfg)
+                _agent_row(role_labels.get("coder", "coder"), role_states.get("coder", "inactive"), cfg)
         elif role_states.get(role, "inactive") != "inactive":
-            _agent_row(role, role_states.get(role, "inactive"), cfg)
+            _agent_row(role_labels.get(role, role), role_states.get(role, "inactive"), cfg)
 
     if lines[-1] == "":
         lines.pop()
@@ -704,6 +715,7 @@ def render(
 ) -> str:
     state = load_state(state_path)
     role_states = get_role_states(session_name, runtime_state_path)
+    role_labels = get_role_labels(state_path, runtime_state_path)
     created_files_log_path = state_path.parent / "created_files.log"
 
     status = state.get("phase", "waiting…")
@@ -730,7 +742,7 @@ def render(
         )
     )
 
-    agent_rows = _render_agents_section(width, agents=agents, role_states=role_states)
+    agent_rows = _render_agents_section(width, agents=agents, role_states=role_states, role_labels=role_labels)
     if agent_rows:
         body.append("")
         body.extend(agent_rows)

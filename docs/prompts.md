@@ -64,7 +64,7 @@ Planning and replanning prompts share one contract for implementation scheduling
 
 - `02_planning/plan.md` is the human-readable overview
 - `02_planning/plan_<N>.md` files are executable implementation units
-- `02_planning/execution_plan.json` is the scheduling source of truth (ordered execution groups, each marked as `serial` or `parallel`, with explicit plan-file references)
+- `02_planning/execution_plan.json` is the scheduling source of truth (ordered execution groups, each marked as `serial` or `parallel`, with explicit named plan references)
 - `02_planning/tasks.md` remains the implementation checklist mapped to the same work
 - `02_planning/plan_meta.json` remains workflow intent metadata (`needs_design`, `needs_docs`, `doc_files`)
 
@@ -86,6 +86,7 @@ Current split:
   - `02_planning/plan.md` as the human-readable overview
   - `02_planning/plan_<N>.md` executable sub-plan files
   - `02_planning/execution_plan.json` as machine-readable schedule metadata (`version`, ordered `groups`, `group_id`, `mode`, `plans`)
+  - new plans must write `groups[].plans[]` entries as `{ "file": "plan_<N>.md", "name": "<sub-plan title>" }`
   - `02_planning/plan_meta.json` with `needs_design`, `needs_docs`, and `doc_files` (empty list when `needs_docs` is `false`)
   - compatibility behavior where legacy flat `plan.md` parsing is only a fallback when `execution_plan.json` is absent
 - `build_product_manager_prompt()` renders the PM analysis prompt

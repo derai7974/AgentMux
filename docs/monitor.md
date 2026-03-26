@@ -18,6 +18,9 @@ The control pane renders a live status box with the following sections:
 - **Agents** — list of active agents only (WORKING/IDLE), with provider/model info
   - Inactive agents are filtered out of the AGENTS section
   - For parallel coder mode, only non-inactive `coder_<n>` workers are shown
+  - Agent rows use a shared `[role] secondary-info` format
+  - Coder rows prefer the explicit `name` from `02_planning/execution_plan.json`, then fall back to the `## Sub-plan <N>: <title>` header in `02_planning/plan_<n>.md`
+  - Reviewer rows show the current review iteration, and designer rows show the feature being designed
 - **Research tasks** — progress on code and web research (if any)
 - **Event log** — recent timeline entries with timestamps: phase transitions plus filtered handover-relevant file creations from `created_files.log`
   - Phase-transition entries are rendered in white for contrast

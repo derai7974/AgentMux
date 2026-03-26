@@ -354,6 +354,75 @@ class MonitorTests(unittest.TestCase):
             self.assertIn("WORKING", output)
             self.assertIn("IDLE", output)
 
+    def test_render_agents_uses_formatted_labels_for_parallel_coders(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            runtime_state_path = feature_dir / "runtime_state.json"
+            planning_dir = feature_dir / "02_planning"
+            planning_dir.mkdir(parents=True, exist_ok=True)
+            (planning_dir / "plan_2.md").write_text("## Sub-plan 2: API wiring\n", encoding="utf-8")
+            state_path.write_text('{"phase": "implementing"}', encoding="utf-8")
+            runtime_state_path.write_text('{"primary": {"coder": "%2"}, "parallel": {"coder": {"2": "%2"}}}', encoding="utf-8")
+
+            agents = {
+                "coder": {"cli": "codex", "model": "gpt-5.3-codex"},
+            }
+
+            with patch(
+                "agentmux.monitor.render_module.get_role_states",
+                return_value={"coder_2": "working"},
+            ):
+                with patch("agentmux.monitor.render_module.time.time", return_value=0.0):
+                    output = self._strip_ansi(
+                        monitor.render(
+                            session_name="session-x",
+                            state_path=state_path,
+                            runtime_state_path=runtime_state_path,
+                            agents=agents,
+                            width=60,
+                            height=24,
+                            start_time=0.0,
+                        )
+                    )
+
+            self.assertIn("[coder] API wiring", output)
+            self.assertNotIn("coder 2", output)
+
+    def test_render_agents_uses_reviewer_iteration_and_designer_subject(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td) / "tmp"
+            feature_dir.mkdir(parents=True, exist_ok=True)
+            state_path = feature_dir / "state.json"
+            runtime_state_path = feature_dir / "runtime_state.json"
+            state_path.write_text('{"phase": "reviewing", "review_iteration": 1}', encoding="utf-8")
+            runtime_state_path.write_text('{"primary": {"reviewer": "%4", "designer": "%5"}}', encoding="utf-8")
+
+            agents = {
+                "reviewer": {"cli": "claude", "model": "sonnet"},
+                "designer": {"cli": "claude", "model": "sonnet"},
+            }
+
+            with patch(
+                "agentmux.monitor.render_module.get_role_states",
+                return_value={"reviewer": "working", "designer": "idle"},
+            ):
+                with patch("agentmux.monitor.render_module.time.time", return_value=0.0):
+                    output = self._strip_ansi(
+                        monitor.render(
+                            session_name="session-x",
+                            state_path=state_path,
+                            runtime_state_path=runtime_state_path,
+                            agents=agents,
+                            width=70,
+                            height=24,
+                            start_time=0.0,
+                        )
+                    )
+
+            self.assertIn("[reviewer] iteration 2", output)
+            self.assertIn("[designer] tmp", output)
+
     def test_render_shows_log_section_without_box_frame(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)

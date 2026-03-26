@@ -18,7 +18,7 @@ class _FakeRuntime:
     def __init__(self) -> None:
         self.calls: list[tuple[str, object]] = []
 
-    def send(self, role: str, prompt_file: Path) -> None:
+    def send(self, role: str, prompt_file: Path, display_label: str | None = None) -> None:
         self.calls.append(("send", role, prompt_file.name))
 
     def kill_primary(self, role: str) -> None:

@@ -30,12 +30,12 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
                             {
                                 "group_id": "foundation",
                                 "mode": "serial",
-                                "plans": ["plan_1.md"],
+                                "plans": [{"file": "plan_1.md", "name": "Foundation"}],
                             },
                             {
                                 "group_id": "parallel-impl",
                                 "mode": "parallel",
-                                "plans": ["plan_2.md"],
+                                "plans": [{"file": "plan_2.md", "name": "API wiring"}],
                             },
                         ],
                     }
@@ -50,7 +50,29 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
             self.assertEqual(2, len(execution_plan.groups))
             self.assertEqual("foundation", execution_plan.groups[0].group_id)
             self.assertEqual("serial", execution_plan.groups[0].mode)
-            self.assertEqual(["plan_1.md"], execution_plan.groups[0].plans)
+            self.assertEqual("plan_1.md", execution_plan.groups[0].plans[0].file)
+            self.assertEqual("Foundation", execution_plan.groups[0].plans[0].name)
+
+    def test_load_execution_plan_keeps_legacy_string_entries_compatible(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            planning_dir = Path(td) / "02_planning"
+            planning_dir.mkdir(parents=True, exist_ok=True)
+            (planning_dir / "plan_1.md").write_text("# Plan 1\n", encoding="utf-8")
+            (planning_dir / "execution_plan.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "groups": [{"group_id": "g1", "mode": "serial", "plans": ["plan_1.md"]}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            execution_plan = load_execution_plan(planning_dir)
+
+            assert execution_plan is not None
+            self.assertEqual("plan_1.md", execution_plan.groups[0].plans[0].file)
+            self.assertIsNone(execution_plan.groups[0].plans[0].name)
 
     def test_load_execution_plan_fails_for_missing_referenced_plan_file(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -64,7 +86,7 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
                             {
                                 "group_id": "g1",
                                 "mode": "serial",
-                                "plans": ["plan_1.md"],
+                                "plans": [{"file": "plan_1.md", "name": "Plan 1"}],
                             }
                         ],
                     }
@@ -101,12 +123,12 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
                             {
                                 "group_id": "g1",
                                 "mode": "serial",
-                                "plans": ["plan_1.md"],
+                                "plans": [{"file": "plan_1.md", "name": "Plan 1"}],
                             },
                             {
                                 "group_id": "g1",
                                 "mode": "parallel",
-                                "plans": ["plan_2.md"],
+                                "plans": [{"file": "plan_2.md", "name": "Plan 2"}],
                             },
                         ],
                     }
@@ -115,6 +137,30 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(RuntimeError, "duplicate"):
+                load_execution_plan(planning_dir)
+
+    def test_load_execution_plan_rejects_structured_plan_without_name(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            planning_dir = Path(td) / "02_planning"
+            planning_dir.mkdir(parents=True, exist_ok=True)
+            (planning_dir / "plan_1.md").write_text("# Plan 1\n", encoding="utf-8")
+            (planning_dir / "execution_plan.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "groups": [
+                            {
+                                "group_id": "g1",
+                                "mode": "serial",
+                                "plans": [{"file": "plan_1.md"}],
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "name"):
                 load_execution_plan(planning_dir)
 
 

@@ -6,11 +6,13 @@ import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from ..agent_labels import format_agent_label, role_display_label
 from ..integrations.completion import CompletionService
-from ..sessions.state_store import feature_slug_from_dir, now_iso, write_state
+from ..runtime import ParallelPromptSpec
+from ..sessions.state_store import now_iso, write_state
 from .execution_plan import load_execution_plan
 from .handlers import load_plan_meta, reset_markers, send_to_role, write_phase
-from .plan_parser import split_plan_into_subplans
+from .plan_parser import coder_label_for_subplan, split_plan_into_subplans
 from .prompts import (
     build_architect_prompt,
     build_change_prompt,
@@ -124,6 +126,7 @@ def _build_implementation_schedule(
                     "mode": "serial",
                     "plan_paths": [plan_path],
                     "plan_ids": ["plan_1"],
+                    "plan_names": [None],
                     "marker_indexes": [1],
                     "legacy_single_prompt": True,
                 }
@@ -135,6 +138,7 @@ def _build_implementation_schedule(
                 "mode": "parallel",
                 "plan_paths": subplan_paths,
                 "plan_ids": [f"plan_{index}" for index in marker_indexes],
+                "plan_names": [coder_label_for_subplan(planning_dir, index) for index in marker_indexes],
                 "marker_indexes": marker_indexes,
                 "legacy_single_prompt": False,
             }
@@ -143,19 +147,20 @@ def _build_implementation_schedule(
     schedule: list[dict[str, object]] = []
     all_indexes: list[int] = []
     for group in execution_plan.groups:
-        group_indexes = [_plan_index_from_name(plan_name) for plan_name in group.plans]
+        group_indexes = [_plan_index_from_name(plan.file) for plan in group.plans]
         if group.mode == "serial" and len(group_indexes) != 1:
             raise RuntimeError(
                 f"execution_plan.json group `{group.group_id}` uses mode `serial` and must reference exactly one plan."
             )
         all_indexes.extend(group_indexes)
-        plan_paths = [planning_dir / plan_name for plan_name in group.plans]
+        plan_paths = [planning_dir / plan.file for plan in group.plans]
         schedule.append(
             {
                 "group_id": group.group_id,
                 "mode": group.mode,
                 "plan_paths": plan_paths,
-                "plan_ids": [Path(plan_name).stem for plan_name in group.plans],
+                "plan_ids": [Path(plan.file).stem for plan in group.plans],
+                "plan_names": [plan.name or coder_label_for_subplan(planning_dir, index) for plan, index in zip(group.plans, group_indexes)],
                 "marker_indexes": group_indexes,
                 "legacy_single_prompt": False,
             }
@@ -482,13 +487,17 @@ class DesigningPhase(Phase):
     name = "designing"
 
     def on_enter(self, state: dict, ctx: PipelineContext) -> None:
-        _ = state
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
             ctx.files.relative_path(ctx.files.design_dir / "designer_prompt.md"),
             build_designer_prompt(ctx.files),
         )
-        send_to_role(ctx, "designer", prompt_file)
+        send_to_role(
+            ctx,
+            "designer",
+            prompt_file,
+            display_label=role_display_label(ctx.files.feature_dir, "designer", state=state),
+        )
 
     def snapshot_inputs(self, state: dict, ctx: PipelineContext) -> dict[str, str | None]:
         _ = state
@@ -544,9 +553,10 @@ class ImplementingPhase(Phase):
         group = schedule[active_group_index]
         marker_indexes = [int(index) for index in list(group["marker_indexes"])]
         plan_paths = [Path(path) for path in list(group["plan_paths"])]
-        pending: list[tuple[int, Path]] = [
-            (index, path)
-            for index, path in zip(marker_indexes, plan_paths)
+        plan_names = [None if name is None else str(name) for name in list(group.get("plan_names", []))]
+        pending: list[tuple[int, Path, str | None]] = [
+            (index, path, plan_name)
+            for index, path, plan_name in zip(marker_indexes, plan_paths, plan_names)
             if not (ctx.files.implementation_dir / f"done_{index}").exists()
         ]
         if not pending:
@@ -558,29 +568,46 @@ class ImplementingPhase(Phase):
                 ctx.files.relative_path(ctx.files.implementation_dir / "coder_prompt.md"),
                 build_coder_prompt(ctx.files),
             )
-            send_to_role(ctx, "coder", prompt_file)
+            send_to_role(
+                ctx,
+                "coder",
+                prompt_file,
+                display_label=role_display_label(ctx.files.feature_dir, "coder"),
+            )
             return
 
-        prompt_files: list[Path] = []
-        for marker_index, subplan_path in pending:
-            prompt_files.append(
-                write_prompt_file(
-                    ctx.files.feature_dir,
-                    ctx.files.relative_path(
-                        ctx.files.implementation_dir / f"coder_prompt_{marker_index}.txt"
+        prompt_specs: list[ParallelPromptSpec] = []
+        for marker_index, subplan_path, plan_name in pending:
+            prompt_specs.append(
+                ParallelPromptSpec(
+                    task_id=marker_index,
+                    prompt_file=write_prompt_file(
+                        ctx.files.feature_dir,
+                        ctx.files.relative_path(
+                            ctx.files.implementation_dir / f"coder_prompt_{marker_index}.txt"
+                        ),
+                        build_coder_subplan_prompt(
+                            ctx.files,
+                            subplan_path=subplan_path,
+                            subplan_index=marker_index,
+                        ),
                     ),
-                    build_coder_subplan_prompt(
-                        ctx.files,
-                        subplan_path=subplan_path,
-                        subplan_index=marker_index,
+                    display_label=format_agent_label(
+                        "coder",
+                        plan_name or coder_label_for_subplan(ctx.files.planning_dir, marker_index),
                     ),
                 )
             )
 
-        if str(group["mode"]) == "parallel" and len(prompt_files) > 1:
-            ctx.runtime.send_many("coder", prompt_files)
+        if str(group["mode"]) == "parallel" and len(prompt_specs) > 1:
+            ctx.runtime.send_many("coder", prompt_specs)
             return
-        send_to_role(ctx, "coder", prompt_files[0])
+        send_to_role(
+            ctx,
+            "coder",
+            prompt_specs[0].prompt_file,
+            display_label=prompt_specs[0].display_label,
+        )
 
     def on_enter(self, state: dict, ctx: PipelineContext) -> None:
         if state.get("last_event") in {"plan_written", "design_written", "changes_requested"}:
@@ -689,7 +716,6 @@ class ReviewingPhase(Phase):
     name = "reviewing"
 
     def on_enter(self, state: dict, ctx: PipelineContext) -> None:
-        _ = state
         if ctx.files.review.exists():
             ctx.files.review.unlink()
         prompt_file = write_prompt_file(
@@ -697,7 +723,12 @@ class ReviewingPhase(Phase):
             ctx.files.relative_path(ctx.files.review_dir / "review_prompt.md"),
             build_reviewer_prompt(ctx.files, is_review=True),
         )
-        send_to_role(ctx, "reviewer", prompt_file)
+        send_to_role(
+            ctx,
+            "reviewer",
+            prompt_file,
+            display_label=role_display_label(ctx.files.feature_dir, "reviewer", state=state),
+        )
 
     def snapshot_inputs(self, state: dict, ctx: PipelineContext) -> dict[str, str | None]:
         _ = state
@@ -748,7 +779,6 @@ class FixingPhase(Phase):
     name = "fixing"
 
     def on_enter(self, state: dict, ctx: PipelineContext) -> None:
-        _ = state
         if state.get("last_event") == "review_failed":
             reset_markers(ctx.files.implementation_dir, "done_*")
         state["completed_subplans"] = []
@@ -761,7 +791,12 @@ class FixingPhase(Phase):
             ctx.files.relative_path(ctx.files.review_dir / "fix_prompt.txt"),
             build_fix_prompt(ctx.files),
         )
-        send_to_role(ctx, "coder", prompt_file)
+        send_to_role(
+            ctx,
+            "coder",
+            prompt_file,
+            display_label=role_display_label(ctx.files.feature_dir, "coder", state=state),
+        )
 
     def snapshot_inputs(self, state: dict, ctx: PipelineContext) -> dict[str, str | None]:
         _ = state
@@ -830,7 +865,12 @@ class CompletingPhase(Phase):
             ctx.files.relative_path(ctx.files.completion_dir / "confirmation_prompt.md"),
             build_confirmation_prompt(ctx.files),
         )
-        send_to_role(ctx, "reviewer", prompt_file)
+        send_to_role(
+            ctx,
+            "reviewer",
+            prompt_file,
+            display_label=role_display_label(ctx.files.feature_dir, "reviewer", state=state),
+        )
 
     def snapshot_inputs(self, state: dict, ctx: PipelineContext) -> dict[str, str | None]:
         _ = state

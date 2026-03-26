@@ -10,15 +10,34 @@ from agentmux.workflow.phases import get_phase, run_phase_cycle
 from agentmux.workflow.transitions import PipelineContext
 
 
+def _prompt_names(prompt_specs: list[object]) -> list[str]:
+    names: list[str] = []
+    for item in prompt_specs:
+        prompt_file = getattr(item, "prompt_file", item)
+        names.append(Path(prompt_file).name)
+    return names
+
+
 class FakeRuntime:
     def __init__(self) -> None:
         self.calls: list[tuple[str, object]] = []
+        self.parallel_specs: list[list[tuple[int | str, str, str | None]]] = []
 
-    def send(self, role: str, prompt_file: Path) -> None:
-        self.calls.append(("send", role, prompt_file.name))
+    def send(self, role: str, prompt_file: Path, display_label: str | None = None) -> None:
+        self.calls.append(("send", role, prompt_file.name, display_label))
 
-    def send_many(self, role: str, prompt_files: list[Path]) -> None:
-        self.calls.append(("send_many", role, [path.name for path in prompt_files]))
+    def send_many(self, role: str, prompt_specs: list[object]) -> None:
+        self.calls.append(("send_many", role, _prompt_names(prompt_specs)))
+        self.parallel_specs.append(
+            [
+                (
+                    getattr(item, "task_id"),
+                    Path(getattr(item, "prompt_file")).name,
+                    getattr(item, "display_label", None),
+                )
+                for item in prompt_specs
+            ]
+        )
 
     def deactivate(self, role: str) -> None:
         self.calls.append(("deactivate", role))
@@ -79,7 +98,7 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
 
             self.assertTrue((ctx.files.implementation_dir / "coder_prompt.md").exists())
             self.assertEqual(
-                [("kill_primary", "coder"), ("send", "coder", "coder_prompt.md")],
+                [("kill_primary", "coder"), ("send", "coder", "coder_prompt.md", "[coder] implementation")],
                 ctx.runtime.calls,
             )
             self.assertEqual(1, updated["implementation_group_total"])
@@ -107,6 +126,10 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
             self.assertEqual(
                 [("kill_primary", "coder"), ("send_many", "coder", ["coder_prompt_1.txt", "coder_prompt_2.txt"])],
                 ctx.runtime.calls,
+            )
+            self.assertEqual(
+                [[(1, "coder_prompt_1.txt", "[coder] A"), (2, "coder_prompt_2.txt", "[coder] B")]],
+                ctx.runtime.parallel_specs,
             )
             self.assertEqual(1, updated["implementation_group_total"])
             self.assertEqual(1, updated["implementation_group_index"])
@@ -162,7 +185,7 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
             run_phase_cycle(load_state(state_path), ctx)
 
             self.assertTrue((ctx.files.review_dir / "review_prompt.md").exists())
-            self.assertEqual([("send", "reviewer", "review_prompt.md")], ctx.runtime.calls)
+            self.assertEqual([("send", "reviewer", "review_prompt.md", "[reviewer] iteration 1")], ctx.runtime.calls)
 
     def test_enter_fixing_kills_stale_coder_and_builds_fix_prompt_inline(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -176,7 +199,7 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
 
             self.assertTrue((ctx.files.review_dir / "fix_prompt.txt").exists())
             self.assertEqual(
-                [("kill_primary", "coder"), ("send", "coder", "fix_prompt.txt")],
+                [("kill_primary", "coder"), ("send", "coder", "fix_prompt.txt", "[coder] fix 1")],
                 ctx.runtime.calls,
             )
 
@@ -191,7 +214,7 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
             run_phase_cycle(load_state(state_path), ctx)
 
             self.assertTrue((ctx.files.completion_dir / "confirmation_prompt.md").exists())
-            self.assertEqual([("send", "reviewer", "confirmation_prompt.md")], ctx.runtime.calls)
+            self.assertEqual([("send", "reviewer", "confirmation_prompt.md", "[reviewer] iteration 1")], ctx.runtime.calls)
 
 
 if __name__ == "__main__":

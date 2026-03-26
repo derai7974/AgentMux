@@ -11,6 +11,13 @@ The tmux layout is split into two zones:
 
 `ContentZone` owns the right-hand pane state. Its `_visible` list is the single source of truth for which agent panes are currently mounted in the main window. The placeholder pane is internal and never part of `_visible`.
 
+Pane identity and pane display are separate:
+
+- `@role` remains the stable logical role used for pane lookup and resume (`coder`, `architect`, etc.)
+- `@pane_label` is optional display metadata used for pane borders and visible pane titles
+- Pane borders and titles render only the already-formatted display label, with no session or feature suffix appended
+- Coder panes use the structured plan name or fix iteration, reviewer panes use review iteration, and designer panes use the feature being designed
+
 ## Invariant
 
 - If `_visible` is empty, the placeholder pane occupies the content zone in the main window

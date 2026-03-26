@@ -70,7 +70,8 @@ Do not poll for `done` yourself. AgentMux will notify you when `03_research/code
 12. Only after the user explicitly approves (e.g. says 'approved', 'looks good', 'go ahead'), write the final plan to `02_planning/plan.md` as the human-readable overview.
 13. After writing `02_planning/plan.md`, also write numbered executable plan files under `02_planning/plan_<N>.md` (for example `plan_1.md`, `plan_2.md`) aligned with the sub-plans.
 14. After writing plan files, also write `02_planning/execution_plan.json` as the machine-readable execution schedule with this shape:
-`{{ "version": 1, "groups": [{{ "group_id": "string", "mode": "serial|parallel", "plans": ["plan_1.md", "plan_2.md"] }}] }}`
+`{{ "version": 1, "groups": [{{ "group_id": "string", "mode": "serial|parallel", "plans": [{{ "file": "plan_1.md", "name": "Foundation contracts" }}, {{ "file": "plan_2.md", "name": "API wiring" }}] }}] }}`
+Every `plans[]` entry must include an explicit `name` for that work unit. Use the same work-unit title you want displayed in coder pane titles and monitor labels.
 15. Compatibility policy: runtime keeps a legacy flat `plan.md` parsing fallback for older sessions that do not have `execution_plan.json`, but new plans must always write `execution_plan.json`.
 16. After writing `02_planning/plan.md`, plan files, and `02_planning/execution_plan.json`, also write `02_planning/tasks.md` as a numbered checklist derived from the plan. Each task must be a concrete, testable unit of work (for example: "Create function X in file Y", "Add test for Z"). If you created sub-plans, group tasks under the corresponding `## Sub-plan <N>: <title>` header.
 17. After writing planning/task/execution artifacts, write `02_planning/plan_meta.json` with this exact shape: `{{ "needs_design": true|false, "needs_docs": true|false, "doc_files": ["path/to/doc.md", ...] }}`.

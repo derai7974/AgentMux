@@ -11,15 +11,34 @@ from agentmux.workflow.phases import run_phase_cycle
 from agentmux.workflow.transitions import PipelineContext
 
 
+def _prompt_names(prompt_specs: list[object]) -> list[str]:
+    names: list[str] = []
+    for item in prompt_specs:
+        prompt_file = getattr(item, "prompt_file", item)
+        names.append(Path(prompt_file).name)
+    return names
+
+
 class _FakeRuntime:
     def __init__(self) -> None:
         self.calls: list[tuple[str, object]] = []
+        self.parallel_specs: list[list[tuple[int | str, str, str | None]]] = []
 
-    def send(self, role: str, prompt_file: Path) -> None:
-        self.calls.append(("send", role, prompt_file.name))
+    def send(self, role: str, prompt_file: Path, display_label: str | None = None) -> None:
+        self.calls.append(("send", role, prompt_file.name, display_label))
 
-    def send_many(self, role: str, prompt_files: list[Path]) -> None:
-        self.calls.append(("send_many", role, [path.name for path in prompt_files]))
+    def send_many(self, role: str, prompt_specs: list[object]) -> None:
+        self.calls.append(("send_many", role, _prompt_names(prompt_specs)))
+        self.parallel_specs.append(
+            [
+                (
+                    getattr(item, "task_id"),
+                    Path(getattr(item, "prompt_file")).name,
+                    getattr(item, "display_label", None),
+                )
+                for item in prompt_specs
+            ]
+        )
 
     def deactivate(self, role: str) -> None:
         self.calls.append(("deactivate", role))
@@ -83,7 +102,8 @@ def _write_execution_plan(ctx: PipelineContext, groups: list[dict]) -> None:
     (planning_dir / "execution_plan.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     for group in groups:
         for plan_file in group["plans"]:
-            (planning_dir / plan_file).write_text(f"# {plan_file}\n", encoding="utf-8")
+            plan_ref = plan_file["file"] if isinstance(plan_file, dict) else plan_file
+            (planning_dir / plan_ref).write_text(f"# {plan_ref}\n", encoding="utf-8")
 
 
 class StagedExecutionSchedulerTests(unittest.TestCase):
@@ -93,11 +113,11 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
             _set_phase(state_path, "implementing")
             _write_execution_plan(
                 ctx,
-                [{"group_id": "g1", "mode": "serial", "plans": ["plan_1.md"]}],
+                [{"group_id": "g1", "mode": "serial", "plans": [{"file": "plan_1.md", "name": "Foundation"}]}],
             )
 
             _cycle(ctx, state_path)
-            self.assertIn(("send", "coder", "coder_prompt_1.txt"), ctx.runtime.calls)
+            self.assertIn(("send", "coder", "coder_prompt_1.txt", "[coder] Foundation"), ctx.runtime.calls)
 
             _touch(ctx.files.implementation_dir / "done_1")
             state = _cycle(ctx, state_path)
@@ -109,7 +129,16 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
             _set_phase(state_path, "implementing")
             _write_execution_plan(
                 ctx,
-                [{"group_id": "g1", "mode": "parallel", "plans": ["plan_1.md", "plan_2.md"]}],
+                [
+                    {
+                        "group_id": "g1",
+                        "mode": "parallel",
+                        "plans": [
+                            {"file": "plan_1.md", "name": "Foundation"},
+                            {"file": "plan_2.md", "name": "API wiring"},
+                        ],
+                    }
+                ],
             )
 
             _cycle(ctx, state_path)
@@ -130,19 +159,30 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
             _write_execution_plan(
                 ctx,
                 [
-                    {"group_id": "g1", "mode": "serial", "plans": ["plan_1.md"]},
-                    {"group_id": "g2", "mode": "parallel", "plans": ["plan_2.md", "plan_3.md"]},
-                    {"group_id": "g3", "mode": "serial", "plans": ["plan_4.md"]},
+                    {"group_id": "g1", "mode": "serial", "plans": [{"file": "plan_1.md", "name": "Foundation"}]},
+                    {
+                        "group_id": "g2",
+                        "mode": "parallel",
+                        "plans": [
+                            {"file": "plan_2.md", "name": "API wiring"},
+                            {"file": "plan_3.md", "name": "UI polish"},
+                        ],
+                    },
+                    {"group_id": "g3", "mode": "serial", "plans": [{"file": "plan_4.md", "name": "Integration"}]},
                 ],
             )
 
             _cycle(ctx, state_path)
-            self.assertIn(("send", "coder", "coder_prompt_1.txt"), ctx.runtime.calls)
+            self.assertIn(("send", "coder", "coder_prompt_1.txt", "[coder] Foundation"), ctx.runtime.calls)
 
             _touch(ctx.files.implementation_dir / "done_1")
             state = _cycle(ctx, state_path)
             self.assertEqual("implementing", state["phase"])
             self.assertIn(("send_many", "coder", ["coder_prompt_2.txt", "coder_prompt_3.txt"]), ctx.runtime.calls)
+            self.assertIn(
+                [(2, "coder_prompt_2.txt", "[coder] API wiring"), (3, "coder_prompt_3.txt", "[coder] UI polish")],
+                ctx.runtime.parallel_specs,
+            )
 
             _touch(ctx.files.implementation_dir / "done_2")
             state = _cycle(ctx, state_path)
@@ -151,7 +191,7 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
             _touch(ctx.files.implementation_dir / "done_3")
             state = _cycle(ctx, state_path)
             self.assertEqual("implementing", state["phase"])
-            self.assertIn(("send", "coder", "coder_prompt_4.txt"), ctx.runtime.calls)
+            self.assertIn(("send", "coder", "coder_prompt_4.txt", "[coder] Integration"), ctx.runtime.calls)
 
             _touch(ctx.files.implementation_dir / "done_4")
             state = _cycle(ctx, state_path)
@@ -165,9 +205,16 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
             _write_execution_plan(
                 ctx,
                 [
-                    {"group_id": "g1", "mode": "serial", "plans": ["plan_1.md"]},
-                    {"group_id": "g2", "mode": "parallel", "plans": ["plan_2.md", "plan_3.md"]},
-                    {"group_id": "g3", "mode": "serial", "plans": ["plan_4.md"]},
+                    {"group_id": "g1", "mode": "serial", "plans": [{"file": "plan_1.md", "name": "Foundation"}]},
+                    {
+                        "group_id": "g2",
+                        "mode": "parallel",
+                        "plans": [
+                            {"file": "plan_2.md", "name": "API wiring"},
+                            {"file": "plan_3.md", "name": "UI polish"},
+                        ],
+                    },
+                    {"group_id": "g3", "mode": "serial", "plans": [{"file": "plan_4.md", "name": "Integration"}]},
                 ],
             )
 
@@ -196,13 +243,13 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
                 prompts=ctx.prompts,
             )
             _cycle(resumed_ctx, state_path)
-            self.assertIn(("send", "coder", "coder_prompt_3.txt"), resumed_ctx.runtime.calls)
-            self.assertNotIn(("send", "coder", "coder_prompt_2.txt"), resumed_ctx.runtime.calls)
+            self.assertIn(("send", "coder", "coder_prompt_3.txt", "[coder] UI polish"), resumed_ctx.runtime.calls)
+            self.assertNotIn(("send", "coder", "coder_prompt_2.txt", "[coder] API wiring"), resumed_ctx.runtime.calls)
 
             _touch(ctx.files.implementation_dir / "done_3")
             state = _cycle(resumed_ctx, state_path)
             self.assertEqual("implementing", state["phase"])
-            self.assertIn(("send", "coder", "coder_prompt_4.txt"), resumed_ctx.runtime.calls)
+            self.assertIn(("send", "coder", "coder_prompt_4.txt", "[coder] Integration"), resumed_ctx.runtime.calls)
 
             _touch(ctx.files.implementation_dir / "done_4")
             state = _cycle(resumed_ctx, state_path)
@@ -217,7 +264,7 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
             write_state(state_path, state)
 
             _cycle(ctx, state_path)
-            self.assertIn(("send", "coder", "fix_prompt.txt"), ctx.runtime.calls)
+            self.assertIn(("send", "coder", "fix_prompt.txt", "[coder] fix 1"), ctx.runtime.calls)
 
             _touch(ctx.files.implementation_dir / "done_1")
             state = _cycle(ctx, state_path)
