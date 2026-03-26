@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from agentmux.event_bus import EventBus
-from agentmux.interruption_sources import INTERRUPTION_EVENT_PANE_EXITED, InterruptionEventSource
+from agentmux.runtime.event_bus import EventBus
+from agentmux.runtime.interruption_sources import INTERRUPTION_EVENT_PANE_EXITED, InterruptionEventSource
 from agentmux.runtime import RegisteredPaneRef
 
 

@@ -5,6 +5,8 @@ import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from ..integrations.completion import CompletionService
+from ..sessions.state_store import feature_slug_from_dir, now_iso, write_state
 from .handlers import load_plan_meta, reset_markers, send_to_role, write_phase
 from .plan_parser import split_plan_into_subplans
 from .prompts import (
@@ -22,9 +24,9 @@ from .prompts import (
     build_web_researcher_prompt,
     write_prompt_file,
 )
-from .state import cleanup_feature_dir, commit_changes, feature_slug_from_dir, now_iso, write_state
-from .tmux import send_text
 from .transitions import EXIT_FAILURE, EXIT_SUCCESS, PipelineContext, file_signature, phase_input_changed
+
+COMPLETION_SERVICE = CompletionService()
 
 
 def _git_status_porcelain(project_dir: Path) -> str:
@@ -168,15 +170,13 @@ class _ResearchDispatchMixin:
         topic = self._parse_task_event(event, "task_completed")
         if topic is not None:
             ctx.runtime.finish_task("code-researcher", topic)
-            owner_pane = getattr(ctx.runtime, "primary_panes", {}).get(owner_role)
-            if owner_pane:
-                send_text(
-                    owner_pane,
-                    (
-                        f"Code-research on '{topic}' is complete. Read "
-                        f"{ctx.files.relative_path(ctx.files.research_dir / f'code-{topic}' / 'summary.md')} and continue from there."
-                    ),
-                )
+            ctx.runtime.notify(
+                owner_role,
+                (
+                    f"Code-research on '{topic}' is complete. Read "
+                    f"{ctx.files.relative_path(ctx.files.research_dir / f'code-{topic}' / 'summary.md')} and continue from there."
+                ),
+            )
             research_tasks = {
                 str(key): str(value)
                 for key, value in dict(state.get("research_tasks", {})).items()
@@ -219,15 +219,13 @@ class _ResearchDispatchMixin:
         topic = self._parse_task_event(event, "web_task_completed")
         if topic is not None:
             ctx.runtime.finish_task("web-researcher", topic)
-            owner_pane = getattr(ctx.runtime, "primary_panes", {}).get(owner_role)
-            if owner_pane:
-                send_text(
-                    owner_pane,
-                    (
-                        f"Web research on '{topic}' is complete. Read "
-                        f"{ctx.files.relative_path(ctx.files.research_dir / f'web-{topic}' / 'summary.md')} and continue from there."
-                    ),
-                )
+            ctx.runtime.notify(
+                owner_role,
+                (
+                    f"Web research on '{topic}' is complete. Read "
+                    f"{ctx.files.relative_path(ctx.files.research_dir / f'web-{topic}' / 'summary.md')} and continue from there."
+                ),
+            )
             web_research_tasks = {
                 str(key): str(value)
                 for key, value in dict(state.get("web_research_tasks", {})).items()
@@ -624,31 +622,22 @@ class CompletingPhase(Phase):
                 for path in payload.get("exclude_files", [])
                 if str(path).strip()
             }
-            commit_hash = commit_changes(
-                ctx.files.project_dir,
-                str(payload.get("commit_message", "")).strip(),
-                [path for path in changed_paths if path not in exclude_files],
+            result = COMPLETION_SERVICE.finalize_approval(
+                files=ctx.files,
+                github_config=ctx.github_config,
+                gh_available=bool(state.get("gh_available")),
+                issue_number=str(state.get("issue_number")) if state.get("issue_number") is not None else None,
+                commit_message=str(payload.get("commit_message", "")).strip(),
+                changed_paths=[path for path in changed_paths if path not in exclude_files],
             )
-            if commit_hash is not None:
+            if result.commit_hash is not None:
                 print("Completion approved and commit created.")
-                print(f"Commit hash: {commit_hash}")
-                if state.get("gh_available"):
-                    from .github import create_branch_and_pr
-
-                    issue_number_raw = state.get("issue_number")
-                    issue_number = str(issue_number_raw) if issue_number_raw is not None else None
-                    result = create_branch_and_pr(
-                        project_dir=ctx.files.project_dir,
-                        feature_slug=feature_slug_from_dir(ctx.files.feature_dir),
-                        github_config=ctx.github_config,
-                        issue_number=issue_number,
-                        feature_dir=ctx.files.feature_dir,
-                    )
-                    if result:
-                        print(f"PR created: {result['pr_url']}")
+                print(f"Commit hash: {result.commit_hash}")
+                if bool(state.get("gh_available")):
+                    if result.pr_url:
+                        print(f"PR created: {result.pr_url}")
                     else:
                         print("PR creation failed (commit preserved).")
-                cleanup_feature_dir(ctx.files.feature_dir)
             else:
                 print("Completion approved, but commit step failed or was skipped. Feature directory retained.")
             return EXIT_SUCCESS

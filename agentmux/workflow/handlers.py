@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .state import now_iso, write_state
+from ..sessions.state_store import now_iso, write_state
 from .transitions import PipelineContext
 
 

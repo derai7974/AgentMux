@@ -6,13 +6,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import agentmux.pipeline as pipeline
-from agentmux.models import AgentConfig, SESSION_DIR_NAMES
-from agentmux.phases import PlanningPhase
-from agentmux.prompts import build_code_researcher_prompt
+from agentmux.configuration import load_explicit_config
+from agentmux.shared.models import AgentConfig, SESSION_DIR_NAMES
+from agentmux.workflow.phases import PlanningPhase
+from agentmux.workflow.prompts import build_code_researcher_prompt
 from agentmux.runtime import TmuxAgentRuntime
-from agentmux.state import create_feature_files, load_state, write_state
-from agentmux.transitions import PipelineContext
+from agentmux.sessions.state_store import create_feature_files, load_state, write_state
+from agentmux.workflow.transitions import PipelineContext
 
 PLANNING_DIR = SESSION_DIR_NAMES["planning"]
 RESEARCH_DIR = SESSION_DIR_NAMES["research"]
@@ -43,6 +43,9 @@ class FakeRuntime:
 
     def finish_many(self, role: str) -> None:
         self.calls.append(("finish_many", role))
+
+    def notify(self, role: str, text: str) -> None:
+        self.calls.append(("notify", role, text))
 
     def shutdown(self, keep_session: bool) -> None:
         self.calls.append(("shutdown", keep_session))
@@ -114,7 +117,7 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             cfg_path = tmp_path / "pipeline_config.json"
             cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
 
-            _, agents, _ = pipeline.load_config(cfg_path)
+            agents = load_explicit_config(cfg_path).agents
 
             self.assertIn("code-researcher", agents)
             self.assertEqual("claude", agents["code-researcher"].cli)
@@ -270,15 +273,12 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             (feature_dir / RESEARCH_DIR / "code-auth-module" / "done").touch()
 
             phase = PlanningPhase()
-            with patch("agentmux.phases.send_text") as send_text:
-                result = phase.handle_event(load_state(state_path), "task_completed:auth-module", ctx)
+            result = phase.handle_event(load_state(state_path), "task_completed:auth-module", ctx)
 
             self.assertIsNone(result)
-            self.assertEqual(("finish_task", "code-researcher", "auth-module"), ctx.runtime.calls[-1])
-            send_text.assert_called_once_with(
-                "%1",
+            self.assertEqual(("notify", "architect",
                 "Code-research on 'auth-module' is complete. Read 03_research/code-auth-module/summary.md and continue from there.",
-            )
+            ), ctx.runtime.calls[-1])
             updated = load_state(state_path)
             self.assertEqual("done", updated["research_tasks"]["auth-module"])
 

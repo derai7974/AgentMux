@@ -7,12 +7,12 @@ from subprocess import CompletedProcess
 from unittest.mock import patch
 
 from agentmux import monitor
-from agentmux.models import SESSION_DIR_NAMES
+from agentmux.shared.models import SESSION_DIR_NAMES
 
 
 class MonitorTests(unittest.TestCase):
     def _render(self, feature_dir: Path, *, width: int = 40, height: int = 24) -> str:
-        with patch("agentmux.monitor.time.time", return_value=0.0):
+        with patch("agentmux.monitor.render_module.time.time", return_value=0.0):
             return monitor.render(
                 session_name="session-x",
                 state_path=feature_dir / "state.json",
@@ -201,10 +201,10 @@ class MonitorTests(unittest.TestCase):
             }
 
             with patch(
-                "agentmux.monitor.get_role_states",
+                "agentmux.monitor.render_module.get_role_states",
                 return_value={"architect": "inactive", "reviewer": "working", "coder": "idle"},
             ):
-                with patch("agentmux.monitor.time.time", return_value=0.0):
+                with patch("agentmux.monitor.render_module.time.time", return_value=0.0):
                     output = self._strip_ansi(
                         monitor.render(
                             session_name="session-x",
@@ -236,7 +236,7 @@ class MonitorTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with patch("agentmux.monitor.time.time", return_value=0.0):
+            with patch("agentmux.monitor.render_module.time.time", return_value=0.0):
                 output = self._strip_ansi(
                     monitor.render(
                         session_name="session-x",
@@ -265,7 +265,7 @@ class MonitorTests(unittest.TestCase):
             runtime_state_path.write_text('{"primary": {}}', encoding="utf-8")
             log_path.write_text("2026-03-21 11:20:05  planning\n", encoding="utf-8")
 
-            with patch("agentmux.monitor.time.time", return_value=0.0):
+            with patch("agentmux.monitor.render_module.time.time", return_value=0.0):
                 output = monitor.render(
                     session_name="session-x",
                     state_path=state_path,
@@ -307,7 +307,7 @@ class MonitorTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with patch("agentmux.monitor.time.time", return_value=0.0):
+            with patch("agentmux.monitor.render_module.time.time", return_value=0.0):
                 output = self._strip_ansi(
                     monitor.render(
                         session_name="session-x",
@@ -346,7 +346,7 @@ class MonitorTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with patch("agentmux.monitor.time.time", return_value=0.0):
+            with patch("agentmux.monitor.render_module.time.time", return_value=0.0):
                 output = self._strip_ansi(
                     monitor.render(
                         session_name="session-x",

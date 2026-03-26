@@ -5,11 +5,9 @@ import subprocess
 import time
 from pathlib import Path
 
-from .models import AgentConfig
+from ..shared.models import AgentConfig
+from ..terminal_ui.layout import MONITOR_MAX_WIDTH, MONITOR_MIN_WIDTH, MONITOR_WIDTH
 
-MONITOR_WIDTH = 40
-MONITOR_MIN_WIDTH = MONITOR_WIDTH
-MONITOR_MAX_WIDTH = MONITOR_WIDTH
 MAIN_WINDOW = "pipeline"
 
 

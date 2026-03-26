@@ -8,8 +8,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from agentmux.event_bus import EventBus, build_wake_listener
-import agentmux.session_events as session_events
+from agentmux.runtime.event_bus import EventBus, build_wake_listener
+import agentmux.runtime.file_events as session_events
 
 
 class _FakeObserver:
@@ -135,7 +135,7 @@ class SessionFileLoggingRequirementsTests(unittest.TestCase):
             bus = EventBus()
             source = session_events.FileEventSource(feature_dir)
 
-            with patch("agentmux.session_events.Observer", _FakeObserver):
+            with patch("agentmux.runtime.file_events.Observer", _FakeObserver):
                 source.start(bus)
 
             observer = _FakeObserver.last_instance

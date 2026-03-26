@@ -5,12 +5,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import agentmux.pipeline as pipeline
-from agentmux.models import AgentConfig, SESSION_DIR_NAMES
-from agentmux.phases import PHASES, get_phase, run_phase_cycle
-from agentmux.prompts import build_coder_prompt, build_designer_prompt, build_initial_prompts
-from agentmux.state import create_feature_files, load_runtime_files, load_state, write_state
-from agentmux.transitions import PipelineContext
+from agentmux.configuration import load_explicit_config
+from agentmux.shared.models import AgentConfig, SESSION_DIR_NAMES
+from agentmux.workflow.phases import PHASES, get_phase, run_phase_cycle
+from agentmux.workflow.prompts import build_coder_prompt, build_designer_prompt, build_initial_prompts
+from agentmux.sessions.state_store import create_feature_files, load_runtime_files, load_state, write_state
+from agentmux.workflow.transitions import PipelineContext
 
 PLANNING_DIR = SESSION_DIR_NAMES["planning"]
 DESIGN_DIR = SESSION_DIR_NAMES["design"]
@@ -92,7 +92,7 @@ class DesignerRequirementsTests(unittest.TestCase):
             cfg_path = tmp_path / "pipeline_config.json"
             cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
 
-            _, agents, _ = pipeline.load_config(cfg_path)
+            agents = load_explicit_config(cfg_path).agents
 
             self.assertIn("designer", agents)
             self.assertEqual("claude", agents["designer"].cli)

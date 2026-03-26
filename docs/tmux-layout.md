@@ -1,6 +1,6 @@
 # Tmux Session Layout and Pane Management
 
-> Related source files: `agentmux/tmux.py`, `agentmux/runtime.py`, `agentmux/interruption_sources.py`, `agentmux/pipeline.py`
+> Related source files: `agentmux/runtime/tmux_control.py`, `agentmux/runtime/__init__.py`, `agentmux/runtime/interruption_sources.py`, `agentmux/monitor/__init__.py`, `agentmux/terminal_ui/layout.py`
 
 ## Content zone
 

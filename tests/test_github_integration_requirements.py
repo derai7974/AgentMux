@@ -9,9 +9,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import agentmux.pipeline.application as application
 import agentmux.pipeline as pipeline
-from agentmux.config import load_layered_config
-from agentmux.github import (
+from agentmux.terminal_ui.console import ConsoleUI
+from agentmux.configuration import load_layered_config
+from agentmux.integrations.github import (
+    GitHubBootstrapper,
     assemble_pr_body,
     check_gh_authenticated,
     check_gh_available,
@@ -19,7 +22,7 @@ from agentmux.github import (
     extract_issue_number,
     fetch_issue,
 )
-from agentmux.models import AgentConfig, GitHubConfig
+from agentmux.shared.models import AgentConfig, GitHubConfig
 
 
 class GitHubConfigResolutionTests(unittest.TestCase):
@@ -28,7 +31,7 @@ class GitHubConfigResolutionTests(unittest.TestCase):
             project_dir = Path(td) / "project"
             project_dir.mkdir()
 
-            with patch("agentmux.config.USER_CONFIG_PATH", Path(td) / "missing-user-config.yaml"):
+            with patch("agentmux.configuration.USER_CONFIG_PATH", Path(td) / "missing-user-config.yaml"):
                 loaded = load_layered_config(project_dir)
 
             self.assertEqual("main", loaded.github.base_branch)
@@ -52,7 +55,7 @@ github:
                 encoding="utf-8",
             )
 
-            with patch("agentmux.config.USER_CONFIG_PATH", Path(td) / "missing-user-config.yaml"):
+            with patch("agentmux.configuration.USER_CONFIG_PATH", Path(td) / "missing-user-config.yaml"):
                 loaded = load_layered_config(project_dir)
 
             self.assertEqual("develop", loaded.github.base_branch)
@@ -72,13 +75,13 @@ class GitHubHelpersTests(unittest.TestCase):
             extract_issue_number("not-an-issue")
 
     def test_check_gh_available_and_authenticated_return_false_when_binary_missing(self) -> None:
-        with patch("agentmux.github.subprocess.run", side_effect=FileNotFoundError):
+        with patch("agentmux.integrations.github.subprocess.run", side_effect=FileNotFoundError):
             self.assertFalse(check_gh_available())
             self.assertFalse(check_gh_authenticated())
 
     def test_fetch_issue_returns_title_and_body(self) -> None:
         with patch(
-            "agentmux.github.subprocess.run",
+            "agentmux.integrations.github.subprocess.run",
             return_value=subprocess.CompletedProcess(
                 args=["gh", "issue", "view", "42", "--json", "title,body"],
                 returncode=0,
@@ -98,7 +101,7 @@ class GitHubHelpersTests(unittest.TestCase):
 
     def test_fetch_issue_raises_actionable_error_on_failure(self) -> None:
         with patch(
-            "agentmux.github.subprocess.run",
+            "agentmux.integrations.github.subprocess.run",
             side_effect=subprocess.CalledProcessError(
                 returncode=1,
                 cmd=["gh", "issue", "view", "42", "--json", "title,body"],
@@ -161,7 +164,7 @@ Create branch and open draft PR.
             (feature_dir / "review" / "review.md").write_text("Verdict: pass\n", encoding="utf-8")
 
             with patch(
-                "agentmux.github.subprocess.run",
+                "agentmux.integrations.github.subprocess.run",
                 side_effect=[
                     subprocess.CompletedProcess(args=["git", "checkout"], returncode=0, stdout="", stderr=""),
                     subprocess.CalledProcessError(returncode=1, cmd=["git", "push"], stderr="rejected"),
@@ -197,6 +200,7 @@ class PipelineIssueTriggerTests(unittest.TestCase):
     def test_main_fails_fast_when_issue_used_and_gh_missing(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             project_dir = Path(td)
+            app = application.PipelineApplication(project_dir)
             args = argparse.Namespace(
                 prompt="ignored",
                 name=None,
@@ -208,24 +212,23 @@ class PipelineIssueTriggerTests(unittest.TestCase):
                 issue="42",
             )
 
-            with patch("agentmux.pipeline.parse_args", return_value=args), patch(
-                "agentmux.pipeline.ensure_dependencies", return_value=None
+            with patch.object(app, "ensure_dependencies", return_value=None), patch(
+                "agentmux.pipeline.application.load_layered_config", return_value=self._loaded_config()
             ), patch(
-                "agentmux.pipeline.Path.cwd", return_value=project_dir
+                "agentmux.pipeline.application.tmux_session_exists", return_value=False
             ), patch(
-                "agentmux.pipeline.load_runtime_config", return_value=self._loaded_config()
+                "agentmux.pipeline.application.McpAgentPreparer.ensure_project_config", return_value=None
             ), patch(
-                "agentmux.pipeline.tmux_session_exists", return_value=False
-            ), patch(
-                "agentmux.pipeline.check_gh_available", return_value=False
+                "agentmux.integrations.github.check_gh_available", return_value=False
             ), self.assertRaises(SystemExit) as ctx:
-                pipeline.main()
+                app.run(args)
 
         self.assertIn("gh CLI is required for --issue", str(ctx.exception))
 
     def test_main_bootstraps_prompt_and_state_from_issue(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             project_dir = Path(td)
+            app = application.PipelineApplication(project_dir, ui=ConsoleUI(output_fn=lambda _message: None))
             args = argparse.Namespace(
                 prompt="local prompt",
                 name=None,
@@ -237,32 +240,33 @@ class PipelineIssueTriggerTests(unittest.TestCase):
                 issue="https://github.com/acme/demo/issues/42",
             )
 
-            with patch("agentmux.pipeline.parse_args", return_value=args), patch(
-                "agentmux.pipeline.ensure_dependencies", return_value=None
+            with patch.object(app, "ensure_dependencies", return_value=None), patch(
+                "agentmux.pipeline.application.load_layered_config", return_value=self._loaded_config()
             ), patch(
-                "agentmux.pipeline.Path.cwd", return_value=project_dir
+                "agentmux.pipeline.application.tmux_session_exists", return_value=False
             ), patch(
-                "agentmux.pipeline.load_runtime_config", return_value=self._loaded_config()
+                "agentmux.pipeline.application.McpAgentPreparer.ensure_project_config", return_value=None
             ), patch(
-                "agentmux.pipeline.tmux_session_exists", return_value=False
+                "agentmux.pipeline.application.McpAgentPreparer.prepare_feature_agents",
+                return_value=self._loaded_config().agents,
             ), patch(
-                "agentmux.pipeline.check_gh_available", return_value=True
+                "agentmux.integrations.github.check_gh_available", return_value=True
             ), patch(
-                "agentmux.pipeline.check_gh_authenticated", return_value=True
+                "agentmux.integrations.github.check_gh_authenticated", return_value=True
             ), patch(
-                "agentmux.pipeline.fetch_issue",
+                "agentmux.integrations.github.fetch_issue",
                 return_value={"title": "Fix API auth flow", "body": "Issue-sourced requirements"},
             ), patch(
-                "agentmux.pipeline.datetime"
+                "agentmux.sessions.datetime"
             ) as datetime_mock, patch(
-                "agentmux.pipeline.TmuxAgentRuntime.create", return_value=object()
+                "agentmux.pipeline.application.TmuxRuntimeFactory.create", return_value=object()
             ), patch(
-                "agentmux.pipeline.start_background_orchestrator", return_value=None
+                "agentmux.pipeline.application.PipelineApplication._start_background_orchestrator", return_value=None
             ), patch(
-                "agentmux.pipeline.subprocess.run", return_value=None
+                "agentmux.pipeline.application.subprocess.run", return_value=None
             ):
                 datetime_mock.now.return_value.strftime.return_value = "20260322-203228"
-                result = pipeline.main()
+                result = app.run(args)
 
             self.assertEqual(0, result)
             feature_dir = project_dir / ".agentmux" / ".sessions" / "20260322-203228-fix-api-auth-flow"
@@ -278,6 +282,8 @@ class PipelineIssueTriggerTests(unittest.TestCase):
     def test_main_without_issue_warns_and_sets_gh_unavailable(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             project_dir = Path(td)
+            messages: list[str] = []
+            app = application.PipelineApplication(project_dir, ui=ConsoleUI(output_fn=messages.append))
             args = argparse.Namespace(
                 prompt="normal run",
                 name="demo",
@@ -289,24 +295,25 @@ class PipelineIssueTriggerTests(unittest.TestCase):
                 issue=None,
             )
 
-            with patch("agentmux.pipeline.parse_args", return_value=args), patch(
-                "agentmux.pipeline.ensure_dependencies", return_value=None
+            with patch.object(app, "ensure_dependencies", return_value=None), patch(
+                "agentmux.pipeline.application.load_layered_config", return_value=self._loaded_config()
             ), patch(
-                "agentmux.pipeline.Path.cwd", return_value=project_dir
+                "agentmux.pipeline.application.tmux_session_exists", return_value=False
             ), patch(
-                "agentmux.pipeline.load_runtime_config", return_value=self._loaded_config()
+                "agentmux.pipeline.application.McpAgentPreparer.ensure_project_config", return_value=None
             ), patch(
-                "agentmux.pipeline.tmux_session_exists", return_value=False
+                "agentmux.pipeline.application.McpAgentPreparer.prepare_feature_agents",
+                return_value=self._loaded_config().agents,
             ), patch(
-                "agentmux.pipeline.check_gh_available", return_value=False
+                "agentmux.integrations.github.check_gh_available", return_value=False
             ), patch(
-                "agentmux.pipeline.TmuxAgentRuntime.create", return_value=object()
+                "agentmux.pipeline.application.TmuxRuntimeFactory.create", return_value=object()
             ), patch(
-                "agentmux.pipeline.start_background_orchestrator", return_value=None
+                "agentmux.pipeline.application.PipelineApplication._start_background_orchestrator", return_value=None
             ), patch(
-                "agentmux.pipeline.subprocess.run", return_value=None
-            ), patch("builtins.print") as print_mock:
-                result = pipeline.main()
+                "agentmux.pipeline.application.subprocess.run", return_value=None
+            ):
+                result = app.run(args)
 
             self.assertEqual(0, result)
             state = json.loads(
@@ -315,8 +322,20 @@ class PipelineIssueTriggerTests(unittest.TestCase):
                 )
             )
             self.assertFalse(state["gh_available"])
-            printed = "\n".join(str(call.args[0]) for call in print_mock.call_args_list if call.args)
+            printed = "\n".join(messages)
             self.assertIn("gh CLI not available", printed)
+
+
+class GitHubBootstrapperTests(unittest.TestCase):
+    def test_detect_pr_availability_warns_when_tools_unavailable(self) -> None:
+        messages: list[str] = []
+        bootstrapper = GitHubBootstrapper(Path("/tmp/project"), GitHubConfig(), output=messages.append)
+
+        with patch("agentmux.integrations.github.check_gh_available", return_value=False):
+            available = bootstrapper.detect_pr_availability()
+
+        self.assertFalse(available)
+        self.assertIn("gh CLI not available", "\n".join(messages))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,5 @@
+from __future__ import annotations
+
+MONITOR_WIDTH = 40
+MONITOR_MIN_WIDTH = MONITOR_WIDTH
+MONITOR_MAX_WIDTH = MONITOR_WIDTH

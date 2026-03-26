@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .models import RuntimeFiles, SESSION_DIR_NAMES
+from ..shared.models import RuntimeFiles, SESSION_DIR_NAMES
 
 STATE_FILE_NAME = "state.json"
 
@@ -109,7 +109,9 @@ def create_feature_files(
     feature_dir.mkdir(parents=True, exist_ok=False)
     files = _make_runtime_files(project_dir, feature_dir)
 
-    _context_template = (Path(__file__).resolve().parent / "prompts" / "context.md").read_text(encoding="utf-8")
+    _context_template = (
+        Path(__file__).resolve().parent.parent / "prompts" / "context.md"
+    ).read_text(encoding="utf-8")
     files.context.write_text(
         _context_template.format_map({"session_name": session_name, "feature_dir": feature_dir}),
         encoding="utf-8",

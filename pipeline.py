@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Backward-compatible entry point for clone-and-run users."""
+"""CLI entry point."""
 
 import sys
 

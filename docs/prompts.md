@@ -1,6 +1,6 @@
 # Prompt Templates and Rendering
 
-> Related source files: `agentmux/prompts.py`, `agentmux/prompts/agents/`, `agentmux/prompts/commands/`
+> Related source files: `agentmux/workflow/prompts.py`, `agentmux/runtime/tmux_control.py`, `agentmux/prompts/agents/`, `agentmux/prompts/commands/`
 
 ## Template directories
 
@@ -32,7 +32,7 @@ Curly braces in project content are automatically escaped before `format_map()` 
 
 ## Prompt injection
 
-Prompts are not injected as full text. Instead, `send_prompt()` in `agentmux/tmux.py` sends a concise file reference message like:
+Prompts are not injected as full text. Instead, `send_prompt()` in `agentmux/runtime/tmux_control.py` sends a concise file reference message like:
 
 ```
 Read and follow the instructions in /full/path/to/prompt_file.md
@@ -42,7 +42,7 @@ Agents read the referenced file themselves, reducing keystroke overhead and allo
 
 ## Lazy build
 
-Prompt files are built lazily by handlers just before injection, not pre-generated. Each `build_*_prompt()` function in `agentmux/prompts.py` loads and renders the markdown template for its phase.
+Prompt files are built lazily by handlers just before injection, not pre-generated. Each `build_*_prompt()` function in `agentmux/workflow/prompts.py` loads and renders the markdown template for its phase.
 
 ## Coder research handoff
 

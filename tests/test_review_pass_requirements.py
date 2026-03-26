@@ -5,11 +5,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agentmux.models import AgentConfig, SESSION_DIR_NAMES
-from agentmux.phases import PHASES, get_phase
-from agentmux.prompts import build_reviewer_prompt
-from agentmux.state import create_feature_files, load_state, write_state
-from agentmux.transitions import PipelineContext
+from agentmux.shared.models import AgentConfig, SESSION_DIR_NAMES
+from agentmux.workflow.phases import PHASES, get_phase
+from agentmux.workflow.prompts import build_reviewer_prompt
+from agentmux.sessions.state_store import create_feature_files, load_state, write_state
+from agentmux.workflow.transitions import PipelineContext
 
 PLANNING_DIR = SESSION_DIR_NAMES["planning"]
 

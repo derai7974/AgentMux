@@ -6,12 +6,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import agentmux.pipeline as pipeline
-from agentmux.config import load_layered_config
-from agentmux.providers import PROVIDERS, get_provider, resolve_agent
-from agentmux.models import AgentConfig
-from agentmux.tmux import build_agent_command
-from agentmux.tmux import accept_trust_prompt
+from agentmux.configuration import load_explicit_config, load_layered_config
+from agentmux.configuration.providers import PROVIDERS, get_provider, resolve_agent
+from agentmux.shared.models import AgentConfig
+from agentmux.runtime.tmux_control import build_agent_command
+from agentmux.runtime.tmux_control import accept_trust_prompt
 
 
 class ProviderAbstractionTests(unittest.TestCase):
@@ -44,7 +43,10 @@ class ProviderAbstractionTests(unittest.TestCase):
             }
             cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
 
-            session_name, agents, max_review_iterations = pipeline.load_config(cfg_path)
+            loaded = load_explicit_config(cfg_path)
+            session_name = loaded.session_name
+            agents = loaded.agents
+            max_review_iterations = loaded.max_review_iterations
 
             self.assertEqual("s", session_name)
             self.assertEqual(3, max_review_iterations)
@@ -98,7 +100,7 @@ roles:
                 encoding="utf-8",
             )
 
-            with patch("agentmux.config.USER_CONFIG_PATH", user_cfg_path):
+            with patch("agentmux.configuration.USER_CONFIG_PATH", user_cfg_path):
                 loaded = load_layered_config(project_dir)
 
             coder = loaded.agents["coder"]
@@ -128,12 +130,12 @@ profiles:
                 encoding="utf-8",
             )
 
-            with patch("agentmux.config.USER_CONFIG_PATH", Path(td) / "missing-user-config.yaml"):
+            with patch("agentmux.configuration.USER_CONFIG_PATH", Path(td) / "missing-user-config.yaml"):
                 with self.assertRaises(ValueError):
                     load_layered_config(project_dir)
 
     def test_accept_trust_prompt_skips_when_no_snippet(self) -> None:
-        with patch("agentmux.tmux.capture_pane") as capture_pane, patch("agentmux.tmux.run_command") as run_command:
+        with patch("agentmux.runtime.tmux_control.capture_pane") as capture_pane, patch("agentmux.runtime.tmux_control.run_command") as run_command:
             accept_trust_prompt("%1", snippet=None)
         capture_pane.assert_not_called()
         run_command.assert_not_called()
@@ -154,10 +156,10 @@ profiles:
         commands: list[list[str]] = []
 
         with patch(
-            "agentmux.tmux.capture_pane",
+            "agentmux.runtime.tmux_control.capture_pane",
             side_effect=["some output", "Trust this folder?"],
         ), patch(
-            "agentmux.tmux.run_command",
+            "agentmux.runtime.tmux_control.run_command",
             side_effect=lambda args, cwd=None, check=True: commands.append(args),
         ):
             accept_trust_prompt("%1", snippet="Trust this folder?", timeout_seconds=0.5)

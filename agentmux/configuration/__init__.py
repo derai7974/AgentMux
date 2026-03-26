@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml
 
-from .models import AgentConfig, GitHubConfig
+from ..shared.models import AgentConfig, GitHubConfig
 
 ROLES = (
     "architect",

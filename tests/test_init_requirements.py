@@ -11,8 +11,8 @@ from unittest.mock import patch
 import yaml
 
 import agentmux.pipeline as pipeline
-from agentmux.config import load_builtin_catalog
-from agentmux.init import (
+from agentmux.configuration import load_builtin_catalog
+from agentmux.pipeline.init_command import (
     detect_clis,
     generate_config,
     prompt_role_config,
@@ -73,7 +73,7 @@ class InitRequirementsTests(unittest.TestCase):
         with patch("sys.argv", ["agentmux", "init", "--defaults"]), patch(
             "agentmux.pipeline.parse_args",
             side_effect=AssertionError("parse_args should not run for init subcommand"),
-        ), patch("agentmux.init.run_init", return_value=0) as run_init_mock:
+        ), patch("agentmux.pipeline.init_command.run_init", return_value=0) as run_init_mock:
             result = pipeline.main()
 
         self.assertEqual(0, result)
@@ -86,7 +86,7 @@ class InitRequirementsTests(unittest.TestCase):
             "gemini": None,
             "opencode": None,
         }
-        with patch("agentmux.init.shutil.which", side_effect=lambda name: lookup.get(name)):
+        with patch("agentmux.pipeline.init_command.shutil.which", side_effect=lambda name: lookup.get(name)):
             detected = detect_clis()
 
         self.assertEqual(
@@ -127,7 +127,7 @@ class InitRequirementsTests(unittest.TestCase):
             return _FakePrompt(next(answers))
 
         fake_questionary = SimpleNamespace(select=fake_select)
-        with patch("agentmux.init.questionary", fake_questionary):
+        with patch("agentmux.pipeline.init_command.questionary", fake_questionary):
             overrides = prompt_role_config(["claude", "codex"], defaults)
 
         self.assertEqual({"roles": {"coder": {"provider": "claude"}}}, overrides)
@@ -145,7 +145,7 @@ class InitRequirementsTests(unittest.TestCase):
             return _FakePrompt(next(answers))
 
         fake_questionary = SimpleNamespace(select=fake_select)
-        with patch("agentmux.init.questionary", fake_questionary):
+        with patch("agentmux.pipeline.init_command.questionary", fake_questionary):
             overrides = prompt_role_config(["claude", "codex"], defaults)
 
         self.assertEqual({"roles": {"coder": {"provider": "claude"}}}, overrides)
@@ -166,7 +166,7 @@ class InitRequirementsTests(unittest.TestCase):
                 checkbox=fake_checkbox,
                 Choice=lambda value, checked=False: value,
             )
-            with patch("agentmux.init.questionary", fake_questionary):
+            with patch("agentmux.pipeline.init_command.questionary", fake_questionary):
                 selected = prompt_stubs(project_dir)
 
         self.assertEqual(["reviewer"], selected)
@@ -175,7 +175,7 @@ class InitRequirementsTests(unittest.TestCase):
     def test_run_init_defaults_creates_minimal_config_and_claude_template(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             project_dir = Path(td)
-            with patch("agentmux.init.Path.cwd", return_value=project_dir):
+            with patch("agentmux.pipeline.init_command.Path.cwd", return_value=project_dir):
                 exit_code = run_init(defaults_mode=True)
 
             config = yaml.safe_load((project_dir / ".agentmux" / "config.yaml").read_text(encoding="utf-8"))
@@ -198,7 +198,7 @@ class InitRequirementsTests(unittest.TestCase):
             claude_path = project_dir / "CLAUDE.md"
             claude_path.write_text("keep me", encoding="utf-8")
 
-            with patch("agentmux.init.Path.cwd", return_value=project_dir):
+            with patch("agentmux.pipeline.init_command.Path.cwd", return_value=project_dir):
                 exit_code = run_init(defaults_mode=True)
 
             config = yaml.safe_load(config_path.read_text(encoding="utf-8"))

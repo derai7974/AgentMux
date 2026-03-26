@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .models import SESSION_DIR_NAMES
+from ..shared.models import SESSION_DIR_NAMES
 
 try:
     from mcp.server.fastmcp import FastMCP

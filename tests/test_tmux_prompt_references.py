@@ -6,14 +6,14 @@ from pathlib import Path
 from subprocess import CompletedProcess
 from unittest.mock import patch
 
-from agentmux.models import AgentConfig
-from agentmux.tmux import ContentZone
-from agentmux.tmux import MONITOR_MAX_WIDTH
-from agentmux.tmux import MONITOR_MIN_WIDTH
-from agentmux.tmux import _enforce_monitor_min_width
-from agentmux.tmux import send_prompt
-from agentmux.tmux import tmux_pane_exists
-from agentmux.tmux import tmux_new_session
+from agentmux.shared.models import AgentConfig
+from agentmux.runtime.tmux_control import ContentZone
+from agentmux.runtime.tmux_control import MONITOR_MAX_WIDTH
+from agentmux.runtime.tmux_control import MONITOR_MIN_WIDTH
+from agentmux.runtime.tmux_control import _enforce_monitor_min_width
+from agentmux.runtime.tmux_control import send_prompt
+from agentmux.runtime.tmux_control import tmux_pane_exists
+from agentmux.runtime.tmux_control import tmux_new_session
 
 
 class TmuxPromptReferencesTests(unittest.TestCase):
@@ -23,8 +23,8 @@ class TmuxPromptReferencesTests(unittest.TestCase):
             prompt_file.write_text("line 1\\nline 2\\n", encoding="utf-8")
             sent: list[str] = []
 
-            with patch("agentmux.tmux.tmux_pane_exists", return_value=True), patch(
-                "agentmux.tmux.send_text", side_effect=lambda _pane, text: sent.append(text)
+            with patch("agentmux.runtime.tmux_control.tmux_pane_exists", return_value=True), patch(
+                "agentmux.runtime.tmux_control.send_text", side_effect=lambda _pane, text: sent.append(text)
             ):
                 send_prompt("%1", prompt_file)
 
@@ -61,9 +61,9 @@ class TmuxPromptReferencesTests(unittest.TestCase):
                     return CompletedProcess(args=args, returncode=0, stdout=f"{pane}\n", stderr="")
                 return CompletedProcess(args=args, returncode=0, stdout="", stderr="")
 
-            with patch("agentmux.tmux.run_command", side_effect=fake_run_command), patch(
-                "agentmux.tmux._enforce_monitor_min_width", return_value=None
-            ), patch("agentmux.tmux.accept_trust_prompt", return_value=None):
+            with patch("agentmux.runtime.tmux_control.run_command", side_effect=fake_run_command), patch(
+                "agentmux.runtime.tmux_control._enforce_monitor_min_width", return_value=None
+            ), patch("agentmux.runtime.tmux_control.accept_trust_prompt", return_value=None):
                 panes, _zone = tmux_new_session(
                     "session-x",
                     agents,
@@ -97,8 +97,8 @@ class TmuxPromptReferencesTests(unittest.TestCase):
                 return CompletedProcess(args=args, returncode=0, stdout="18\n", stderr="")
             return CompletedProcess(args=args, returncode=0, stdout="", stderr="")
 
-        with patch("agentmux.tmux._find_control_pane", return_value="%0"), patch(
-            "agentmux.tmux.run_command", side_effect=fake_run_command
+        with patch("agentmux.runtime.tmux_control._find_control_pane", return_value="%0"), patch(
+            "agentmux.runtime.tmux_control.run_command", side_effect=fake_run_command
         ):
             _enforce_monitor_min_width("session-x")
 
@@ -117,8 +117,8 @@ class TmuxPromptReferencesTests(unittest.TestCase):
                 return CompletedProcess(args=args, returncode=0, stdout="52\n", stderr="")
             return CompletedProcess(args=args, returncode=0, stdout="", stderr="")
 
-        with patch("agentmux.tmux._find_control_pane", return_value="%0"), patch(
-            "agentmux.tmux.run_command", side_effect=fake_run_command
+        with patch("agentmux.runtime.tmux_control._find_control_pane", return_value="%0"), patch(
+            "agentmux.runtime.tmux_control.run_command", side_effect=fake_run_command
         ):
             _enforce_monitor_min_width("session-x")
 
@@ -128,13 +128,13 @@ class TmuxPromptReferencesTests(unittest.TestCase):
         )
 
     def test_content_zone_show_reapplies_monitor_min_width(self) -> None:
-        with patch("agentmux.tmux.tmux_pane_exists", return_value=True):
+        with patch("agentmux.runtime.tmux_control.tmux_pane_exists", return_value=True):
             zone = ContentZone("session-x", placeholder="%9")
 
-        with patch("agentmux.tmux.tmux_pane_exists", return_value=True), patch(
-            "agentmux.tmux.run_command", return_value=CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-        ), patch("agentmux.tmux._enforce_monitor_min_width") as width_mock, patch(
-            "agentmux.tmux._log_layout", return_value=None
+        with patch("agentmux.runtime.tmux_control.tmux_pane_exists", return_value=True), patch(
+            "agentmux.runtime.tmux_control.run_command", return_value=CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        ), patch("agentmux.runtime.tmux_control._enforce_monitor_min_width") as width_mock, patch(
+            "agentmux.runtime.tmux_control._log_layout", return_value=None
         ):
             zone.show("%1")
 
@@ -142,14 +142,14 @@ class TmuxPromptReferencesTests(unittest.TestCase):
 
     def test_tmux_pane_exists_returns_false_for_dead_pane(self) -> None:
         with patch(
-            "agentmux.tmux.run_command",
+            "agentmux.runtime.tmux_control.run_command",
             return_value=CompletedProcess(args=[], returncode=0, stdout="%1 1\n", stderr=""),
         ):
             self.assertFalse(tmux_pane_exists("%1"))
 
     def test_tmux_pane_exists_returns_true_for_live_pane(self) -> None:
         with patch(
-            "agentmux.tmux.run_command",
+            "agentmux.runtime.tmux_control.run_command",
             return_value=CompletedProcess(args=[], returncode=0, stdout="%1 0\n", stderr=""),
         ):
             self.assertTrue(tmux_pane_exists("%1"))

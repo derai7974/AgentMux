@@ -7,11 +7,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agentmux.models import AgentConfig, GitHubConfig
-from agentmux.phases import CompletingPhase
-from agentmux.prompts import build_confirmation_prompt
-from agentmux.state import create_feature_files, load_state
-from agentmux.transitions import EXIT_SUCCESS, PipelineContext
+from agentmux.shared.models import AgentConfig, GitHubConfig
+from agentmux.workflow.phases import CompletingPhase
+from agentmux.workflow.prompts import build_confirmation_prompt
+from agentmux.sessions.state_store import create_feature_files, load_state
+from agentmux.workflow.transitions import EXIT_SUCCESS, PipelineContext
 
 
 class _FakeRuntime:
@@ -72,7 +72,7 @@ class CompletionCommitFlowTests(unittest.TestCase):
             status_output = " M agentmux/phases.py\n?? tests/test_completion_commit_flow.py\n"
 
             with patch(
-                "agentmux.prompts.subprocess.run",
+                "agentmux.workflow.prompts.subprocess.run",
                 return_value=subprocess.CompletedProcess(
                     args=["git", "status", "--porcelain"],
                     returncode=0,
@@ -104,15 +104,15 @@ class CompletionCommitFlowTests(unittest.TestCase):
             (ctx.files.completion_dir / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
 
             with patch(
-                "agentmux.phases.subprocess.run",
+                "agentmux.workflow.phases.subprocess.run",
                 return_value=subprocess.CompletedProcess(
                     args=["git", "status", "--porcelain"],
                     returncode=0,
                     stdout=" M agentmux/phases.py\n?? tests/skip.py\nR  old.py -> renamed.py\n",
                     stderr="",
                 ),
-            ), patch("agentmux.phases.commit_changes", return_value="abc123") as commit_mock, patch(
-                "agentmux.phases.cleanup_feature_dir"
+            ), patch("agentmux.integrations.completion.commit_changes", return_value="abc123") as commit_mock, patch(
+                "agentmux.integrations.completion.cleanup_feature_dir"
             ) as cleanup_mock:
                 result = CompletingPhase().handle_event(state, "approval_received", ctx)
 
@@ -137,15 +137,15 @@ class CompletionCommitFlowTests(unittest.TestCase):
             (ctx.files.completion_dir / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
 
             with patch(
-                "agentmux.phases.subprocess.run",
+                "agentmux.workflow.phases.subprocess.run",
                 return_value=subprocess.CompletedProcess(
                     args=["git", "status", "--porcelain"],
                     returncode=0,
                     stdout=" M agentmux/phases.py\n",
                     stderr="",
                 ),
-            ), patch("agentmux.phases.commit_changes", return_value=None), patch(
-                "agentmux.phases.cleanup_feature_dir"
+            ), patch("agentmux.integrations.completion.commit_changes", return_value=None), patch(
+                "agentmux.integrations.completion.cleanup_feature_dir"
             ) as cleanup_mock:
                 result = CompletingPhase().handle_event(state, "approval_received", ctx)
 
@@ -167,17 +167,17 @@ class CompletionCommitFlowTests(unittest.TestCase):
             (ctx.files.completion_dir / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
 
             with patch(
-                "agentmux.phases.subprocess.run",
+                "agentmux.workflow.phases.subprocess.run",
                 return_value=subprocess.CompletedProcess(
                     args=["git", "status", "--porcelain"],
                     returncode=0,
                     stdout=" M agentmux/phases.py\n",
                     stderr="",
                 ),
-            ), patch("agentmux.phases.commit_changes", return_value="abc123"), patch(
-                "agentmux.github.create_branch_and_pr",
+            ), patch("agentmux.integrations.completion.commit_changes", return_value="abc123"), patch(
+                "agentmux.integrations.completion.create_branch_and_pr",
                 return_value={"branch": "feature/my-feature", "pr_url": "https://example/pr/1"},
-            ) as pr_mock, patch("agentmux.phases.cleanup_feature_dir") as cleanup_mock:
+            ) as pr_mock, patch("agentmux.integrations.completion.cleanup_feature_dir") as cleanup_mock:
                 result = CompletingPhase().handle_event(state, "approval_received", ctx)
 
             self.assertEqual(EXIT_SUCCESS, result)
@@ -204,16 +204,16 @@ class CompletionCommitFlowTests(unittest.TestCase):
             (ctx.files.completion_dir / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
 
             with patch(
-                "agentmux.phases.subprocess.run",
+                "agentmux.workflow.phases.subprocess.run",
                 return_value=subprocess.CompletedProcess(
                     args=["git", "status", "--porcelain"],
                     returncode=0,
                     stdout=" M agentmux/phases.py\n",
                     stderr="",
                 ),
-            ), patch("agentmux.phases.commit_changes", return_value="abc123"), patch(
-                "agentmux.github.create_branch_and_pr"
-            ) as pr_mock, patch("agentmux.phases.cleanup_feature_dir") as cleanup_mock:
+            ), patch("agentmux.integrations.completion.commit_changes", return_value="abc123"), patch(
+                "agentmux.integrations.completion.create_branch_and_pr"
+            ) as pr_mock, patch("agentmux.integrations.completion.cleanup_feature_dir") as cleanup_mock:
                 result = CompletingPhase().handle_event(state, "approval_received", ctx)
 
             self.assertEqual(EXIT_SUCCESS, result)

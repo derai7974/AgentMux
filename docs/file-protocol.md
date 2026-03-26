@@ -1,6 +1,6 @@
 # Shared File Protocol
 
-> Related source files: `agentmux/models.py`, `agentmux/state.py`, `agentmux/event_bus.py`, `agentmux/session_events.py`, `agentmux/interruption_sources.py`, `agentmux/pipeline.py`, `agentmux/phases.py`, `agentmux/handlers.py`
+> Related source files: `agentmux/shared/models.py`, `agentmux/sessions/state_store.py`, `agentmux/runtime/event_bus.py`, `agentmux/runtime/file_events.py`, `agentmux/runtime/interruption_sources.py`, `agentmux/workflow/orchestrator.py`, `agentmux/workflow/phases.py`, `agentmux/workflow/handlers.py`, `agentmux/workflow/prompts.py`
 
 Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are grouped by phase subdirectories and created on-demand as needed, while a small set of root runtime artifacts is maintained directly by the orchestrator.
 
@@ -59,11 +59,11 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 
 ## Key functions
 
-- `orchestrate()` / `build_orchestrator_event_bus()` in `agentmux/pipeline.py` — run the phase loop on top of a shared session event bus
-- `EventBus` in `agentmux/event_bus.py` — generic dispatcher plus start/stop lifecycle for dedicated event sources
-- `FileEventSource` / `FeatureEventHandler` in `agentmux/session_events.py` — normalize watchdog activity under the feature directory and publish `file.*` events
-- `CreatedFilesLogListener` / `seed_existing_files()` in `agentmux/session_events.py` — enforce created-file logging semantics (`created_files.log`, first-seen only, bootstrap coverage)
-- `InterruptionEventSource` in `agentmux/interruption_sources.py` — publish interruption events when registered tmux panes disappear
-- `build_initial_prompts()` in `agentmux/prompts.py` — builds only the architect prompt at startup
-- `build_*_prompt()` in `agentmux/prompts.py` — loads and renders the markdown template for each phase; called lazily by handlers
-- Handler functions in `agentmux/handlers.py` — each builds and writes its prompt file just before sending to agent
+- `PipelineOrchestrator.run()` / `build_event_bus()` in `agentmux/workflow/orchestrator.py` — run the phase loop on top of a shared session event bus
+- `EventBus` in `agentmux/runtime/event_bus.py` — generic dispatcher plus start/stop lifecycle for dedicated event sources
+- `FileEventSource` / `FeatureEventHandler` in `agentmux/runtime/file_events.py` — normalize watchdog activity under the feature directory and publish `file.*` events
+- `CreatedFilesLogListener` / `seed_existing_files()` in `agentmux/runtime/file_events.py` — enforce created-file logging semantics (`created_files.log`, first-seen only, bootstrap coverage)
+- `InterruptionEventSource` in `agentmux/runtime/interruption_sources.py` — publish interruption events when registered tmux panes disappear
+- `build_initial_prompts()` in `agentmux/workflow/prompts.py` — builds only the architect prompt at startup
+- `build_*_prompt()` in `agentmux/workflow/prompts.py` — loads and renders the markdown template for each phase; called lazily by handlers
+- Handler functions in `agentmux/workflow/handlers.py` — each builds and writes its prompt file just before sending to agent
