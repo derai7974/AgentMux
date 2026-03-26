@@ -54,11 +54,11 @@ Do not poll for `done` yourself. AgentMux will notify you when `03_research/code
 2. Draft a concrete, implementation-oriented plan and present the full plan here in the chat for review before writing any plan files.
 3. The plan should explicitly cover scope, affected areas, validation, and notable risks or constraints.
 4. Deconstruct the work into explicit phases:
-   - Phase 1: Foundation & Interfaces (sequential) — define the contracts first (data types, APIs, abstract interfaces) so dependent work can proceed independently.
-   - Phase 2: Parallel Implementation — split implementation into executable sub-plans that depend on Phase 1 contracts, not on sibling Phase 2 sub-plans.
+   - Phase 1: Foundation & Interfaces (sequential) — define the contracts first (data types, APIs, abstract interfaces). Keep this phase minimal; only extract what is strictly necessary to unblock parallel work.
+   - Phase 2: Parallel Implementation — split implementation into executable sub-plans.
    - Phase 3: Integration & Validation (sequential) — merge outcomes and define final verification.
-5. Treat parallelization as required by default. If you claim two tasks cannot be parallelized, provide a precise technical conflict (for example the same file/line ownership collision), not only a logical dependency.
-6. Perform explicit conflict mapping by affected files/modules. Empty file-set intersection means the work should be treated as parallelizable unless you document a precise technical conflict.
+5. Right-size your sub-plans (Granularity & Cohesion). Do NOT create micro-tasks. A sub-plan should represent a cohesive, meaningful chunk of work. Tightly coupled files (e.g., a prompt template, its validation logic, and its corresponding tests) MUST be grouped into a single sub-plan, even if they don't have technical conflicts.
+6. Use parallelization strategically, not blindly. Seek to parallelize independent domains (e.g., completely separate features or independent modules). Do NOT split a single atomic feature into multiple sub-plans just because it touches multiple files. Empty file-set intersection is a hint for parallelization, but logical cohesion always overrides it.
 7. Keep the existing sub-plan header format exactly as `## Sub-plan <N>: <title>` so current parser behavior remains compatible.
 8. For every executable sub-plan, include all of:
    - Scope: concrete files/modules expected to change.
@@ -79,7 +79,6 @@ Set `needs_design` to `true` only when the plan requires a dedicated design hand
 Set `needs_docs` to `true` only when documentation updates are required for this feature scope.
 `doc_files` must list the documentation files expected to change when `needs_docs` is `true`, and must be an empty list when `needs_docs` is `false`.
 18. FINAL STEP ONLY — after writing the planning artifacts, stop. Do not update `state.json` or any workflow status from this step.
-
 {project_instructions}
 
 Constraints:

@@ -135,6 +135,25 @@ class DesignerRequirementsTests(unittest.TestCase):
             self.assertFalse((feature_dir / DESIGN_DIR / "designer_prompt.md").exists())
             self.assertFalse((feature_dir / COMPLETION_DIR / "confirmation_prompt.md").exists())
 
+    def test_build_designer_prompt_includes_design_contract_additions(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp_path = Path(td)
+            project_dir = tmp_path / "project"
+            feature_dir = tmp_path / "feature"
+            project_dir.mkdir()
+
+            files = create_feature_files(project_dir, feature_dir, "do ui", "session")
+            designer_prompt = build_designer_prompt(files)
+
+            self.assertIn("tailwind.config.js", designer_prompt)
+            self.assertIn("theme.ts", designer_prompt)
+            self.assertIn("Integration Instructions", designer_prompt)
+            self.assertIn("classes", designer_prompt)
+            self.assertIn("CSS import", designer_prompt)
+            self.assertIn("Initial-State", designer_prompt)
+            self.assertIn("Loading-State", designer_prompt)
+            self.assertIn("Error-State", designer_prompt)
+
     def test_plan_written_moves_to_designing_when_plan_meta_requests_design(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
