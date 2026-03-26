@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import infer_project_dir, load_layered_config
+from .interruption_events import monitor_label_from_event
 from .models import SESSION_DIR_NAMES
 from .tmux import MONITOR_WIDTH
 
@@ -193,20 +194,28 @@ def get_role_states(session_name: str, runtime_state_path: Path) -> dict[str, st
 
     try:
         result_all = subprocess.run(
-            ["tmux", "list-panes", "-t", session_name, "-a", "-F", "#{pane_id}"],
+            ["tmux", "list-panes", "-t", session_name, "-a", "-F", "#{pane_id} #{pane_dead}"],
             capture_output=True,
             text=True,
             check=False,
         )
-        all_ids = {t.strip() for t in result_all.stdout.splitlines() if t.strip()}
+        all_ids = {
+            parts[0]
+            for line in result_all.stdout.splitlines()
+            if (parts := line.strip().split()) and len(parts) >= 2 and parts[1] != "1"
+        }
 
         result_pipeline = subprocess.run(
-            ["tmux", "list-panes", "-t", f"{session_name}:pipeline", "-F", "#{pane_id}"],
+            ["tmux", "list-panes", "-t", f"{session_name}:pipeline", "-F", "#{pane_id} #{pane_dead}"],
             capture_output=True,
             text=True,
             check=False,
         )
-        pipeline_ids = {t.strip() for t in result_pipeline.stdout.splitlines() if t.strip()}
+        pipeline_ids = {
+            parts[0]
+            for line in result_pipeline.stdout.splitlines()
+            if (parts := line.strip().split()) and len(parts) >= 2 and parts[1] != "1"
+        }
     except Exception:
         return {}
 
@@ -474,6 +483,9 @@ def _render_feature_header(width: int, state_path: Path) -> list[str]:
 
 
 def _format_event(raw: str) -> str:
+    interruption_label = monitor_label_from_event(raw)
+    if interruption_label is not None:
+        return interruption_label
     return EVENT_LABELS.get(raw, raw.replace("_", " "))
 
 
@@ -482,6 +494,7 @@ def _render_pipeline_section(
     *,
     status: str,
     last_event: str,
+    interruption_cause: str,
     review_iter: int,
     subplan_count: int,
 ) -> list[str]:
@@ -580,6 +593,26 @@ def _render_pipeline_section(
                 left_rendered=f"{BOLD}{CYAN}▶ {status_label}{RESET}",
             )
         )
+        if last_event:
+            lines.append(
+                _compose_line(
+                    width,
+                    prefix_plain=" │   ",
+                    prefix_rendered=f" {CYAN}│{RESET}   ",
+                    left_plain=f"› {_format_event(last_event)}",
+                    left_rendered=f"{DIM}› {_format_event(last_event)}{RESET}",
+                )
+            )
+        if interruption_cause:
+            lines.append(
+                _compose_line(
+                    width,
+                    prefix_plain=" │   ",
+                    prefix_rendered=f" {CYAN}│{RESET}   ",
+                    left_plain=f"› cause: {interruption_cause}",
+                    left_rendered=f"{DIM}› cause: {interruption_cause}{RESET}",
+                )
+            )
 
     return lines
 
@@ -697,6 +730,7 @@ def render(
 
     status = state.get("phase", "waiting…")
     last_event = str(state.get("last_event", "")).strip()
+    interruption_cause = str(state.get("interruption_cause", "")).strip()
     review_iter = state.get("review_iteration", 0)
     subplan_count = state.get("subplan_count", 0)
 
@@ -712,6 +746,7 @@ def render(
             width,
             status=status,
             last_event=last_event,
+            interruption_cause=interruption_cause,
             review_iter=review_iter,
             subplan_count=subplan_count,
         )
