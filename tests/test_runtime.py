@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agentmux.models import AgentConfig
+from agentmux.shared.models import AgentConfig
 from agentmux.runtime import TmuxAgentRuntime
 
 

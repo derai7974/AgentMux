@@ -4,17 +4,17 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .config import load_layered_config
-from .console import ConsoleUI
-from .github import GitHubBootstrapper, create_branch
-from .interruption_reports import InterruptionService
-from .mcp_config import McpAgentPreparer
-from .runtime import TmuxRuntimeFactory
-from .sessions import PreparedSession, PromptInput, SessionCreateRequest, SessionService
-from .state import feature_slug_from_dir, load_runtime_files, load_state
-from .tmux import tmux_session_exists
-from .orchestrator import PipelineOrchestrator
-from .session_events import ensure_watchdog_available
+from ..configuration import load_layered_config
+from ..integrations.github import GitHubBootstrapper, create_branch
+from ..integrations.mcp import McpAgentPreparer
+from ..runtime import TmuxRuntimeFactory
+from ..runtime.file_events import ensure_watchdog_available
+from ..runtime.tmux_control import tmux_session_exists
+from ..sessions import PreparedSession, PromptInput, SessionCreateRequest, SessionService
+from ..sessions.state_store import feature_slug_from_dir, load_runtime_files, load_state
+from ..terminal_ui.console import ConsoleUI
+from ..workflow.interruptions import InterruptionService
+from ..workflow.orchestrator import PipelineOrchestrator
 
 
 class PipelineApplication:

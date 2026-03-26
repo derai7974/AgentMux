@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from agentmux import interruption_events
+import agentmux.workflow.interruptions as interruption_events
 
 
 class InterruptionEventCatalogTests(unittest.TestCase):

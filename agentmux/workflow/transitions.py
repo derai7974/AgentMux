@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .models import AgentConfig, GitHubConfig, RuntimeFiles
-from .runtime import AgentRuntime
+from ..runtime import AgentRuntime
+from ..shared.models import AgentConfig, GitHubConfig, RuntimeFiles
 
 
 EXIT_SUCCESS = "EXIT_SUCCESS"

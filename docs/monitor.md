@@ -1,6 +1,6 @@
 # Monitor Display
 
-> Related source files: `agentmux/monitor.py`
+> Related source files: `agentmux/monitor/__init__.py`, `agentmux/monitor/state_reader.py`, `agentmux/monitor/render.py`, `agentmux/terminal_ui/layout.py`
 
 The control pane renders a live status box with the following sections:
 
@@ -24,3 +24,9 @@ The control pane renders a live status box with the following sections:
 - `ALWAYS_VISIBLE_STATES` — phases shown in all cases
 - `OPTIONAL_PHASES` — phases hidden until they are the active phase
 - `EVENT_LABELS` — mapping of internal event names (e.g. `plan_written`) to user-friendly labels (e.g. "plan ready")
+
+## Component split
+
+- `agentmux/monitor/__init__.py` owns the monitor command loop and pane refresh cadence
+- `agentmux/monitor/state_reader.py` owns runtime-state inspection, log parsing, and event label mapping
+- `agentmux/monitor/render.py` owns ANSI rendering and screen composition

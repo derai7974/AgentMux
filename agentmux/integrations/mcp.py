@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 from typing import Callable, Iterable, TextIO
 
-from .models import AgentConfig
+from ..shared.models import AgentConfig
 
 try:
     import questionary
@@ -29,7 +29,7 @@ DEFAULT_RESEARCH_ROLES = ("architect", "product-manager")
 DEFAULT_RESEARCH_SERVERS = (
     McpServerSpec(
         name="agentmux-research",
-        module="agentmux.mcp_research_server",
+        module="agentmux.integrations.mcp_research_server",
         env={},
     ),
 )

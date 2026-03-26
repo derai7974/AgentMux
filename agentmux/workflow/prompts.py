@@ -4,9 +4,9 @@ import json
 import subprocess
 from pathlib import Path
 
-from .models import RuntimeFiles
+from ..shared.models import RuntimeFiles
 
-PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
 _CHANGED_FILES_FALLBACK = "_Unable to read changed files from git status._"
 

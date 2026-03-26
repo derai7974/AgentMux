@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import urlparse
 
-from .models import GitHubConfig
+from ..shared.models import GitHubConfig
 
 
 def check_gh_available() -> bool:

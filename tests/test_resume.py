@@ -9,14 +9,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-import agentmux.application as application
+import agentmux.pipeline.application as application
 import agentmux.pipeline as pipeline
-from agentmux.config import infer_project_dir
-from agentmux.console import ConsoleUI
-from agentmux.interruption_reports import InterruptionService
-from agentmux.models import AgentConfig, GitHubConfig, SESSION_DIR_NAMES
+from agentmux.configuration import infer_project_dir
+from agentmux.terminal_ui.console import ConsoleUI
+from agentmux.workflow.interruptions import InterruptionService
+from agentmux.shared.models import AgentConfig, GitHubConfig, SESSION_DIR_NAMES
 from agentmux.sessions import SessionRecord, SessionService
-from agentmux.state import infer_resume_phase, write_state
+from agentmux.sessions.state_store import infer_resume_phase, write_state
 
 PLANNING_DIR = SESSION_DIR_NAMES["planning"]
 IMPLEMENTATION_DIR = SESSION_DIR_NAMES["implementation"]
@@ -246,13 +246,13 @@ class ResumeApplicationFlowTests(unittest.TestCase):
             )
 
             with patch.object(app, "ensure_dependencies", return_value=None), patch(
-                "agentmux.application.load_layered_config",
+                "agentmux.pipeline.application.load_layered_config",
                 return_value=loaded,
             ), patch(
-                "agentmux.application.tmux_session_exists",
+                "agentmux.pipeline.application.tmux_session_exists",
                 return_value=False,
             ), patch(
-                "agentmux.application.McpAgentPreparer.ensure_project_config",
+                "agentmux.pipeline.application.McpAgentPreparer.ensure_project_config",
                 return_value=None,
             ), patch.object(
                 app.sessions,
@@ -300,26 +300,26 @@ class ResumeApplicationFlowTests(unittest.TestCase):
             )
 
             with patch.object(app, "ensure_dependencies", return_value=None), patch(
-                "agentmux.application.load_layered_config",
+                "agentmux.pipeline.application.load_layered_config",
                 return_value=loaded,
             ), patch(
-                "agentmux.application.tmux_session_exists",
+                "agentmux.pipeline.application.tmux_session_exists",
                 return_value=False,
             ), patch(
-                "agentmux.application.McpAgentPreparer.ensure_project_config",
+                "agentmux.pipeline.application.McpAgentPreparer.ensure_project_config",
                 return_value=None,
             ), patch(
-                "agentmux.application.McpAgentPreparer.prepare_feature_agents",
+                "agentmux.pipeline.application.McpAgentPreparer.prepare_feature_agents",
                 return_value={},
             ), patch(
-                "agentmux.application.TmuxRuntimeFactory.create",
+                "agentmux.pipeline.application.TmuxRuntimeFactory.create",
                 return_value=object(),
             ) as create_mock, patch.object(
                 app,
                 "_start_background_orchestrator",
                 return_value=None,
             ) as start_mock, patch(
-                "agentmux.application.subprocess.run",
+                "agentmux.pipeline.application.subprocess.run",
                 return_value=None,
             ) as attach_mock:
                 result = app.run(args)
@@ -434,23 +434,23 @@ class ExitMessagingTests(unittest.TestCase):
                 (feature_dir / "orchestrator.log").write_text("background log\n", encoding="utf-8")
 
             with patch.object(app, "ensure_dependencies", return_value=None), patch(
-                "agentmux.application.load_layered_config", return_value=loaded
+                "agentmux.pipeline.application.load_layered_config", return_value=loaded
             ), patch(
-                "agentmux.application.tmux_session_exists", return_value=False
+                "agentmux.pipeline.application.tmux_session_exists", return_value=False
             ), patch(
-                "agentmux.github.check_gh_available", return_value=False
+                "agentmux.integrations.github.check_gh_available", return_value=False
             ), patch(
-                "agentmux.application.McpAgentPreparer.ensure_project_config", return_value=None
+                "agentmux.pipeline.application.McpAgentPreparer.ensure_project_config", return_value=None
             ), patch(
-                "agentmux.application.McpAgentPreparer.prepare_feature_agents", return_value=loaded.agents
+                "agentmux.pipeline.application.McpAgentPreparer.prepare_feature_agents", return_value=loaded.agents
             ), patch(
-                "agentmux.application.TmuxRuntimeFactory.create", return_value=object()
+                "agentmux.pipeline.application.TmuxRuntimeFactory.create", return_value=object()
             ), patch.object(
                 app,
                 "_start_background_orchestrator",
                 side_effect=write_log,
             ), patch(
-                "agentmux.application.subprocess.run", side_effect=KeyboardInterrupt
+                "agentmux.pipeline.application.subprocess.run", side_effect=KeyboardInterrupt
             ):
                 result = app.run(args)
 
@@ -482,23 +482,23 @@ class ExitMessagingTests(unittest.TestCase):
             loaded = self._loaded_config()
 
             with patch.object(app, "ensure_dependencies", return_value=None), patch(
-                "agentmux.application.load_layered_config", return_value=loaded
+                "agentmux.pipeline.application.load_layered_config", return_value=loaded
             ), patch(
-                "agentmux.application.tmux_session_exists", return_value=False
+                "agentmux.pipeline.application.tmux_session_exists", return_value=False
             ), patch(
-                "agentmux.github.check_gh_available", return_value=False
+                "agentmux.integrations.github.check_gh_available", return_value=False
             ), patch(
-                "agentmux.application.McpAgentPreparer.ensure_project_config", return_value=None
+                "agentmux.pipeline.application.McpAgentPreparer.ensure_project_config", return_value=None
             ), patch(
-                "agentmux.application.McpAgentPreparer.prepare_feature_agents", return_value=loaded.agents
+                "agentmux.pipeline.application.McpAgentPreparer.prepare_feature_agents", return_value=loaded.agents
             ), patch(
-                "agentmux.application.TmuxRuntimeFactory.create", return_value=object()
+                "agentmux.pipeline.application.TmuxRuntimeFactory.create", return_value=object()
             ), patch.object(
                 app,
                 "_start_background_orchestrator",
                 return_value=None,
             ), patch(
-                "agentmux.application.subprocess.run",
+                "agentmux.pipeline.application.subprocess.run",
                 side_effect=subprocess.CalledProcessError(
                     returncode=1,
                     cmd=["tmux", "attach-session", "-t", "session-x"],
@@ -551,23 +551,23 @@ class ExitMessagingTests(unittest.TestCase):
                 write_state(state_path, state)
 
             with patch.object(app, "ensure_dependencies", return_value=None), patch(
-                "agentmux.application.load_layered_config", return_value=loaded
+                "agentmux.pipeline.application.load_layered_config", return_value=loaded
             ), patch(
-                "agentmux.application.tmux_session_exists", return_value=False
+                "agentmux.pipeline.application.tmux_session_exists", return_value=False
             ), patch(
-                "agentmux.github.check_gh_available", return_value=False
+                "agentmux.integrations.github.check_gh_available", return_value=False
             ), patch(
-                "agentmux.application.McpAgentPreparer.ensure_project_config", return_value=None
+                "agentmux.pipeline.application.McpAgentPreparer.ensure_project_config", return_value=None
             ), patch(
-                "agentmux.application.McpAgentPreparer.prepare_feature_agents", return_value=loaded.agents
+                "agentmux.pipeline.application.McpAgentPreparer.prepare_feature_agents", return_value=loaded.agents
             ), patch(
-                "agentmux.application.TmuxRuntimeFactory.create", return_value=object()
+                "agentmux.pipeline.application.TmuxRuntimeFactory.create", return_value=object()
             ), patch.object(
                 app,
                 "_start_background_orchestrator",
                 side_effect=set_failed_state,
             ), patch(
-                "agentmux.application.subprocess.run", return_value=None
+                "agentmux.pipeline.application.subprocess.run", return_value=None
             ):
                 result = app.run(args)
 

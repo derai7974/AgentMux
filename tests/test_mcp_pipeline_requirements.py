@@ -9,14 +9,14 @@ from unittest.mock import patch
 
 import yaml
 
-import agentmux.application as application
-from agentmux.interruption_reports import InterruptionService
-from agentmux.models import AgentConfig, GitHubConfig
-from agentmux.orchestrator import PipelineOrchestrator
-from agentmux.prompts import build_architect_prompt, build_product_manager_prompt
-from agentmux.state import create_feature_files
-from agentmux.tmux import build_agent_command
-from agentmux.transitions import EXIT_SUCCESS, PipelineContext
+import agentmux.pipeline.application as application
+from agentmux.workflow.interruptions import InterruptionService
+from agentmux.shared.models import AgentConfig, GitHubConfig
+from agentmux.workflow.orchestrator import PipelineOrchestrator
+from agentmux.workflow.prompts import build_architect_prompt, build_product_manager_prompt
+from agentmux.sessions.state_store import create_feature_files
+from agentmux.runtime.tmux_control import build_agent_command
+from agentmux.workflow.transitions import EXIT_SUCCESS, PipelineContext
 
 
 class _FakeEventBus:
@@ -51,7 +51,7 @@ class McpPipelineRequirementsTests(unittest.TestCase):
 
         app = application.PipelineApplication(Path("/tmp/project"))
         with patch("builtins.__import__", side_effect=fake_import), patch(
-            "agentmux.application.ensure_watchdog_available",
+            "agentmux.pipeline.application.ensure_watchdog_available",
             return_value=None,
         ):
             with self.assertRaises(SystemExit) as exc:
@@ -93,12 +93,12 @@ class McpPipelineRequirementsTests(unittest.TestCase):
             )
 
             with patch(
-                "agentmux.orchestrator.PipelineOrchestrator.build_event_bus",
+                "agentmux.workflow.orchestrator.PipelineOrchestrator.build_event_bus",
                 return_value=_FakeEventBus(),
             ), patch(
-                "agentmux.orchestrator.run_phase_cycle",
+                "agentmux.workflow.orchestrator.run_phase_cycle",
                 return_value=EXIT_SUCCESS,
-            ), patch("agentmux.orchestrator.cleanup_mcp") as cleanup_mock:
+            ), patch("agentmux.workflow.orchestrator.cleanup_mcp") as cleanup_mock:
                 result = orchestrator.run(ctx, keep_session=False)
 
             self.assertEqual(0, result)
@@ -136,27 +136,27 @@ class McpPipelineRequirementsTests(unittest.TestCase):
             app = application.PipelineApplication(project_dir)
 
             with patch.object(app, "ensure_dependencies", return_value=None), patch(
-                "agentmux.application.load_layered_config",
+                "agentmux.pipeline.application.load_layered_config",
                 return_value=loaded,
             ), patch(
-                "agentmux.application.tmux_session_exists",
+                "agentmux.pipeline.application.tmux_session_exists",
                 return_value=False,
             ), patch(
-                "agentmux.github.check_gh_available",
+                "agentmux.integrations.github.check_gh_available",
                 return_value=False,
             ), patch(
-                "agentmux.application.McpAgentPreparer.ensure_project_config",
+                "agentmux.pipeline.application.McpAgentPreparer.ensure_project_config",
                 return_value=None,
             ), patch(
-                "agentmux.application.McpAgentPreparer.prepare_feature_agents",
+                "agentmux.pipeline.application.McpAgentPreparer.prepare_feature_agents",
                 return_value=injected_agents,
             ) as setup_mock, patch(
-                "agentmux.application.TmuxRuntimeFactory.create",
+                "agentmux.pipeline.application.TmuxRuntimeFactory.create",
                 return_value=object(),
             ) as create_mock, patch(
-                "agentmux.application.PipelineApplication._start_background_orchestrator",
+                "agentmux.pipeline.application.PipelineApplication._start_background_orchestrator",
                 return_value=None,
-            ), patch("agentmux.application.subprocess.run", return_value=None):
+            ), patch("agentmux.pipeline.application.subprocess.run", return_value=None):
                 result = app.run(args)
 
             self.assertEqual(0, result)
@@ -197,22 +197,22 @@ class McpPipelineRequirementsTests(unittest.TestCase):
             app = application.PipelineApplication(project_dir)
 
             with patch.object(app, "ensure_dependencies", return_value=None), patch(
-                "agentmux.application.load_layered_config",
+                "agentmux.pipeline.application.load_layered_config",
                 return_value=loaded,
             ), patch(
-                "agentmux.application.McpAgentPreparer.ensure_project_config",
+                "agentmux.pipeline.application.McpAgentPreparer.ensure_project_config",
                 side_effect=AssertionError("ensure_mcp_config should not run in orchestrate mode"),
             ), patch(
-                "agentmux.application.McpAgentPreparer.prepare_feature_agents",
+                "agentmux.pipeline.application.McpAgentPreparer.prepare_feature_agents",
                 return_value=injected_agents,
             ) as setup_mock, patch(
-                "agentmux.application.TmuxRuntimeFactory.attach",
+                "agentmux.pipeline.application.TmuxRuntimeFactory.attach",
                 return_value=object(),
             ) as attach_mock, patch(
-                "agentmux.application.PipelineOrchestrator.create_context",
+                "agentmux.pipeline.application.PipelineOrchestrator.create_context",
                 return_value=object(),
             ), patch(
-                "agentmux.application.PipelineOrchestrator.run",
+                "agentmux.pipeline.application.PipelineOrchestrator.run",
                 return_value=0,
             ) as orchestrate_mock:
                 result = app.run(args)
@@ -224,7 +224,9 @@ class McpPipelineRequirementsTests(unittest.TestCase):
 
     def test_defaults_allow_mcp_research_tools_for_claude_architect_and_pm(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
-        config = yaml.safe_load((repo_root / "agentmux" / "defaults" / "config.yaml").read_text(encoding="utf-8"))
+        config = yaml.safe_load(
+            (repo_root / "agentmux" / "configuration" / "defaults" / "config.yaml").read_text(encoding="utf-8")
+        )
 
         role_args = config["launchers"]["claude"]["role_args"]
         self.assertIn("mcp__agentmux-research__*", role_args["architect"][-1])

@@ -74,7 +74,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     if len(sys.argv) > 1 and sys.argv[1] == "init":
-        from .init import run_init
+        from .init_command import run_init
 
         init_args = parse_init_args(sys.argv[2:])
         return run_init(defaults_mode=bool(init_args.defaults))

@@ -1,6 +1,6 @@
 # Session Resumption
 
-> Related source files: `pipeline.py` (shim), `agentmux/pipeline.py`, `agentmux/config.py`, `agentmux/state.py`, `agentmux/runtime.py`
+> Related source files: `pipeline.py`, `agentmux/pipeline/__init__.py`, `agentmux/pipeline/application.py`, `agentmux/terminal_ui/console.py`, `agentmux/sessions/__init__.py`, `agentmux/sessions/state_store.py`, `agentmux/runtime/__init__.py`
 
 When a pipeline is interrupted (e.g., connection loss, tmux session killed, or a user manually closes an agent pane with `Ctrl-C`), it can be restarted from where it left off using `--resume`.
 

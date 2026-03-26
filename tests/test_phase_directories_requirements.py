@@ -5,14 +5,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agentmux.event_bus import SessionEvent
-from agentmux.handlers import load_plan_meta
-from agentmux.interruption_reports import InterruptionService
-from agentmux.orchestrator import PipelineOrchestrator
-from agentmux.plan_parser import split_plan_into_subplans
-from agentmux.prompts import write_prompt_file
-from agentmux.state import create_feature_files, load_state
-from agentmux.transitions import EXIT_SUCCESS, PipelineContext
+from agentmux.runtime.event_bus import SessionEvent
+from agentmux.workflow.handlers import load_plan_meta
+from agentmux.workflow.interruptions import InterruptionService
+from agentmux.workflow.orchestrator import PipelineOrchestrator
+from agentmux.workflow.plan_parser import split_plan_into_subplans
+from agentmux.workflow.prompts import write_prompt_file
+from agentmux.sessions.state_store import create_feature_files, load_state
+from agentmux.workflow.transitions import EXIT_SUCCESS, PipelineContext
 
 
 class _FakeEventBus:
@@ -133,10 +133,10 @@ class PhaseDirectoryRequirementsTests(unittest.TestCase):
             )
 
             with patch(
-                "agentmux.orchestrator.PipelineOrchestrator.build_event_bus",
+                "agentmux.workflow.orchestrator.PipelineOrchestrator.build_event_bus",
                 return_value=bus,
             ) as build_bus_mock, patch(
-                "agentmux.orchestrator.run_phase_cycle",
+                "agentmux.workflow.orchestrator.run_phase_cycle",
                 return_value=EXIT_SUCCESS,
             ):
                 result = orchestrator.run(ctx, keep_session=False)
@@ -164,9 +164,9 @@ class PhaseDirectoryRequirementsTests(unittest.TestCase):
             )
 
             with patch(
-                "agentmux.orchestrator.PipelineOrchestrator.build_event_bus",
+                "agentmux.workflow.orchestrator.PipelineOrchestrator.build_event_bus",
                 return_value=bus,
-            ), patch("agentmux.orchestrator.run_phase_cycle") as run_phase_cycle_mock:
+            ), patch("agentmux.workflow.orchestrator.run_phase_cycle") as run_phase_cycle_mock:
                 result = orchestrator.run(ctx, keep_session=False)
 
             self.assertEqual(130, result)

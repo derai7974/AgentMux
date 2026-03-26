@@ -5,11 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Literal, Protocol
 
-from .models import AgentConfig
-from .tmux import (
+from ..shared.models import AgentConfig
+from .tmux_control import (
     ContentZone,
     _find_pane_by_title,
     create_agent_pane,
+    send_text,
     send_prompt,
     tmux_kill_session,
     tmux_new_session,
@@ -37,6 +38,9 @@ class AgentRuntime(Protocol):
         ...
 
     def finish_many(self, role: str) -> None:
+        ...
+
+    def notify(self, role: str, text: str) -> None:
         ...
 
     def spawn_task(self, role: str, task_id: str, prompt_file: Path) -> None:
@@ -364,6 +368,14 @@ class TmuxAgentRuntime:
         if role in self.parallel_panes:
             self.parallel_panes.pop(role, None)
             self._persist_snapshot()
+
+    def notify(self, role: str, text: str) -> None:
+        pane_id = self.primary_panes.get(role)
+        if not pane_id or not tmux_pane_exists(pane_id):
+            return
+        self._zone.show(pane_id)
+        send_text(pane_id, text)
+        self._persist_snapshot()
 
     def spawn_task(self, role: str, task_id: str, prompt_file: Path) -> None:
         if role not in self.agents:

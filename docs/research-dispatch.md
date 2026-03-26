@@ -1,6 +1,6 @@
 # Research Task Dispatch
 
-> Related source files: `agentmux/mcp_research_server.py`, `agentmux/mcp_config.py`, `agentmux/pipeline.py`, `agentmux/defaults/config.yaml`, `agentmux/prompts.py`, `agentmux/prompts/agents/architect.md`, `agentmux/prompts/agents/product-manager.md`, `agentmux/prompts/agents/coder.md`
+> Related source files: `agentmux/integrations/mcp_research_server.py`, `agentmux/integrations/mcp.py`, `agentmux/pipeline/application.py`, `agentmux/configuration/defaults/config.yaml`, `agentmux/workflow/prompts.py`, `agentmux/prompts/agents/architect.md`, `agentmux/prompts/agents/product-manager.md`, `agentmux/prompts/agents/coder.md`
 
 Research dispatch is now MCP-first. The architect and product-manager should call MCP tools to create research requests, then wait for AgentMux to push a completion message.
 
@@ -52,7 +52,7 @@ AgentMux expects an MCP registration named `agentmux-research` for the effective
 - Gemini: project `.gemini/settings.json`
 - OpenCode: project `opencode.json`
 
-`agentmux init` and interactive pipeline startup prompt to create that entry only when it is missing. The registered command uses the current Python interpreter and launches `-m agentmux.mcp_research_server`.
+`agentmux init` and interactive pipeline startup prompt to create that entry only when it is missing. The registered command uses the current Python interpreter and launches `-m agentmux.integrations.mcp_research_server`.
 
 For each run, AgentMux may inject `PYTHONPATH` into the launched `architect` / `product-manager` process so the MCP server can import the project checkout. Feature routing now comes from the `feature_dir` MCP tool argument.
 

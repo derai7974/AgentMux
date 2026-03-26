@@ -4,8 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import agentmux.mcp_research_server as mcp_research_server
-from agentmux.models import SESSION_DIR_NAMES
+import agentmux.integrations.mcp_research_server as mcp_research_server
+from agentmux.shared.models import SESSION_DIR_NAMES
 
 
 class McpResearchServerRequirementsTests(unittest.TestCase):

@@ -22,4 +22,4 @@ agentmux = "agentmux.pipeline:main"
 include = ["agentmux*"]
 
 [tool.setuptools.package-data]
-agentmux = ["prompts/**/*.md", "defaults/*.yaml"]
+agentmux = ["prompts/**/*.md", "configuration/defaults/*.yaml"]

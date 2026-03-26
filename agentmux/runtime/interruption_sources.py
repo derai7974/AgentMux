@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from .event_bus import EventBus, SessionEvent
 
 if TYPE_CHECKING:
-    from .runtime import RegisteredPaneRef, TmuxAgentRuntime
+    from . import RegisteredPaneRef, TmuxAgentRuntime
 
 
 INTERRUPTION_SOURCE_NAME = "interruption"

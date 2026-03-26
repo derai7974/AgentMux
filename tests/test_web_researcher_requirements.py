@@ -6,12 +6,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agentmux.config import load_explicit_config
-from agentmux.models import AgentConfig, SESSION_DIR_NAMES
-from agentmux.phases import PlanningPhase
-from agentmux.prompts import build_architect_prompt, build_web_researcher_prompt
-from agentmux.state import create_feature_files, load_state, write_state
-from agentmux.transitions import PipelineContext
+from agentmux.configuration import load_explicit_config
+from agentmux.shared.models import AgentConfig, SESSION_DIR_NAMES
+from agentmux.workflow.phases import PlanningPhase
+from agentmux.workflow.prompts import build_architect_prompt, build_web_researcher_prompt
+from agentmux.sessions.state_store import create_feature_files, load_state, write_state
+from agentmux.workflow.transitions import PipelineContext
 
 PLANNING_DIR = SESSION_DIR_NAMES["planning"]
 RESEARCH_DIR = SESSION_DIR_NAMES["research"]
@@ -42,6 +42,9 @@ class FakeRuntime:
 
     def finish_many(self, role: str) -> None:
         self.calls.append(("finish_many", role))
+
+    def notify(self, role: str, text: str) -> None:
+        self.calls.append(("notify", role, text))
 
     def shutdown(self, keep_session: bool) -> None:
         self.calls.append(("shutdown", keep_session))
@@ -219,15 +222,12 @@ class WebResearcherRequirementsTests(unittest.TestCase):
             (feature_dir / RESEARCH_DIR / "web-openai-models" / "done").touch()
 
             phase = PlanningPhase()
-            with patch("agentmux.phases.send_text") as send_text:
-                result = phase.handle_event(load_state(state_path), "web_task_completed:openai-models", ctx)
+            result = phase.handle_event(load_state(state_path), "web_task_completed:openai-models", ctx)
 
             self.assertIsNone(result)
-            self.assertEqual(("finish_task", "web-researcher", "openai-models"), ctx.runtime.calls[-1])
-            send_text.assert_called_once_with(
-                "%1",
+            self.assertEqual(("notify", "architect",
                 "Web research on 'openai-models' is complete. Read 03_research/web-openai-models/summary.md and continue from there.",
-            )
+            ), ctx.runtime.calls[-1])
             updated = load_state(state_path)
             self.assertEqual("done", updated["web_research_tasks"]["openai-models"])
 

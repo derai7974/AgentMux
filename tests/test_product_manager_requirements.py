@@ -8,13 +8,13 @@ from unittest.mock import patch
 
 import agentmux.pipeline as pipeline
 from agentmux import monitor
-from agentmux.config import load_explicit_config
-from agentmux.models import AgentConfig, SESSION_DIR_NAMES
-from agentmux.phases import PHASES, ProductManagementPhase
-from agentmux.prompts import build_product_manager_prompt
+from agentmux.configuration import load_explicit_config
+from agentmux.shared.models import AgentConfig, SESSION_DIR_NAMES
+from agentmux.workflow.phases import PHASES, ProductManagementPhase
+from agentmux.workflow.prompts import build_product_manager_prompt
 from agentmux.runtime import TmuxAgentRuntime
-from agentmux.state import create_feature_files, infer_resume_phase, load_state, write_state
-from agentmux.transitions import PipelineContext
+from agentmux.sessions.state_store import create_feature_files, infer_resume_phase, load_state, write_state
+from agentmux.workflow.transitions import PipelineContext
 
 PRODUCT_MANAGEMENT_DIR = SESSION_DIR_NAMES["product_management"]
 PLANNING_DIR = SESSION_DIR_NAMES["planning"]
@@ -49,6 +49,9 @@ class FakeRuntime:
 
     def kill_primary(self, role: str) -> None:
         self.calls.append(("kill_primary", role))
+
+    def notify(self, role: str, text: str) -> None:
+        self.calls.append(("notify", role, text))
 
     def shutdown(self, keep_session: bool) -> None:
         self.calls.append(("shutdown", keep_session))
@@ -190,13 +193,11 @@ class ProductManagerRequirementsTests(unittest.TestCase):
             updated["research_tasks"] = {"market-fit": "dispatched"}
             write_state(state_path, updated)
             (feature_dir / RESEARCH_DIR / "code-market-fit" / "done").touch()
-            with patch("agentmux.phases.send_text") as send_text:
-                phase.handle_event(load_state(state_path), "task_completed:market-fit", ctx)
+            phase.handle_event(load_state(state_path), "task_completed:market-fit", ctx)
 
-            send_text.assert_called_once_with(
-                "%7",
+            self.assertEqual(("notify", "product-manager",
                 "Code-research on 'market-fit' is complete. Read 03_research/code-market-fit/summary.md and continue from there.",
-            )
+            ), ctx.runtime.calls[-1])
 
     def test_infer_resume_phase_handles_product_management_marker(self) -> None:
         with tempfile.TemporaryDirectory() as td:

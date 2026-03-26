@@ -9,8 +9,8 @@ from typing import Any
 
 import yaml
 
-from .config import load_builtin_catalog, load_layered_config
-from .mcp_config import McpServerSpec, ensure_mcp_config
+from ..configuration import load_builtin_catalog, load_layered_config
+from ..integrations.mcp import McpServerSpec, ensure_mcp_config
 
 try:
     import questionary
@@ -549,7 +549,7 @@ def run_init(defaults_mode: bool = False) -> int:
         loaded = load_layered_config(project_dir)
         ensure_mcp_config(
             loaded.agents,
-            [McpServerSpec(name="agentmux-research", module="agentmux.mcp_research_server", env={})],
+            [McpServerSpec(name="agentmux-research", module="agentmux.integrations.mcp_research_server", env={})],
             ("architect", "product-manager"),
             project_dir,
             interactive=True,

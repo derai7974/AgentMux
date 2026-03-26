@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import threading
 
-from .event_bus import EventBus, SessionEvent, build_wake_listener
-from .interruption_events import INTERRUPTION_EVENT_CANCELED
-from .interruption_reports import InterruptionService
-from .interruption_sources import INTERRUPTION_EVENT_PANE_EXITED, InterruptionEventSource
-from .mcp_config import cleanup_mcp
-from .models import GitHubConfig
+from ..integrations.mcp import cleanup_mcp
+from ..runtime.event_bus import EventBus, SessionEvent, build_wake_listener
+from ..runtime.file_events import CreatedFilesLogListener, FileEventSource
+from ..runtime.interruption_sources import INTERRUPTION_EVENT_PANE_EXITED, InterruptionEventSource
+from ..sessions.state_store import load_state
+from ..shared.models import GitHubConfig
+from .interruptions import InterruptionService
 from .prompts import build_initial_prompts
-from .session_events import CreatedFilesLogListener, FileEventSource
-from .state import load_state
 from .transitions import EXIT_FAILURE, EXIT_SUCCESS, PipelineContext
 from .phases import run_phase_cycle
 

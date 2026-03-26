@@ -9,13 +9,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agentmux.mcp_config import McpServerSpec, cleanup_mcp, ensure_mcp_config, setup_mcp
-from agentmux.models import AgentConfig
+from agentmux.integrations.mcp import McpServerSpec, cleanup_mcp, ensure_mcp_config, setup_mcp
+from agentmux.shared.models import AgentConfig
 
 
 class McpConfigRequirementsTests(unittest.TestCase):
     def _server(self) -> McpServerSpec:
-        return McpServerSpec(name="agentmux-research", module="agentmux.mcp_research_server", env={})
+        return McpServerSpec(name="agentmux-research", module="agentmux.integrations.mcp_research_server", env={})
 
     def test_setup_mcp_adds_pythonpath_for_selected_roles(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -93,7 +93,7 @@ class McpConfigRequirementsTests(unittest.TestCase):
             self.assertTrue(config["existing"])
             self.assertEqual("stdio", server["type"])
             self.assertEqual(sys.executable, server["command"])
-            self.assertEqual(["-m", "agentmux.mcp_research_server"], server["args"])
+            self.assertEqual(["-m", "agentmux.integrations.mcp_research_server"], server["args"])
 
     def test_ensure_mcp_config_writes_gemini_project_config(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -119,7 +119,7 @@ class McpConfigRequirementsTests(unittest.TestCase):
             config = json.loads((project_dir / ".gemini" / "settings.json").read_text(encoding="utf-8"))
             server = config["mcpServers"]["agentmux-research"]
             self.assertEqual(sys.executable, server["command"])
-            self.assertEqual(["-m", "agentmux.mcp_research_server"], server["args"])
+            self.assertEqual(["-m", "agentmux.integrations.mcp_research_server"], server["args"])
             self.assertTrue(server["trust"])
 
     def test_ensure_mcp_config_writes_opencode_project_config(self) -> None:
@@ -144,7 +144,7 @@ class McpConfigRequirementsTests(unittest.TestCase):
             server = config["mcp"]["agentmux-research"]
             self.assertEqual({"x": True}, config["tools"])
             self.assertEqual("local", server["type"])
-            self.assertEqual([sys.executable, "-m", "agentmux.mcp_research_server"], server["command"])
+            self.assertEqual([sys.executable, "-m", "agentmux.integrations.mcp_research_server"], server["command"])
             self.assertTrue(server["enabled"])
 
     def test_ensure_mcp_config_writes_codex_user_config_and_refreshes_existing_block(self) -> None:
@@ -158,7 +158,7 @@ class McpConfigRequirementsTests(unittest.TestCase):
                 'foo = "bar"\n\n'
                 '[mcp_servers.agentmux-research]\n'
                 'command = "python3"\n'
-                'args = ["-m", "agentmux.mcp_research_server"]\n'
+                'args = ["-m", "agentmux.integrations.mcp_research_server"]\n'
                 'enabled = true\n\n'
                 '[mcp_servers.agentmux-research.env]\n'
                 'FEATURE_DIR = "/old/feature"\n',
@@ -168,7 +168,7 @@ class McpConfigRequirementsTests(unittest.TestCase):
                 "architect": AgentConfig(role="architect", cli="codex", model="gpt-5.3-codex", provider="codex"),
             }
 
-            with patch("agentmux.mcp_config.Path.home", return_value=home_dir):
+            with patch("agentmux.integrations.mcp.Path.home", return_value=home_dir):
                 ensure_mcp_config(
                     agents,
                     [self._server()],
@@ -181,7 +181,7 @@ class McpConfigRequirementsTests(unittest.TestCase):
             content = config_path.read_text(encoding="utf-8")
             self.assertIn('foo = "bar"', content)
             self.assertIn(f'command = "{sys.executable}"', content)
-            self.assertIn('args = ["-m", "agentmux.mcp_research_server"]', content)
+            self.assertIn('args = ["-m", "agentmux.integrations.mcp_research_server"]', content)
             self.assertEqual(1, content.count("[mcp_servers.agentmux-research]"))
             self.assertNotIn('FEATURE_DIR = "/old/feature"', content)
 
@@ -195,7 +195,7 @@ class McpConfigRequirementsTests(unittest.TestCase):
             }
             output = io.StringIO()
 
-            with patch("agentmux.mcp_config.Path.home", return_value=home_dir):
+            with patch("agentmux.integrations.mcp.Path.home", return_value=home_dir):
                 ensure_mcp_config(
                     agents,
                     [self._server()],

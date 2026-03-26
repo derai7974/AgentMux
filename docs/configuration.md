@@ -1,6 +1,6 @@
 # Agent Configuration
 
-> Related source files: `agentmux/config.py`, `agentmux/init.py`, `agentmux/providers.py`, `agentmux/models.py`, `agentmux/mcp_config.py`, `agentmux/pipeline.py`, `agentmux/tmux.py`, `agentmux/defaults/config.yaml`, `.agentmux/config.yaml`
+> Related source files: `agentmux/configuration/__init__.py`, `agentmux/configuration/providers.py`, `agentmux/pipeline/init_command.py`, `agentmux/integrations/mcp.py`, `agentmux/shared/models.py`, `agentmux/configuration/defaults/config.yaml`, `.agentmux/config.yaml`
 
 ## Overview
 
@@ -8,7 +8,7 @@ AgentMux now resolves agent configuration from layered config files instead of s
 
 Resolution order:
 
-1. Built-in defaults shipped in `agentmux/defaults/config.yaml`
+1. Built-in defaults shipped in `agentmux/configuration/defaults/config.yaml`
 2. User config in `~/.config/agentmux/config.yaml`
 3. Project config in `.agentmux/config.yaml` (or `.yml` / `.json`)
 4. Optional `--config <path>` override
@@ -17,7 +17,7 @@ Legacy `pipeline_config.json` is still supported as a project config and as an e
 
 ## Project Initialization
 
-Use `python3 -m agentmux init` to scaffold a new project with configuration:
+Use `agentmux init` to scaffold a new project with configuration:
 
 - **Interactive mode** — Guides you through a quick setup or custom role assignments, GitHub settings, optional MCP setup, and optional prompt stubs
 - **Non-interactive mode** (`--defaults`) — Creates config with built-in defaults and CLAUDE.md template
@@ -156,7 +156,7 @@ Each role resolves to an `AgentConfig` with:
 - `env` (optional runtime environment variables to prepend via `env KEY=VALUE ...`)
 - `trust_snippet`
 
-The tmux runtime launches agents from that fully resolved config. The orchestrator still never talks to model APIs directly.
+The tmux runtime launches agents from that fully resolved config. AgentMux still never talks to model APIs directly.
 
 ## Runtime MCP setup for research tools
 
@@ -169,6 +169,6 @@ MCP setup for research now follows each provider's native config scope. `agentmu
 
 When the entry is missing, the user is prompted to create or refresh it in that provider-specific file. Codex remains a user-scope prompt because Codex MCP servers are configured globally; the other bundled providers use repo-local project config.
 
-At runtime, `setup_mcp(...)` no longer rewrites provider config. It only injects `PYTHONPATH=<project_dir>[...existing entries]` into the launched `architect` / `product-manager` process when needed so `agentmux.mcp_research_server` can import the project checkout. Research requests identify the active session explicitly via the `feature_dir` MCP tool argument.
+At runtime, `setup_mcp(...)` no longer rewrites provider config. It only injects `PYTHONPATH=<project_dir>[...existing entries]` into the launched `architect` / `product-manager` process when needed so `agentmux.integrations.mcp_research_server` can import the project checkout. Research requests identify the active session explicitly via the `feature_dir` MCP tool argument.
 
 Claude additionally needs explicit allowlisting, so defaults include `mcp__agentmux-research__*` in architect/product-manager `--allowedTools`. Other bundled providers already run in approval modes that auto-approve tool calls.

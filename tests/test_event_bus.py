@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 import unittest
 
-from agentmux.event_bus import EventBus, SessionEvent, build_wake_listener
+from agentmux.runtime.event_bus import EventBus, SessionEvent, build_wake_listener
 
 
 class _FakeSource:

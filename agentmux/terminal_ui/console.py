@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, TextIO
 
-from .sessions import SessionRecord
+from ..sessions import SessionRecord
 
 
 @dataclass

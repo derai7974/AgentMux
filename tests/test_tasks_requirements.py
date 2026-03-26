@@ -4,13 +4,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agentmux.prompts import (
+from agentmux.workflow.prompts import (
     build_architect_prompt,
     build_change_prompt,
     build_coder_prompt,
     build_reviewer_prompt,
 )
-from agentmux.state import create_feature_files, load_runtime_files
+from agentmux.sessions.state_store import create_feature_files, load_runtime_files
 
 
 class TasksRequirementsTests(unittest.TestCase):

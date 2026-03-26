@@ -9,8 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 python3 -m pip install -r requirements.txt
 
 # Initialize a new project (scaffolds configuration)
-python3 -m agentmux init                             # Interactive setup wizard
-python3 -m agentmux init --defaults                  # Non-interactive with built-in defaults
+agentmux init                                        # Interactive setup wizard
+agentmux init --defaults                             # Non-interactive with built-in defaults
 
 # Start a feature workflow
 python3 pipeline.py "Your feature description"
@@ -45,7 +45,7 @@ Test command:
 There are no lint commands in this repository.
 
 Default config resolution is layered:
-- built-in defaults from `agentmux/defaults/config.yaml`
+- built-in defaults from `agentmux/configuration/defaults/config.yaml`
 - optional user config from `~/.config/agentmux/config.yaml`
 - project config from `.agentmux/config.yaml` (preferred) or legacy `pipeline_config.json`
 - explicit `--config <path>` override
@@ -56,9 +56,8 @@ This is a **tmux-based multi-agent orchestration system**. Instead of calling AI
 
 ### How it works
 
-`agentmux/pipeline.py` is the orchestrator implementation (started as a background subprocess with `--orchestrate`).
-The repo-root `pipeline.py` is a backward-compatible shim that calls `agentmux.pipeline:main`.
-The orchestrator:
+The repo-root `pipeline.py` calls `agentmux.pipeline:main`.
+The pipeline application:
 1. Creates a feature directory under `.agentmux/.sessions/<feature-name>/`
 2. Spawns a tmux session with a **control pane** (left, 15 cols) and agent panes (right)
    - Pane border titles are enabled so each pane shows its role name
@@ -87,25 +86,46 @@ Role routing in these phases:
 
 `state.json` persists the durable `phase` and optional metadata such as `last_event`, `review_iteration`, `subplan_count`, `product_manager`, `research_tasks` (a dict tracking code-researcher task status by topic), `web_research_tasks` (a dict tracking web-researcher task status by topic), and GitHub integration keys like `gh_available` / `issue_number`. Agents no longer write workflow statuses directly.
 
-### Module structure
+### Component structure
 
 ```
-pipeline.py                    — backward-compatible CLI shim (`agentmux.pipeline:main`)
-agentmux/pipeline.py           — CLI parsing, config loading, orchestrate() loop
-agentmux/event_bus.py               — shared session event bus plus source lifecycle wiring
-agentmux/session_events.py     — feature-directory watchdog integration, file-event source, created-files logging
-agentmux/interruption_sources.py    — runtime interruption source for manually closed / missing tmux panes
-agentmux/config.py                  — layered config loading, legacy compatibility, role resolution, project-dir inference from session paths
-agentmux/init.py                    — project initialization wizard (detect CLIs, role config, setup files)
-agentmux/models.py                  — AgentConfig (cli/model/args/env/trust_snippet) and RuntimeFiles dataclasses
-agentmux/mcp_config.py              — provider-native MCP setup plus runtime env wiring for architect + product-manager
-agentmux/mcp_research_server.py     — shared MCP server exposing research dispatch/await tools
-agentmux/providers.py               — built-in provider compatibility helpers for profiles/models
-agentmux/state.py                   — state.json CRUD, feature-directory lifecycle, parse_review_verdict
-agentmux/tmux.py                    — all tmux interaction (sessions, panes, send-keys, trust-prompt, env-prefixed launch command)
-agentmux/monitor.py                 — control pane status display (pipeline status, agent list, documents)
-agentmux/runtime.py                 — TmuxAgentRuntime, spawns agents with resolved trust_snippet
-agentmux/prompts.py                 — loads markdown templates, renders them with str.format_map(), and injects coder research handoff references from completed `03_research/` topics
+pipeline.py                         — repo-root CLI entrypoint
+agentmux/pipeline/__init__.py       — CLI parsing and `main()`
+agentmux/pipeline/application.py    — PipelineApplication, launcher flow, hidden `--orchestrate` mode
+agentmux/pipeline/init_command.py   — project initialization wizard
+
+agentmux/configuration/             — layered config loading, provider/profile resolution, built-in defaults
+agentmux/configuration/providers.py — built-in provider compatibility helpers for profiles/models
+
+agentmux/shared/models.py           — AgentConfig, GitHubConfig, RuntimeFiles
+agentmux/sessions/__init__.py       — SessionService, session creation/resume
+agentmux/sessions/state_store.py    — state.json CRUD, feature-directory lifecycle, commit/cleanup helpers
+
+agentmux/runtime/__init__.py        — TmuxAgentRuntime and TmuxRuntimeFactory
+agentmux/runtime/tmux_control.py    — tmux control, pane/session lifecycle, prompt dispatch
+agentmux/runtime/event_bus.py       — shared session event bus
+agentmux/runtime/file_events.py     — watchdog integration and created-files logging
+agentmux/runtime/interruption_sources.py — missing-pane interruption source
+
+agentmux/workflow/orchestrator.py   — orchestration loop on top of runtime event sources
+agentmux/workflow/phases.py         — workflow phase state machine
+agentmux/workflow/prompts.py        — prompt rendering and prompt-file creation
+agentmux/workflow/handlers.py       — phase helpers and state writes
+agentmux/workflow/transitions.py    — PipelineContext and transition helpers
+agentmux/workflow/interruptions.py  — interruption catalog and reporting
+agentmux/workflow/plan_parser.py    — subplan splitting
+
+agentmux/monitor/__init__.py        — monitor command entrypoint
+agentmux/monitor/state_reader.py    — monitor state/log aggregation
+agentmux/monitor/render.py          — ANSI rendering for the control pane
+agentmux/terminal_ui/console.py     — interactive terminal session selection
+agentmux/terminal_ui/layout.py      — shared terminal layout constants
+
+agentmux/integrations/github.py     — GitHub issue bootstrap and PR creation
+agentmux/integrations/mcp.py        — provider-native MCP setup plus runtime env wiring
+agentmux/integrations/mcp_research_server.py — shared MCP research server
+agentmux/integrations/completion.py — completion-time commit / PR / cleanup side effects
+
 agentmux/prompts/agents/            — role-level prompts (define what each agent is)
   product-manager.md           —   product management phase
   architect.md                 —   planning phase
@@ -128,6 +148,7 @@ agentmux/prompts/commands/          — phase-specific command prompts (what to 
 - Prompt files are built lazily by handlers just before injection, not pre-generated
 - Human can attach to the tmux session at any time to observe or intervene
 - Trust/confirmation prompts from CLI tools are automatically answered with Enter
+- Workflow code should depend on runtime/session abstractions, not directly on tmux or GitHub helpers
 
 ## Documentation Maintenance
 
