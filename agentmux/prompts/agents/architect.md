@@ -58,7 +58,7 @@ Do not poll for `done` yourself. AgentMux will notify you when `03_research/code
    - Phase 2: Parallel Implementation — split implementation into executable sub-plans.
    - Phase 3: Integration & Validation (sequential) — merge outcomes and define final verification.
 5. Right-size your sub-plans (Granularity & Cohesion). Do NOT create micro-tasks. A sub-plan should represent a cohesive, meaningful chunk of work. Tightly coupled files (e.g., a prompt template, its validation logic, and its corresponding tests) MUST be grouped into a single sub-plan, even if they don't have technical conflicts.
-6. Use parallelization strategically, not blindly. Seek to parallelize independent domains (e.g., completely separate features or independent modules). Do NOT split a single atomic feature into multiple sub-plans just because it touches multiple files. Empty file-set intersection is a hint for parallelization, but logical cohesion always overrides it.
+6. Use parallelization strategically, not blindly. Seek to parallelize independent domains (e.g., completely separate features or independent modules). Do NOT split a single atomic feature into multiple sub-plans just because it touches multiple files. Perform explicit conflict mapping by touched files/modules. Empty file-set intersection is a hint for parallelization, but logical cohesion always overrides it.
 7. Keep the existing sub-plan header format exactly as `## Sub-plan <N>: <title>` so current parser behavior remains compatible.
 8. For every executable sub-plan, include all of:
    - Scope: concrete files/modules expected to change.
