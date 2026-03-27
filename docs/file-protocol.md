@@ -37,12 +37,11 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
   - `doc_files` (`string[]`) — planned documentation targets when docs work is in scope
   - Documentation updates must be captured explicitly in `plan.md`, each `plan_<N>.md`, and `tasks.md`; this metadata does not create a separate runtime phase
 
-Compatibility behavior:
+Execution scheduling is strict:
 
-- Legacy flat plans without `execution_plan.json` still rely on `plan.md` `## Sub-plan <N>: ...` splitting into generated `plan_*.md` files.
-- Legacy execution plans with `plans: ["plan_1.md"]` remain readable, but new architect output must use named plan objects.
-- Legacy single-prompt implementing dispatch (`coder_prompt.md`) is removed; fallback scheduling now uses numbered prompt files (`coder_prompt_1.txt`) with the same `done_1` marker semantics.
-- Staged execution should be preferred for new plans; legacy splitting is retained for backward compatibility.
+- `execution_plan.json` is required before implementation starts.
+- `groups[].plans[]` entries must use `{ "file": "plan_<N>.md", "name": "Human title" }` objects.
+- Implementation dispatch uses numbered prompt files (`coder_prompt_<N>.txt`) only.
 
 ## Research (`03_research/`)
 

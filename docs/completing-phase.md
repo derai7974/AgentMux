@@ -7,7 +7,7 @@ Documentation updates are expected to be delivered during implementation and ver
 
 ## Flow
 
-1. **Completion entry mode is selected** — The phase checks `workflow_settings.completion.skip_final_approval` (inverse: `workflow_settings.completion.require_final_approval`).
+1. **Completion entry mode is selected** — The phase checks `workflow_settings.completion.skip_final_approval`.
    - `false` (default): reviewer confirmation is requested in `08_completion/confirmation_prompt.md`.
    - `true`: reviewer confirmation is skipped and completion auto-prepares approval inside `08_completion/approval.json` with `{"action": "approve", "exclude_files": []}`.
    In both modes, the workflow still enters `completing`, and `completing` remains the owner of commit, cleanup, and PR finalization.

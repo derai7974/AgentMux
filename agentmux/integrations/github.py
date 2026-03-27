@@ -184,13 +184,11 @@ def assemble_pr_body(feature_dir: Path, issue_number: str | None) -> str:
     plan_text = _read_first_available(
         [
             feature_dir / "02_planning" / "plan.md",
-            feature_dir / "planning" / "plan.md",
         ]
     )
     review_text = _read_first_available(
         [
             feature_dir / "06_review" / "review.md",
-            feature_dir / "review" / "review.md",
         ]
     )
 

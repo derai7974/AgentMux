@@ -61,6 +61,24 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
+def _write_execution_plan(files, *, name: str = "implementation") -> None:
+    files.planning_dir.mkdir(parents=True, exist_ok=True)
+    (files.planning_dir / "plan_1.md").write_text(f"## Sub-plan 1: {name}\n", encoding="utf-8")
+    _write_json(
+        files.execution_plan,
+        {
+            "version": 1,
+            "groups": [
+                {
+                    "group_id": "g1",
+                    "mode": "serial",
+                    "plans": [{"file": "plan_1.md", "name": name}],
+                }
+            ],
+        },
+    )
+
+
 class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
     def test_pm_completed_applies_approved_preferences_before_planning_transition(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -109,6 +127,7 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             state = load_state(state_path)
             state["phase"] = "planning"
             write_state(state_path, state)
+            _write_execution_plan(ctx.files)
             _write_json(ctx.files.planning_dir / "plan_meta.json", {"needs_design": False})
             _write_json(
                 ctx.files.architect_preference_proposal,
@@ -135,6 +154,7 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             state = load_state(state_path)
             state["phase"] = "planning"
             write_state(state_path, state)
+            _write_execution_plan(ctx.files)
             _write_json(ctx.files.planning_dir / "plan_meta.json", {"needs_design": False})
 
             PlanningPhase().handle_event(load_state(state_path), "plan_written", ctx)

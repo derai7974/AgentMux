@@ -116,8 +116,8 @@ class GitHubHelpersTests(unittest.TestCase):
     def test_assemble_pr_body_includes_summaries_and_closes_line(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            (feature_dir / "planning").mkdir(parents=True)
-            (feature_dir / "review").mkdir(parents=True)
+            (feature_dir / "02_planning").mkdir(parents=True)
+            (feature_dir / "06_review").mkdir(parents=True)
             (feature_dir / "requirements.md").write_text(
                 """
 # Requirements
@@ -129,7 +129,7 @@ Implement GitHub integration.
                 + "\n",
                 encoding="utf-8",
             )
-            (feature_dir / "planning" / "plan.md").write_text(
+            (feature_dir / "02_planning" / "plan.md").write_text(
                 """
 # Plan
 
@@ -140,7 +140,7 @@ Create branch and open draft PR.
                 + "\n",
                 encoding="utf-8",
             )
-            (feature_dir / "review" / "review.md").write_text(
+            (feature_dir / "06_review" / "review.md").write_text(
                 "Verdict: pass\nNo blocking issues.\n", encoding="utf-8"
             )
 
@@ -196,10 +196,10 @@ Finalize directly from completing when skip mode is enabled.
             project_dir.mkdir()
             feature_dir.mkdir()
             (feature_dir / "requirements.md").write_text("# Requirements\n", encoding="utf-8")
-            (feature_dir / "planning").mkdir(parents=True)
-            (feature_dir / "planning" / "plan.md").write_text("# Plan\n", encoding="utf-8")
-            (feature_dir / "review").mkdir(parents=True)
-            (feature_dir / "review" / "review.md").write_text("Verdict: pass\n", encoding="utf-8")
+            (feature_dir / "02_planning").mkdir(parents=True)
+            (feature_dir / "02_planning" / "plan.md").write_text("# Plan\n", encoding="utf-8")
+            (feature_dir / "06_review").mkdir(parents=True)
+            (feature_dir / "06_review" / "review.md").write_text("Verdict: pass\n", encoding="utf-8")
 
             with patch(
                 "agentmux.integrations.github.subprocess.run",

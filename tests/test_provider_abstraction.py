@@ -24,7 +24,7 @@ class ProviderAbstractionTests(unittest.TestCase):
         agent = resolve_agent(
             global_provider=get_provider("claude"),
             role="coder",
-            role_config={"provider": "codex", "tier": "low", "args": ["--x"]},
+            role_config={"provider": "codex", "profile": "low", "args": ["--x"]},
         )
         self.assertEqual("coder", agent.role)
         self.assertEqual(PROVIDERS["codex"].cli, agent.cli)
@@ -34,13 +34,14 @@ class ProviderAbstractionTests(unittest.TestCase):
 
     def test_load_config_resolves_global_provider_defaults_and_overrides(self) -> None:
         with tempfile.TemporaryDirectory() as td:
-            cfg_path = Path(td) / "pipeline_config.json"
+            cfg_path = Path(td) / "config.json"
             cfg = {
-                "session_name": "s",
-                "provider": "claude",
-                "architect": {"tier": "max"},
-                "reviewer": {"tier": "standard"},
-                "coder": {"provider": "codex", "tier": "standard"},
+                "defaults": {"session_name": "s", "provider": "claude"},
+                "roles": {
+                    "architect": {"profile": "max"},
+                    "reviewer": {"profile": "standard"},
+                    "coder": {"provider": "codex", "profile": "standard"},
+                },
             }
             cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
 
@@ -120,7 +121,7 @@ roles:
 
             self.assertFalse(loaded.workflow_settings.completion.skip_final_approval)
 
-    def test_load_layered_config_exposes_completion_settings_vocabulary(self) -> None:
+    def test_load_layered_config_exposes_completion_settings(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             project_dir = Path(td) / "project"
             project_dir.mkdir()
@@ -128,8 +129,8 @@ roles:
             with patch("agentmux.configuration.USER_CONFIG_PATH", Path(td) / "missing-user-config.yaml"):
                 loaded = load_layered_config(project_dir)
 
-            self.assertFalse(loaded.workflow_settings.completion_settings.skip_final_approval)
-            self.assertTrue(loaded.workflow_settings.completion_settings.require_final_approval)
+            self.assertFalse(loaded.workflow_settings.completion.skip_final_approval)
+            self.assertTrue(loaded.workflow_settings.completion.require_final_approval)
 
     def test_project_config_can_enable_skip_final_approval(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -140,7 +141,8 @@ roles:
             (project_cfg / "config.yaml").write_text(
                 """
 defaults:
-  skip_final_approval: true
+  completion:
+    skip_final_approval: true
 """.strip()
                 + "\n",
                 encoding="utf-8",
@@ -170,10 +172,10 @@ defaults:
             with patch("agentmux.configuration.USER_CONFIG_PATH", Path(td) / "missing-user-config.yaml"):
                 loaded = load_layered_config(project_dir)
 
-            self.assertTrue(loaded.workflow_settings.completion_settings.skip_final_approval)
-            self.assertFalse(loaded.workflow_settings.completion_settings.require_final_approval)
+            self.assertTrue(loaded.workflow_settings.completion.skip_final_approval)
+            self.assertFalse(loaded.workflow_settings.completion.require_final_approval)
 
-    def test_project_config_completion_require_final_approval_maps_to_skip_toggle(self) -> None:
+    def test_project_config_rejects_require_final_approval_alias(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             project_dir = Path(td) / "project"
             project_dir.mkdir()
@@ -190,10 +192,10 @@ defaults:
             )
 
             with patch("agentmux.configuration.USER_CONFIG_PATH", Path(td) / "missing-user-config.yaml"):
-                loaded = load_layered_config(project_dir)
+                with self.assertRaises(ValueError) as exc:
+                    load_layered_config(project_dir)
 
-            self.assertTrue(loaded.workflow_settings.completion_settings.skip_final_approval)
-            self.assertFalse(loaded.workflow_settings.completion_settings.require_final_approval)
+            self.assertIn("no longer supported", str(exc.exception))
 
     def test_invalid_completion_settings_conflicting_booleans_fail_validation(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -216,10 +218,7 @@ defaults:
                 with self.assertRaises(ValueError) as exc:
                     load_layered_config(project_dir)
 
-            self.assertIn(
-                "defaults.completion.skip_final_approval and defaults.completion.require_final_approval must be opposites.",
-                str(exc.exception),
-            )
+            self.assertIn("no longer supported", str(exc.exception))
 
     def test_invalid_skip_final_approval_value_fails_validation(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -240,7 +239,7 @@ defaults:
                 with self.assertRaises(ValueError) as exc:
                     load_layered_config(project_dir)
 
-            self.assertIn("defaults.skip_final_approval must be a boolean.", str(exc.exception))
+            self.assertIn("Legacy defaults keys are no longer supported", str(exc.exception))
 
     def test_built_in_defaults_include_skip_final_approval_false(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
@@ -250,8 +249,8 @@ defaults:
             )
         )
 
-        self.assertIn("skip_final_approval", config["defaults"])
-        self.assertFalse(config["defaults"]["skip_final_approval"])
+        self.assertIn("completion", config["defaults"])
+        self.assertFalse(config["defaults"]["completion"]["skip_final_approval"])
 
     def test_project_config_cannot_define_launchers_or_profiles(self) -> None:
         with tempfile.TemporaryDirectory() as td:

@@ -228,10 +228,10 @@ class McpPipelineRequirementsTests(unittest.TestCase):
             self.assertEqual(injected_agents, attach_mock.call_args.kwargs["agents"])
             settings = create_context_mock.call_args.kwargs["workflow_settings"]
             self.assertIsInstance(settings, WorkflowSettings)
-            self.assertTrue(settings.completion_settings.skip_final_approval)
+            self.assertTrue(settings.completion.skip_final_approval)
             self.assertEqual(False, orchestrate_mock.call_args.args[1])
 
-    def test_orchestrate_mode_normalizes_completion_settings_boundary_before_context_creation(self) -> None:
+    def test_orchestrate_mode_uses_default_workflow_settings_when_loaded_object_is_invalid(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             project_dir = tmp_path / "project"
@@ -248,7 +248,7 @@ class McpPipelineRequirementsTests(unittest.TestCase):
                 github=GitHubConfig(),
                 agents=base_agents,
                 workflow_settings=SimpleNamespace(
-                    completion_settings=CompletionSettings(skip_final_approval=True),
+                    completion=CompletionSettings(skip_final_approval=True),
                 ),
             )
             args = argparse.Namespace(
@@ -285,7 +285,7 @@ class McpPipelineRequirementsTests(unittest.TestCase):
             self.assertEqual(0, result)
             settings = create_context_mock.call_args.kwargs["workflow_settings"]
             self.assertIsInstance(settings, WorkflowSettings)
-            self.assertTrue(settings.completion_settings.skip_final_approval)
+            self.assertFalse(settings.completion.skip_final_approval)
 
     def test_defaults_allow_mcp_research_tools_for_claude_architect_and_pm(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
@@ -297,7 +297,7 @@ class McpPipelineRequirementsTests(unittest.TestCase):
         self.assertIn("mcp__agentmux-research__*", role_args["architect"][-1])
         self.assertIn("mcp__agentmux-research__*", role_args["product-manager"][-1])
 
-    def test_architect_and_product_manager_prompts_reference_mcp_tools_with_fallback(self) -> None:
+    def test_architect_and_product_manager_prompts_reference_mcp_tools_without_legacy_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             project_dir = tmp_path / "project"
@@ -316,9 +316,9 @@ class McpPipelineRequirementsTests(unittest.TestCase):
                 self.assertIn("scope_hints=[", prompt)
                 self.assertIn("stop and wait idle", prompt)
                 self.assertIn("summary.md", prompt)
-                self.assertIn("Fallback", prompt)
-                self.assertIn("03_research/code-<topic>/request.md", prompt)
-                self.assertIn("03_research/web-<topic>/request.md", prompt)
+                self.assertNotIn("Fallback", prompt)
+                self.assertNotIn("03_research/code-<topic>/request.md", prompt)
+                self.assertNotIn("03_research/web-<topic>/request.md", prompt)
 
 
 if __name__ == "__main__":

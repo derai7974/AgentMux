@@ -12,7 +12,7 @@ from ..runtime.file_events import ensure_watchdog_available
 from ..runtime.tmux_control import tmux_session_exists
 from ..sessions import PreparedSession, PromptInput, SessionCreateRequest, SessionService
 from ..sessions.state_store import feature_slug_from_dir, load_runtime_files, load_state
-from ..shared.models import CompletionSettings, WorkflowSettings
+from ..shared.models import WorkflowSettings
 from ..terminal_ui.console import ConsoleUI
 from ..workflow.interruptions import InterruptionService
 from ..workflow.orchestrator import PipelineOrchestrator
@@ -88,13 +88,7 @@ class PipelineApplication:
     def _resolve_workflow_settings(self, loaded) -> WorkflowSettings:
         candidate = getattr(loaded, "workflow_settings", None)
         if isinstance(candidate, WorkflowSettings):
-            return WorkflowSettings(completion=candidate.completion_settings)
-        completion_settings = getattr(candidate, "completion_settings", None)
-        if isinstance(completion_settings, CompletionSettings):
-            return WorkflowSettings(completion=completion_settings)
-        completion_settings = getattr(candidate, "completion", None)
-        if isinstance(completion_settings, CompletionSettings):
-            return WorkflowSettings(completion=completion_settings)
+            return candidate
         return WorkflowSettings()
 
     def _run_launcher(self, args, loaded) -> int:

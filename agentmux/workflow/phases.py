@@ -12,7 +12,7 @@ from ..runtime import ParallelPromptSpec
 from ..sessions.state_store import now_iso, write_state
 from .execution_plan import load_execution_plan
 from .handlers import load_plan_meta, reset_markers, send_to_role, write_phase
-from .plan_parser import coder_label_for_subplan, split_plan_into_subplans
+from .plan_parser import coder_label_for_subplan
 from .preference_memory import (
     apply_preference_proposal,
     load_preference_proposal,
@@ -124,34 +124,9 @@ def _plan_index_from_name(plan_name: str) -> int:
 
 def _build_implementation_schedule(
     *,
-    plan_path: Path,
     planning_dir: Path,
 ) -> list[dict[str, object]]:
     execution_plan = load_execution_plan(planning_dir)
-    if execution_plan is None:
-        subplan_paths = split_plan_into_subplans(plan_path, planning_dir)
-        if len(subplan_paths) == 1:
-            return [
-                {
-                    "group_id": "group_1",
-                    "mode": "serial",
-                    "plan_paths": [plan_path],
-                    "plan_ids": ["plan_1"],
-                    "plan_names": ["implementation"],
-                    "marker_indexes": [1],
-                }
-            ]
-        marker_indexes = list(range(1, len(subplan_paths) + 1))
-        return [
-            {
-                "group_id": "group_1",
-                "mode": "parallel",
-                "plan_paths": subplan_paths,
-                "plan_ids": [f"plan_{index}" for index in marker_indexes],
-                "plan_names": [coder_label_for_subplan(planning_dir, index) for index in marker_indexes],
-                "marker_indexes": marker_indexes,
-            }
-        ]
 
     schedule: list[dict[str, object]] = []
     all_indexes: list[int] = []
@@ -533,7 +508,6 @@ class ImplementingPhase(Phase):
     @staticmethod
     def _schedule(ctx: PipelineContext) -> list[dict[str, object]]:
         return _build_implementation_schedule(
-            plan_path=ctx.files.plan,
             planning_dir=ctx.files.planning_dir,
         )
 

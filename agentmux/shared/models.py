@@ -64,10 +64,6 @@ class CompletionSettings:
 class WorkflowSettings:
     completion: CompletionSettings = field(default_factory=CompletionSettings)
 
-    @property
-    def completion_settings(self) -> CompletionSettings:
-        return self.completion
-
 
 @dataclass(frozen=True)
 class RuntimeFiles:
