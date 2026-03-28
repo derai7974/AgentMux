@@ -247,14 +247,7 @@ class PipelineApplication:
                     files=files,
                 )
                 self.interruptions.persist(files, report)
-            feature_name = feature_slug_from_dir(feature_dir)
-            if report.category == "canceled":
-                goodbye_canceled(feature_name, str(feature_dir), report.resume_command)
-                self.ui.print(self.interruptions.render(report))
-                return 130
-            goodbye_error(feature_name, str(feature_dir), report.cause)
-            self.ui.print(self.interruptions.render(report))
-            return 130 if report.category == "canceled" else 1
+            return self._show_failure_screen(report, feature_dir)
         return 0
 
     def _launch_attached_session(self, args, prepared: PreparedSession, agents, session_name: str) -> int:
@@ -288,13 +281,7 @@ class PipelineApplication:
                 files=files,
             )
             self.interruptions.persist(files, report)
-            goodbye_canceled(
-                feature_slug_from_dir(feature_dir),
-                str(feature_dir),
-                report.resume_command,
-            )
-            self.ui.print(self.interruptions.render(report))
-            return 130
+            return self._show_failure_screen(report, feature_dir)
         except subprocess.CalledProcessError as exc:
             if not files.state.exists():
                 stderr = exc.stderr.strip() if exc.stderr else "(no stderr)"
@@ -310,14 +297,7 @@ class PipelineApplication:
                     files=files,
                 )
             self.interruptions.persist(files, report)
-            feature_name = feature_slug_from_dir(feature_dir)
-            if report.category == "canceled":
-                goodbye_canceled(feature_name, str(feature_dir), report.resume_command)
-                self.ui.print(self.interruptions.render(report))
-                return 130
-            goodbye_error(feature_name, str(feature_dir), report.cause)
-            self.ui.print(self.interruptions.render(report))
-            return 130 if report.category == "canceled" else 1
+            return self._show_failure_screen(report, feature_dir)
         except Exception as exc:
             if not files.state.exists():
                 raise
@@ -328,13 +308,15 @@ class PipelineApplication:
                 files=files,
             )
             self.interruptions.persist(files, report)
-            goodbye_error(
-                feature_slug_from_dir(feature_dir),
-                str(feature_dir),
-                report.cause,
-            )
-            self.ui.print(self.interruptions.render(report))
-            return 1
+            return self._show_failure_screen(report, feature_dir)
+
+    def _show_failure_screen(self, report, feature_dir: Path) -> int:
+        feature_name = feature_slug_from_dir(feature_dir)
+        if report.category == "canceled":
+            goodbye_canceled(feature_name, str(feature_dir), report.resume_command)
+            return 130
+        goodbye_error(feature_name, str(feature_dir), report.cause)
+        return 1
 
     def _start_background_orchestrator(self, feature_dir: Path, keep_session: bool, product_manager: bool) -> None:
         command = [
