@@ -28,13 +28,14 @@ YELLOW = "\033[33m"
 RED = "\033[31m"
 CYAN = "\033[36m"
 MAGENTA = "\033[35m"
+DODGER_BLUE = "\033[38;2;30;144;255m"
 WHITE = "\033[97m"
 
 MONITOR_HEADER_LOGO = [
     (CYAN, "╭───────────╮"),
     (CYAN, "│ ▄▀█ █▀▄▀█ │"),
-    (MAGENTA, "│ █▀█ █ ▀ █ │"),
-    (MAGENTA, "╰───────────╯"),
+    (DODGER_BLUE, "│ █▀█ █ ▀ █ │"),
+    (DODGER_BLUE, "╰───────────╯"),
 ]
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")

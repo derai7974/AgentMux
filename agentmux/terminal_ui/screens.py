@@ -38,22 +38,22 @@ def render_logo(console: Any | None = None) -> None:
     output.print("[blue]│[/blue]  [bold cyan]╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   [/bold cyan][blue]│[/blue]")
     output.print("[blue]├──────────────────────────────┬───────────────┤[/blue]")
     output.print(
-        "[blue]│[/blue] [bold magenta]███╗   ███╗██╗   ██╗██╗  ██╗ [/bold magenta][blue]│[/blue]   [dim][ ]──┐[/dim]      [blue]│[/blue]"
+        "[blue]│[/blue] [bold dodger_blue1]███╗   ███╗██╗   ██╗██╗  ██╗ [/bold dodger_blue1][blue]│[/blue]   [dim][ ]──┐[/dim]      [blue]│[/blue]"
     )
     output.print(
-        "[blue]│[/blue] [bold magenta]████╗ ████║██║   ██║╚██╗██╔╝ [/bold magenta][blue]│[/blue]        [dim]│[/dim]      [blue]│[/blue]"
+        "[blue]│[/blue] [bold dodger_blue1]████╗ ████║██║   ██║╚██╗██╔╝ [/bold dodger_blue1][blue]│[/blue]        [dim]│[/dim]      [blue]│[/blue]"
     )
     output.print(
-        "[blue]│[/blue] [bold magenta]██╔████╔██║██║   ██║ ╚███╔╝  [/bold magenta][blue]│[/blue] [dim]──[ ]──◆──[ ] [/dim][blue]│[/blue]"
+        "[blue]│[/blue] [bold dodger_blue1]██╔████╔██║██║   ██║ ╚███╔╝  [/bold dodger_blue1][blue]│[/blue] [dim]──[ ]──◆──[ ] [/dim][blue]│[/blue]"
     )
     output.print(
-        "[blue]│[/blue] [bold magenta]██║╚██╔╝██║██║   ██║ ██╔██╗  [/bold magenta][blue]│[/blue]        [dim]│[/dim]      [blue]│[/blue]"
+        "[blue]│[/blue] [bold dodger_blue1]██║╚██╔╝██║██║   ██║ ██╔██╗  [/bold dodger_blue1][blue]│[/blue]        [dim]│[/dim]      [blue]│[/blue]"
     )
     output.print(
-        "[blue]│[/blue] [bold magenta]██║ ╚═╝ ██║╚██████╔╝██╔╝ ██╗ [/bold magenta][blue]│[/blue]   [dim][ ]──┘[/dim]      [blue]│[/blue]"
+        "[blue]│[/blue] [bold dodger_blue1]██║ ╚═╝ ██║╚██████╔╝██╔╝ ██╗ [/bold dodger_blue1][blue]│[/blue]   [dim][ ]──┘[/dim]      [blue]│[/blue]"
     )
     output.print(
-        "[blue]│[/blue] [bold magenta]╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝ [/bold magenta][blue]│[/blue]               [blue]│[/blue]"
+        "[blue]│[/blue] [bold dodger_blue1]╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝ [/bold dodger_blue1][blue]│[/blue]               [blue]│[/blue]"
     )
     output.print("[blue]╰──────────────────────────────┴───────────────╯[/blue]")
 
