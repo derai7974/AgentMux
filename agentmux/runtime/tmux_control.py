@@ -39,6 +39,26 @@ def tmux_session_exists(session_name: str) -> bool:
     return result.returncode == 0
 
 
+def list_agentmux_sessions() -> list[str]:
+    """Return names of active tmux sessions starting with ``agentmux-``."""
+    try:
+        result = run_command(
+            ["tmux", "list-sessions", "-F", "#{session_name}"],
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError, KeyboardInterrupt):
+        return []
+    if result is None or not hasattr(result, "returncode"):
+        return []
+    if result.returncode != 0:
+        return []
+    return [
+        name.strip()
+        for name in result.stdout.splitlines()
+        if name.strip().startswith("agentmux-")
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Debug logging
 # ---------------------------------------------------------------------------

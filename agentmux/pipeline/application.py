@@ -9,13 +9,18 @@ from ..integrations.github import GitHubBootstrapper, create_branch
 from ..integrations.mcp import McpAgentPreparer
 from ..runtime import TmuxRuntimeFactory
 from ..runtime.file_events import ensure_watchdog_available
-from ..runtime.tmux_control import tmux_session_exists
+from ..runtime.tmux_control import list_agentmux_sessions, tmux_session_exists
 from ..sessions import PreparedSession, PromptInput, SessionCreateRequest, SessionService
-from ..sessions.state_store import feature_slug_from_dir, load_runtime_files, load_state
+from ..sessions.state_store import feature_slug_from_dir, load_runtime_files, load_state, write_state
 from ..shared.models import WorkflowSettings
 from ..terminal_ui.console import ConsoleUI
 from ..workflow.interruptions import InterruptionService
 from ..workflow.orchestrator import PipelineOrchestrator
+
+
+def _derive_session_name(feature_dir: Path) -> str:
+    """Derive a unique tmux session name from the feature directory."""
+    return f"agentmux-{feature_dir.name}"
 
 
 class PipelineApplication:
@@ -48,9 +53,11 @@ class PipelineApplication:
         feature_dir = Path(args.orchestrate).resolve()
         agents = self._mcp_preparer().prepare_feature_agents(loaded.agents, feature_dir)
         files = load_runtime_files(self.project_dir, feature_dir)
+        state = load_state(feature_dir / "state.json")
+        session_name = str(state.get("session_name") or loaded.session_name)
         runtime = self.runtime_factory.attach(
             feature_dir=feature_dir,
-            session_name=loaded.session_name,
+            session_name=session_name,
             agents=agents,
         )
         ctx = self.orchestrator.create_context(
@@ -94,17 +101,29 @@ class PipelineApplication:
     def _run_launcher(self, args, loaded) -> int:
         if args.resume and getattr(args, "issue", None):
             raise SystemExit("--issue cannot be used with --resume.")
-        if tmux_session_exists(loaded.session_name):
-            raise SystemExit(
-                f"tmux session `{loaded.session_name}` already exists. Stop it or change the resolved session name in your config."
-            )
 
         mcp = self._mcp_preparer()
         mcp.ensure_project_config(loaded.agents)
 
         prepared = self._prepare_session(args, loaded)
+        if args.resume:
+            state = load_state(prepared.files.state)
+            session_name = str(state.get("session_name") or loaded.session_name)
+            if tmux_session_exists(session_name):
+                raise SystemExit(
+                    f"tmux session `{session_name}` is still active. Detach or kill it before resuming."
+                )
+        else:
+            session_name = _derive_session_name(prepared.feature_dir)
+            state = load_state(prepared.files.state)
+            state["session_name"] = session_name
+            write_state(prepared.files.state, state)
+            existing_sessions = [name for name in list_agentmux_sessions() if name != session_name]
+            if existing_sessions:
+                self.ui.print(f"Warning: Other agentmux session(s) running: {', '.join(existing_sessions)}")
+
         agents = mcp.prepare_feature_agents(loaded.agents, prepared.feature_dir)
-        return self._launch_attached_session(args, loaded, prepared, agents)
+        return self._launch_attached_session(args, prepared, agents, session_name=session_name)
 
     def _prepare_session(self, args, loaded) -> PreparedSession:
         if args.resume:
@@ -169,7 +188,7 @@ class PipelineApplication:
             return 130 if report.category == "canceled" else 1
         return 0
 
-    def _launch_attached_session(self, args, loaded, prepared: PreparedSession, agents) -> int:
+    def _launch_attached_session(self, args, prepared: PreparedSession, agents, session_name: str) -> int:
         files = prepared.files
         feature_dir = prepared.feature_dir
         initial_role = "product-manager" if prepared.product_manager and "product-manager" in agents else "architect"
@@ -177,15 +196,15 @@ class PipelineApplication:
         try:
             self.runtime_factory.create(
                 feature_dir=feature_dir,
-                session_name=loaded.session_name,
+                session_name=session_name,
                 agents=agents,
                 config_path=self.config_path,
                 initial_role=initial_role,
             )
             self._start_background_orchestrator(feature_dir, args.keep_session, prepared.product_manager)
             self.ui.print(f"Feature directory: {feature_dir}")
-            self.ui.print(f"tmux session: {loaded.session_name}")
-            subprocess.run(["tmux", "attach-session", "-t", loaded.session_name], check=True)
+            self.ui.print(f"tmux session: {session_name}")
+            subprocess.run(["tmux", "attach-session", "-t", session_name], check=True)
             return self._post_attach_result(files=files, feature_dir=feature_dir)
         except KeyboardInterrupt:
             report = self.interruptions.build_canceled(

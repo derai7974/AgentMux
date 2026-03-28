@@ -2,6 +2,19 @@
 
 > Related source files: `agentmux/runtime/tmux_control.py`, `agentmux/runtime/__init__.py`, `agentmux/runtime/interruption_sources.py`, `agentmux/monitor/__init__.py`, `agentmux/terminal_ui/layout.py`
 
+## Session naming
+
+Tmux sessions are named from the feature directory:
+
+- `agentmux-<feature_dir_name>`
+
+Example:
+
+- Feature directory `.agentmux/.sessions/20260328-075309-enable-multiple-tmux-sessions`
+- Tmux session `agentmux-20260328-075309-enable-multiple-tmux-sessions`
+
+When launching a new session, AgentMux also warns if other active `agentmux-*` sessions already exist.
+
 ## Content zone
 
 The tmux layout is split into two zones:
