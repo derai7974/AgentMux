@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import contextlib
+import json
 import subprocess
 import sys
+import time
 from pathlib import Path
+from typing import Any
 
 from ..configuration import load_layered_config
 from ..integrations.github import GitHubBootstrapper, create_branch
@@ -14,6 +18,7 @@ from ..sessions import PreparedSession, PromptInput, SessionCreateRequest, Sessi
 from ..sessions.state_store import feature_slug_from_dir, load_runtime_files, load_state, write_state
 from ..shared.models import WorkflowSettings
 from ..terminal_ui.console import ConsoleUI
+from ..terminal_ui.screens import goodbye_canceled, goodbye_error, goodbye_success
 from ..workflow.interruptions import InterruptionService
 from ..workflow.orchestrator import PipelineOrchestrator
 
@@ -21,6 +26,55 @@ from ..workflow.orchestrator import PipelineOrchestrator
 def _derive_session_name(feature_dir: Path) -> str:
     """Derive a unique tmux session name from the feature directory."""
     return f"agentmux-{feature_dir.name}"
+
+
+def _coalesce_text(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.split()).strip()
+
+
+def _read_initial_request_line(requirements_path: Path) -> str:
+    try:
+        lines = requirements_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ""
+
+    in_initial_request = False
+    for line in lines:
+        stripped = line.strip()
+        if not in_initial_request:
+            if stripped == "## Initial Request":
+                in_initial_request = True
+            continue
+        if stripped.startswith("## "):
+            break
+        if stripped:
+            return stripped
+    return ""
+
+
+def _read_last_completion(project_dir: Path) -> dict[str, str | None]:
+    summary_path = project_dir / ".agentmux" / ".last_completion.json"
+    if not summary_path.exists():
+        return {}
+    try:
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+
+    feature_name = _coalesce_text(payload.get("feature_name"))
+    commit_hash = _coalesce_text(payload.get("commit_hash"))
+    branch_name = _coalesce_text(payload.get("branch_name"))
+    pr_url_raw = _coalesce_text(payload.get("pr_url"))
+    return {
+        "feature_name": feature_name or None,
+        "commit_hash": commit_hash or None,
+        "pr_url": pr_url_raw or None,
+        "branch_name": branch_name or None,
+    }
 
 
 class PipelineApplication:
@@ -120,7 +174,8 @@ class PipelineApplication:
             write_state(prepared.files.state, state)
             existing_sessions = [name for name in list_agentmux_sessions() if name != session_name]
             if existing_sessions:
-                self.ui.print(f"Warning: Other agentmux session(s) running: {', '.join(existing_sessions)}")
+                with prepared.files.orchestrator_log.open("a", encoding="utf-8") as _f:
+                    _f.write(f"Warning: Other agentmux session(s) running: {', '.join(existing_sessions)}\n")
 
         agents = mcp.prepare_feature_agents(loaded.agents, prepared.feature_dir)
         return self._launch_attached_session(args, prepared, agents, session_name=session_name)
@@ -165,9 +220,17 @@ class PipelineApplication:
             )
         )
 
-    def _post_attach_result(self, *, files, feature_dir: Path) -> int:
+    def _post_attach_result(self, *, files, feature_dir: Path, elapsed_seconds: float = 0.0) -> int:
         if not files.state.exists():
             if not feature_dir.exists():
+                completion = _read_last_completion(self.project_dir)
+                goodbye_success(
+                    completion.get("feature_name") or feature_slug_from_dir(feature_dir),
+                    completion.get("commit_hash") or "",
+                    completion.get("pr_url"),
+                    completion.get("branch_name") or "",
+                    elapsed_seconds,
+                )
                 return 0
             raise SystemExit(
                 f"Session state missing after tmux exited: expected {files.state}. "
@@ -184,28 +247,33 @@ class PipelineApplication:
                     files=files,
                 )
                 self.interruptions.persist(files, report)
-            self.ui.print(self.interruptions.render(report))
-            return 130 if report.category == "canceled" else 1
+            return self._show_failure_screen(report, feature_dir)
         return 0
 
     def _launch_attached_session(self, args, prepared: PreparedSession, agents, session_name: str) -> int:
         files = prepared.files
         feature_dir = prepared.feature_dir
         initial_role = "product-manager" if prepared.product_manager and "product-manager" in agents else "architect"
+        start_time = time.time()
 
         try:
-            self.runtime_factory.create(
-                feature_dir=feature_dir,
-                session_name=session_name,
-                agents=agents,
-                config_path=self.config_path,
-                initial_role=initial_role,
-            )
+            with files.orchestrator_log.open("a", encoding="utf-8") as _setup_log:
+                with contextlib.redirect_stdout(_setup_log):
+                    self.runtime_factory.create(
+                        feature_dir=feature_dir,
+                        session_name=session_name,
+                        agents=agents,
+                        config_path=self.config_path,
+                        initial_role=initial_role,
+                    )
             self._start_background_orchestrator(feature_dir, args.keep_session, prepared.product_manager)
-            self.ui.print(f"Feature directory: {feature_dir}")
-            self.ui.print(f"tmux session: {session_name}")
+            self.ui.print("agentmux: pipeline starting up…")
             subprocess.run(["tmux", "attach-session", "-t", session_name], check=True)
-            return self._post_attach_result(files=files, feature_dir=feature_dir)
+            return self._post_attach_result(
+                files=files,
+                feature_dir=feature_dir,
+                elapsed_seconds=time.time() - start_time,
+            )
         except KeyboardInterrupt:
             report = self.interruptions.build_canceled(
                 feature_dir,
@@ -213,8 +281,7 @@ class PipelineApplication:
                 files=files,
             )
             self.interruptions.persist(files, report)
-            self.ui.print(self.interruptions.render(report))
-            return 130
+            return self._show_failure_screen(report, feature_dir)
         except subprocess.CalledProcessError as exc:
             if not files.state.exists():
                 stderr = exc.stderr.strip() if exc.stderr else "(no stderr)"
@@ -230,8 +297,7 @@ class PipelineApplication:
                     files=files,
                 )
             self.interruptions.persist(files, report)
-            self.ui.print(self.interruptions.render(report))
-            return 130 if report.category == "canceled" else 1
+            return self._show_failure_screen(report, feature_dir)
         except Exception as exc:
             if not files.state.exists():
                 raise
@@ -242,8 +308,15 @@ class PipelineApplication:
                 files=files,
             )
             self.interruptions.persist(files, report)
-            self.ui.print(self.interruptions.render(report))
-            return 1
+            return self._show_failure_screen(report, feature_dir)
+
+    def _show_failure_screen(self, report, feature_dir: Path) -> int:
+        feature_name = feature_slug_from_dir(feature_dir)
+        if report.category == "canceled":
+            goodbye_canceled(feature_name, str(feature_dir), report.resume_command, log_path=report.log_path)
+            return 130
+        goodbye_error(feature_name, str(feature_dir), report.cause, resume_command=report.resume_command, log_path=report.log_path)
+        return 1
 
     def _start_background_orchestrator(self, feature_dir: Path, keep_session: bool, product_manager: bool) -> None:
         command = [

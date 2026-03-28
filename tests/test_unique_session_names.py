@@ -111,8 +111,9 @@ class UniqueSessionNamesTests(unittest.TestCase):
             self.assertEqual(0, result)
             state = json.loads(files.state.read_text(encoding="utf-8"))
             self.assertEqual("agentmux-demo", state.get("session_name"))
-            self.assertTrue(
-                any("Warning: Other agentmux session(s) running: agentmux-existing" in message for message in messages)
+            self.assertIn(
+                "Warning: Other agentmux session(s) running: agentmux-existing",
+                files.orchestrator_log.read_text(encoding="utf-8"),
             )
 
     def test_run_launcher_passes_resolved_session_name_to_launch(self) -> None:
