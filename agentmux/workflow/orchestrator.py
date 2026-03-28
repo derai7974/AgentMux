@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 
+from ..integrations.compression import cleanup_compression
 from ..integrations.mcp import cleanup_mcp
 from ..runtime.event_bus import EventBus, SessionEvent, build_wake_listener
 from ..runtime.file_events import CreatedFilesLogListener, FileEventSource
@@ -94,4 +95,7 @@ class PipelineOrchestrator:
                 try:
                     cleanup_mcp(ctx.files.feature_dir, ctx.files.project_dir)
                 finally:
-                    ctx.runtime.shutdown(keep_session)
+                    try:
+                        cleanup_compression(ctx.files.feature_dir)
+                    finally:
+                        ctx.runtime.shutdown(keep_session)

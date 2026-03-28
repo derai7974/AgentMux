@@ -124,6 +124,7 @@ agentmux/integrations/github.py     — GitHub issue bootstrap and PR creation
 agentmux/integrations/mcp.py        — provider-native MCP setup plus runtime env wiring
 agentmux/integrations/mcp_research_server.py — shared MCP research server
 agentmux/integrations/completion.py — completion-time commit / PR / cleanup side effects
+agentmux/integrations/compression.py — headroom proxy lifecycle and agent env injection
 
 agentmux/prompts/agents/            — role-level prompts (define what each agent is)
   product-manager.md           —   product management phase

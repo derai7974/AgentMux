@@ -38,6 +38,7 @@ class LoadedConfig:
     raw: dict[str, Any]
     sources: tuple[Path, ...]
     workflow_settings: WorkflowSettings
+    compression_enabled: bool = False
 
 
 def load_builtin_catalog() -> dict[str, Any]:
@@ -188,6 +189,10 @@ def _normalize_defaults(raw: dict[str, Any]) -> dict[str, Any]:
     completion = _normalize_completion_defaults(raw.get("completion"), "defaults.completion")
     if completion:
         defaults["completion"] = completion
+    if "compression" in raw:
+        compression = _normalize_compression_defaults(raw["compression"], "defaults.compression")
+        if compression:
+            defaults["compression"] = compression
     return defaults
 
 
@@ -205,6 +210,17 @@ def _normalize_completion_defaults(raw: Any, label: str) -> dict[str, bool]:
     if "require_final_approval" in raw:
         raise ValueError(f"{label}.require_final_approval is no longer supported.")
     return completion
+
+
+def _normalize_compression_defaults(raw: Any, label: str) -> dict[str, bool]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{label} must be a mapping.")
+    compression: dict[str, bool] = {}
+    if "enabled" in raw:
+        compression["enabled"] = _coerce_bool(raw["enabled"], f"{label}.enabled")
+    return compression
 
 
 def _normalize_launcher(name: str, raw: Any) -> dict[str, Any]:
@@ -343,6 +359,8 @@ def _resolve_loaded_config(raw: dict[str, Any], sources: tuple[Path, ...]) -> Lo
             skip_final_approval=completion_defaults.get("skip_final_approval", False),
         ),
     )
+    compression_defaults = _normalize_compression_defaults(defaults.get("compression"), "defaults.compression")
+    compression_enabled = bool(compression_defaults.get("enabled", False))
 
     agents: dict[str, AgentConfig] = {}
     for role in ROLES:
@@ -395,6 +413,7 @@ def _resolve_loaded_config(raw: dict[str, Any], sources: tuple[Path, ...]) -> Lo
         agents=agents,
         github=github,
         workflow_settings=workflow_settings,
+        compression_enabled=compression_enabled,
         raw=raw,
         sources=sources,
     )

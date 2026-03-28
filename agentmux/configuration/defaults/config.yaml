@@ -7,6 +7,8 @@ defaults:
   max_review_iterations: 3
   completion:
     skip_final_approval: false
+  compression:
+    enabled: false
 
 github:
   base_branch: main

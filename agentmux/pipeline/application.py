@@ -106,6 +106,11 @@ class PipelineApplication:
     def _run_background_orchestrator(self, args, loaded) -> int:
         feature_dir = Path(args.orchestrate).resolve()
         agents = self._mcp_preparer().prepare_feature_agents(loaded.agents, feature_dir)
+        if getattr(loaded, "compression_enabled", False):
+            from agentmux.integrations.compression import inject_compression_env, read_proxy_port
+            port = read_proxy_port(feature_dir)
+            if port is not None:
+                agents = inject_compression_env(agents, port)
         files = load_runtime_files(self.project_dir, feature_dir)
         state = load_state(feature_dir / "state.json")
         session_name = str(state.get("session_name") or loaded.session_name)
@@ -178,6 +183,10 @@ class PipelineApplication:
                     _f.write(f"Warning: Other agentmux session(s) running: {', '.join(existing_sessions)}\n")
 
         agents = mcp.prepare_feature_agents(loaded.agents, prepared.feature_dir)
+        if getattr(loaded, "compression_enabled", False):
+            from agentmux.integrations.compression import inject_compression_env, start_compression_proxy
+            port = start_compression_proxy(prepared.feature_dir)
+            agents = inject_compression_env(agents, port)
         return self._launch_attached_session(args, prepared, agents, session_name=session_name)
 
     def _prepare_session(self, args, loaded) -> PreparedSession:
