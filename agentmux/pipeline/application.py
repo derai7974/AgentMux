@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import subprocess
 import sys
@@ -173,7 +174,8 @@ class PipelineApplication:
             write_state(prepared.files.state, state)
             existing_sessions = [name for name in list_agentmux_sessions() if name != session_name]
             if existing_sessions:
-                self.ui.print(f"Warning: Other agentmux session(s) running: {', '.join(existing_sessions)}")
+                with prepared.files.orchestrator_log.open("a", encoding="utf-8") as _f:
+                    _f.write(f"Warning: Other agentmux session(s) running: {', '.join(existing_sessions)}\n")
 
         agents = mcp.prepare_feature_agents(loaded.agents, prepared.feature_dir)
         return self._launch_attached_session(args, prepared, agents, session_name=session_name)
@@ -262,13 +264,15 @@ class PipelineApplication:
         start_time = time.time()
 
         try:
-            self.runtime_factory.create(
-                feature_dir=feature_dir,
-                session_name=session_name,
-                agents=agents,
-                config_path=self.config_path,
-                initial_role=initial_role,
-            )
+            with files.orchestrator_log.open("a", encoding="utf-8") as _setup_log:
+                with contextlib.redirect_stdout(_setup_log):
+                    self.runtime_factory.create(
+                        feature_dir=feature_dir,
+                        session_name=session_name,
+                        agents=agents,
+                        config_path=self.config_path,
+                        initial_role=initial_role,
+                    )
             self._start_background_orchestrator(feature_dir, args.keep_session, prepared.product_manager)
             self.ui.print("agentmux: pipeline starting up…")
             subprocess.run(["tmux", "attach-session", "-t", session_name], check=True)
