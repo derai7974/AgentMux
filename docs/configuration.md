@@ -63,7 +63,7 @@ roles:
 
 ## Config structure
 
-- `defaults.session_name` — tmux session name
+- `defaults.session_name` — legacy fallback used only when resuming old sessions that do not yet persist `state.json.session_name`; new runs derive tmux names from the feature directory (`agentmux-<feature_dir_name>`)
 - `defaults.provider` — default provider/launcher name for roles that do not override it
 - `defaults.profile` — default profile name, usually `max`, `standard`, or `low`
 - `defaults.max_review_iterations` — caps automatic reviewer→coder fix loops

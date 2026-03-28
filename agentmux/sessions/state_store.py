@@ -135,6 +135,7 @@ def create_feature_files(
     )
     state = {
         "feature_dir": str(feature_dir),
+        "session_name": session_name,
         "phase": "product_management" if product_manager else "planning",
         "product_manager": bool(product_manager),
         "last_event": "feature_created",

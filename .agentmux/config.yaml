@@ -2,8 +2,7 @@ version: 1
 
 defaults:
   session_name: multi-agent-mvp
-  #provider: claude
-  provider: codex
+  provider: claude
   profile: standard
   max_review_iterations: 3
 
@@ -19,10 +18,7 @@ roles:
     profile: standard
   designer:
     profile: standard
-  docs:
-    provider: codex
-    profile: standard
   code-researcher:
     profile: low
   web-researcher:
-    profile: standard
+    profile: low
