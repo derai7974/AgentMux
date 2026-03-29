@@ -19,8 +19,8 @@ jobs:
       - name: Check requirements files are up to date
         run: |
           python -m pip install pip-tools
-          pip-compile --dry-run --diff -o requirements.txt pyproject.toml
-          pip-compile --extra dev --dry-run --diff -o requirements-dev.txt pyproject.toml
+          pip-compile --dry-run -o requirements.txt pyproject.toml
+          pip-compile --extra dev --dry-run -o requirements-dev.txt pyproject.toml
 
       - name: Install dependencies
         run: |
