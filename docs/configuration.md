@@ -156,15 +156,51 @@ The tmux runtime launches agents from that fully resolved config. AgentMux still
 
 ## Runtime MCP setup for research tools
 
-MCP setup for research now follows each provider's native config scope. `agentmux init` and foreground pipeline startup both check whether the effective `architect` / `product-manager` providers already have an `agentmux-research` entry in the correct location:
+MCP setup for research uses a **two-layer configuration approach** that separates persistent project-level config from runtime-generated config.
+
+### Persistent config (project-level)
+
+`agentmux init` and foreground pipeline startup check whether the effective `architect` / `product-manager` providers already have an `agentmux-research` entry in the provider's native config location:
 
 - Claude: project `.claude/settings.json`
 - Codex: user `~/.codex/config.toml`
 - Gemini: project `.gemini/settings.json`
 - OpenCode: project `opencode.json`
 
-When the entry is missing, the user is prompted to create or refresh it in that provider-specific file. Codex remains a user-scope prompt because Codex MCP servers are configured globally; the other bundled providers use repo-local project config.
+When the entry is missing, the user is prompted to create or refresh it. This persistent config serves as a fallback for manual CLI tool usage outside the pipeline.
 
-At runtime, `setup_mcp(...)` no longer rewrites provider config. It only injects `PYTHONPATH=<project_dir>[...existing entries]` into the launched `architect` / `product-manager` process when needed so `agentmux.integrations.mcp_research_server` can import the project checkout. Research requests identify the active session explicitly via the `feature_dir` MCP tool argument.
+**Idempotent behavior**: The setup process compares existing server entries to the generated entry before writing. If the configuration is unchanged, the file is not modified. This prevents unnecessary writes that could invalidate MCP approval caches. The comparison checks the `type`, `command`, and `args` fields to determine if an update is needed.
 
-Claude additionally needs explicit allowlisting, so defaults include `mcp__agentmux-research__*` in architect/product-manager `--allowedTools`. Other bundled providers already run in approval modes that auto-approve tool calls.
+### Runtime config (generated at startup)
+
+At pipeline startup, a runtime MCP config file is generated at `.agentmux/mcp_servers.json` inside the project directory. This file contains:
+
+```json
+{
+  "mcpServers": {
+    "agentmux-research": {
+      "type": "stdio",
+      "command": "/path/to/python",
+      "args": ["-m", "agentmux.integrations.mcp_research_server"],
+      "env": {
+        "PYTHONPATH": "/absolute/path/to/project"
+      }
+    }
+  }
+}
+```
+
+**Key characteristics**:
+- Contains absolute paths specific to the current environment
+- Generated fresh on each pipeline run
+- Passed to Claude via the `--mcp-config <path>` command-line flag
+- Not meant to be committed to version control (runtime artifact)
+- Content is compared before writing to avoid unnecessary updates
+
+### Runtime injection
+
+For Claude agents, the pipeline appends `["--mcp-config", ".agentmux/mcp_servers.json"]` to the launch arguments. This bypasses project-level settings trust requirements by explicitly providing the MCP server configuration at runtime.
+
+For other providers (Codex, Gemini, OpenCode), the pipeline only injects `PYTHONPATH=<project_dir>` into the launched process environment so the research server can import the project checkout.
+
+Claude additionally needs explicit tool allowlisting, so defaults include `mcp__agentmux-research__*` in architect/product-manager `--allowedTools`. Other bundled providers run in approval modes that auto-approve tool calls.

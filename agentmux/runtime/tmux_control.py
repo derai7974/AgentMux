@@ -677,10 +677,31 @@ def tmux_pane_exists(target_pane: str | None) -> bool:
     return parts[1] != "1"
 
 
+def _wait_for_pane_ready(target_pane: str, timeout: float = 20.0) -> None:
+    """Poll pane content until the agent TUI has rendered stable, non-empty output."""
+    deadline = time.time() + timeout
+    prev_content = ""
+    stable_count = 0
+    while time.time() < deadline:
+        content = capture_pane(target_pane).strip()
+        if content and len(content) > 20:
+            if content == prev_content:
+                stable_count += 1
+                if stable_count >= 2:
+                    _log(f"_wait_for_pane_ready: {target_pane} ready")
+                    return
+            else:
+                stable_count = 0
+            prev_content = content
+        time.sleep(0.5)
+    _log(f"_wait_for_pane_ready: {target_pane} timed out after {timeout}s")
+
+
 def send_text(target_pane: str, text: str) -> None:
     if not tmux_pane_exists(target_pane):
         _log(f"send_text: pane {target_pane} does not exist, skipping")
         return
+    _wait_for_pane_ready(target_pane)
     # select-window first so the attached client visually switches to the right pane
     if ":" in target_pane:
         session_window = target_pane.rsplit(".", 1)[0]

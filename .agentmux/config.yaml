@@ -14,7 +14,7 @@ roles:
   reviewer:
     profile: standard
   coder:
-    provider: codex
+    provider: opencode
     profile: standard
   designer:
     profile: standard
