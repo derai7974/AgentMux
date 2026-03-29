@@ -51,10 +51,14 @@ class PersistentMcpConfigurator(ABC):
         """Creates or refreshes the managed server entry."""
 
     @abstractmethod
-    def prompt_message(self, server: McpServerSpec, project_dir: Path, roles_label: str) -> str:
+    def prompt_message(
+        self, server: McpServerSpec, project_dir: Path, roles_label: str
+    ) -> str:
         """Returns the interactive prompt shown before mutating config."""
 
-    def missing_message(self, server: McpServerSpec, project_dir: Path, roles_label: str) -> str:
+    def missing_message(
+        self, server: McpServerSpec, project_dir: Path, roles_label: str
+    ) -> str:
         path = self.config_path(project_dir)
         return (
             f"Warning: Missing MCP config for {self.provider} ({roles_label}) at {path}. "
@@ -66,7 +70,9 @@ class PersistentMcpConfigurator(ABC):
         return f"Configured MCP research tools for {self.provider} at {path}."
 
     def skipped_message(self, server: McpServerSpec) -> str:
-        return f"Skipped MCP setup for {self.provider}; research will fall back to files."
+        return (
+            f"Skipped MCP setup for {self.provider}; research will fall back to files."
+        )
 
 
 def _merge_env(current: dict[str, str] | None, extra: dict[str, str]) -> dict[str, str]:
@@ -112,6 +118,50 @@ def _persistent_stdio_server(server: McpServerSpec) -> dict[str, object]:
         "command": _python_command(),
         "args": ["-m", server.module],
     }
+
+
+def _create_runtime_mcp_config(servers: list[McpServerSpec], project_dir: Path) -> Path:
+    """Generate .agentmux/mcp_servers.json with runtime MCP server definitions.
+
+    This creates a runtime config file containing absolute paths specific to the
+    current environment. The file is written only if content differs from existing.
+
+    Args:
+        servers: List of MCP server specifications to include
+        project_dir: Project root directory where .agentmux/ will be created
+
+    Returns:
+        Absolute path to the generated config file
+    """
+    agentmux_dir = project_dir / ".agentmux"
+    agentmux_dir.mkdir(parents=True, exist_ok=True)
+    config_path = agentmux_dir / "mcp_servers.json"
+
+    # Build the config structure with env.PYTHONPATH
+    mcp_servers: dict[str, object] = {}
+    for server in servers:
+        mcp_servers[server.name] = {
+            "type": "stdio",
+            "command": _python_command(),
+            "args": ["-m", server.module],
+            "env": {"PYTHONPATH": str(project_dir)},
+        }
+
+    config = {"mcpServers": mcp_servers}
+
+    # Compare with existing content to avoid unnecessary writes
+    if config_path.exists():
+        try:
+            existing_content = config_path.read_text(encoding="utf-8")
+            existing_config = json.loads(existing_content)
+            if existing_config == config:
+                return config_path
+        except (json.JSONDecodeError, IOError):
+            pass  # File exists but is invalid, proceed to overwrite
+
+    # Write the config file
+    config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    return config_path
 
 
 def _persistent_local_server(server: McpServerSpec) -> dict[str, object]:
@@ -185,7 +235,9 @@ class McpAgentPreparer:
             output=self.output,
         )
 
-    def prepare_feature_agents(self, agents: dict[str, AgentConfig], feature_dir: Path) -> dict[str, AgentConfig]:
+    def prepare_feature_agents(
+        self, agents: dict[str, AgentConfig], feature_dir: Path
+    ) -> dict[str, AgentConfig]:
         return setup_mcp(
             agents,
             list(DEFAULT_RESEARCH_SERVERS),
@@ -231,7 +283,9 @@ class ClaudeConfigurator(JsonMcpConfigurator):
         data["mcpServers"] = servers
         self._write_json(data, project_dir)
 
-    def prompt_message(self, server: McpServerSpec, project_dir: Path, roles_label: str) -> str:
+    def prompt_message(
+        self, server: McpServerSpec, project_dir: Path, roles_label: str
+    ) -> str:
         path = self.config_path(project_dir)
         return f"Configure project MCP research tools for claude ({roles_label}) at {path}?"
 
@@ -260,7 +314,9 @@ class GeminiConfigurator(JsonMcpConfigurator):
         data["mcpServers"] = servers
         self._write_json(data, project_dir)
 
-    def prompt_message(self, server: McpServerSpec, project_dir: Path, roles_label: str) -> str:
+    def prompt_message(
+        self, server: McpServerSpec, project_dir: Path, roles_label: str
+    ) -> str:
         path = self.config_path(project_dir)
         return f"Configure project MCP research tools for gemini ({roles_label}) at {path}?"
 
@@ -285,7 +341,9 @@ class OpenCodeConfigurator(JsonMcpConfigurator):
         data["mcp"] = servers
         self._write_json(data, project_dir)
 
-    def prompt_message(self, server: McpServerSpec, project_dir: Path, roles_label: str) -> str:
+    def prompt_message(
+        self, server: McpServerSpec, project_dir: Path, roles_label: str
+    ) -> str:
         path = self.config_path(project_dir)
         return f"Configure project MCP research tools for opencode ({roles_label}) at {path}?"
 
@@ -318,7 +376,9 @@ class CodexConfigurator(PersistentMcpConfigurator):
         if updated != content:
             path.write_text(updated, encoding="utf-8")
 
-    def prompt_message(self, server: McpServerSpec, project_dir: Path, roles_label: str) -> str:
+    def prompt_message(
+        self, server: McpServerSpec, project_dir: Path, roles_label: str
+    ) -> str:
         path = self.config_path(project_dir)
         return (
             f"Codex configures MCP servers in {path}. "
@@ -365,6 +425,60 @@ def _required_configurators(
     }
 
 
+def _server_entry_matches(
+    configurator: PersistentMcpConfigurator, server: McpServerSpec, project_dir: Path
+) -> bool:
+    """Check if existing server entry matches what would be generated.
+
+    Returns True if the entry exists and matches the generated config,
+    False if it doesn't exist or differs.
+    """
+    if not configurator.has_server(server, project_dir):
+        return False
+
+    # Load existing entry from config file
+    existing_entry = None
+    if isinstance(configurator, JsonMcpConfigurator):
+        try:
+            data = configurator._load_json(project_dir)
+            servers = data.get("mcpServers", {})
+            if isinstance(servers, dict):
+                existing_entry = servers.get(server.name)
+        except (json.JSONDecodeError, ValueError, IOError):
+            return False
+    elif isinstance(configurator, CodexConfigurator):
+        # For Codex (TOML), we check if the block exists with correct command/args
+        path = configurator.config_path(project_dir)
+        if path.exists():
+            content = path.read_text(encoding="utf-8")
+            expected_command = _python_command()
+            expected_args = f'["-m", "{server.module}"]'
+            if f"[mcp_servers.{server.name}]" in content:
+                # Check if command and args match
+                if (
+                    f'command = "{expected_command}"' in content
+                    and expected_args in content
+                ):
+                    return True
+        return False
+
+    if existing_entry is None:
+        return False
+
+    # Compare to what would be generated
+    expected_entry = _persistent_stdio_server(server)
+
+    # Compare relevant fields (type, command, args)
+    if existing_entry.get("type") != expected_entry.get("type"):
+        return False
+    if existing_entry.get("command") != expected_entry.get("command"):
+        return False
+    if existing_entry.get("args") != expected_entry.get("args"):
+        return False
+
+    return True
+
+
 def ensure_mcp_config(
     agents: dict[str, AgentConfig],
     servers: list[McpServerSpec],
@@ -388,13 +502,22 @@ def ensure_mcp_config(
     configurators = _required_configurators(agents, roles)
     for server in servers:
         for provider, (configurator, provider_roles) in configurators.items():
+            # Check if server exists and matches expected config
+            if _server_entry_matches(configurator, server, project_dir):
+                # Entry exists and is correct, skip install
+                continue
+
             if configurator.has_server(server, project_dir):
+                # Entry exists but differs, install to refresh
                 configurator.install(server, project_dir)
                 continue
 
             roles_label = ", ".join(provider_roles)
             if not interactive:
-                print(configurator.missing_message(server, project_dir, roles_label), file=writer)
+                print(
+                    configurator.missing_message(server, project_dir, roles_label),
+                    file=writer,
+                )
                 continue
 
             message = configurator.prompt_message(server, project_dir, roles_label)
@@ -415,15 +538,27 @@ def setup_mcp(
     """Inject runtime env for MCP-aware roles without mutating user auth/config state."""
 
     _ = feature_dir
+
+    # Create runtime MCP config file
+    runtime_config_path = _create_runtime_mcp_config(servers, project_dir)
+
     updated_agents = dict(agents)
     for role in roles:
         agent = updated_agents.get(role)
         if agent is None:
             continue
+
+        # Inject runtime env vars
         env = dict(agent.env or {})
         for server in servers:
             env.update(_runtime_env(server, project_dir, env))
-        updated_agents[role] = replace(agent, env=env)
+
+        # For Claude agents, append --mcp-config flag
+        args = list(agent.args or [])
+        if agent.cli == "claude" and "--mcp-config" not in args:
+            args.extend(["--mcp-config", str(runtime_config_path)])
+
+        updated_agents[role] = replace(agent, env=env, args=args)
     return updated_agents
 
 

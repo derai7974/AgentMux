@@ -84,13 +84,13 @@ launchers:
     model_flag: --model
     trust_snippet:
     role_args:
-      architect: []
-      product-manager: []
-      reviewer: []
-      coder: []
-      designer: []
-      code-researcher: []
-      web-researcher: []
+      architect: [--agent, plan]
+      product-manager: [--agent, plan]
+      reviewer: [--agent, build]
+      coder: [--agent, build]
+      designer: [--agent, build]
+      code-researcher: [--agent, build]
+      web-researcher: [--agent, build]
 
 profiles:
   claude:
@@ -119,11 +119,11 @@ profiles:
 
   opencode:
     max:
-      model: anthropic/claude-opus-4-6
+      model: opencode-go/kimi-k2.5
     standard:
-      model: anthropic/claude-sonnet-4-20250514
+      model: opencode-go/kimi-k2.5
     low:
-      model: anthropic/claude-haiku-4-5-20251001
+      model: opencode-go/kimi-k2.5
 
 roles:
   architect:
