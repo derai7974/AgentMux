@@ -24,3 +24,6 @@ include = ["agentmux*"]
 
 [tool.setuptools.package-data]
 agentmux = ["prompts/**/*.md", "configuration/defaults/*.yaml"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
