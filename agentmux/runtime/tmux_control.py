@@ -670,7 +670,6 @@ def create_agent_pane(
         )
 
     accept_trust_prompt(pane_id, snippet=trust_snippet)
-    time.sleep(0.5)  # let the CLI tool finish starting up before sending keys
     return pane_id
 
 
@@ -779,5 +778,6 @@ def accept_trust_prompt(
         if snippet in capture_pane(target_pane):
             run_command(["tmux", "select-pane", "-t", target_pane])
             run_command(["tmux", "send-keys", "-t", target_pane, "Enter"])
-            return
+            break
         time.sleep(0.2)
+    time.sleep(0.5)  # let the CLI tool finish starting up before sending keys
