@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import re
 import shutil
 import subprocess
 import sys
@@ -22,6 +24,7 @@ except ImportError:  # pragma: no cover - optional at import time in this enviro
 
     class Style(list):  # type: ignore[no-redef]
         pass
+
 
 try:
     from rich.console import Console
@@ -102,6 +105,117 @@ def _console(console: Any | None) -> Any:
     return Console()
 
 
+def _detect_shell() -> tuple[str, Path]:
+    """Detect user's shell and return shell type and config file path."""
+    shell_path = os.environ.get("SHELL", "")
+    shell_name = Path(shell_path).name if shell_path else "bash"
+
+    home = Path.home()
+
+    if shell_name in ("bash", "sh"):
+        # Prefer .bashrc, fall back to .bash_profile or .profile
+        candidates = [home / ".bashrc", home / ".bash_profile", home / ".profile"]
+        for candidate in candidates:
+            if candidate.exists():
+                return ("bash", candidate)
+        return ("bash", home / ".bashrc")  # Default to .bashrc
+
+    elif shell_name == "zsh":
+        config_file = home / ".zshrc"
+        # Check for ZDOTDIR
+        zdotdir = os.environ.get("ZDOTDIR")
+        if zdotdir:
+            config_file = Path(zdotdir) / ".zshrc"
+        return ("zsh", config_file)
+
+    else:
+        # Unknown shell, return generic config
+        return (shell_name, home / f".{shell_name}rc")
+
+
+def _is_completion_enabled(config_path: Path, shell: str) -> bool:
+    """Check if agentmux completions are already enabled in shell config."""
+    if not config_path.exists():
+        return False
+
+    try:
+        content = config_path.read_text(encoding="utf-8")
+        # Check for common patterns
+        patterns = [
+            r"eval.*agentmux\s+completions\s+(bash|zsh)",
+            r"agentmux\s+completions\s+(bash|zsh)",
+        ]
+        for pattern in patterns:
+            if re.search(pattern, content, re.IGNORECASE):
+                return True
+        return False
+    except Exception:
+        return False
+
+
+def _enable_completions(config_path: Path, shell: str) -> bool:
+    """Add agentmux completion setup to shell config file."""
+    try:
+        # Read existing content to check for trailing newline
+        existing_content = ""
+        if config_path.exists():
+            existing_content = config_path.read_text(encoding="utf-8")
+
+        # Append the completion setup
+        completion_line = (
+            f'eval "$(agentmux completions {shell})"  # agentmux shell completions'
+        )
+
+        # Build new content
+        new_content = existing_content
+        # Add newline if file doesn't end with one (and has content)
+        if existing_content and not existing_content.endswith("\n"):
+            new_content += "\n"
+
+        new_content += f"\n# AgentMux Shell Completions\n"
+        new_content += f"{completion_line}\n"
+
+        config_path.write_text(new_content, encoding="utf-8")
+        return True
+    except Exception:
+        return False
+
+
+def prompt_shell_completions(console: Any | None = None) -> tuple[bool, str]:
+    """Prompt user to enable shell completions."""
+    output = _console(console)
+
+    shell_type, config_path = _detect_shell()
+
+    if _is_completion_enabled(config_path, shell_type):
+        output.print(
+            f"[dim]Shell completions already enabled in {config_path.name}[/dim]"
+        )
+        return (True, "already-enabled")
+
+    # Only support bash and zsh
+    if shell_type not in ("bash", "zsh"):
+        output.print(f"[dim]Shell completion not supported for {shell_type}[/dim]")
+        return (False, "unsupported-shell")
+
+    # Prompt user
+    enable = _confirm(f"Enable shell completions for {shell_type}?", default=True)
+
+    if enable:
+        if _enable_completions(config_path, shell_type):
+            output.print(f"[green]✓[/green] Added completions to {config_path}")
+            output.print(f"  Restart your shell or run: source {config_path}")
+            return (True, "enabled")
+        else:
+            output.print(f"[red]✗[/red] Failed to modify {config_path}")
+            return (False, "failed")
+    else:
+        output.print(
+            f"[dim]Skipped shell completions (run 'agentmux completions {shell_type}' to see instructions)[/dim]"
+        )
+        return (False, "skipped")
+
+
 def _rule(title: str) -> object:
     if Rule is None:
         return title
@@ -119,7 +233,9 @@ def _require_questionary() -> Any:
 def _select(message: str, choices: list[str], default: str | None = None) -> str:
     q = _require_questionary()
     answer = q.select(message, choices=choices, default=default, style=INIT_STYLE).ask()
-    return str(answer if answer is not None else default if default is not None else choices[0])
+    return str(
+        answer if answer is not None else default if default is not None else choices[0]
+    )
 
 
 def _text(message: str, default: str = "") -> str:
@@ -181,7 +297,9 @@ def _stub_path(project_dir: Path, role: str) -> Path:
 
 
 def detect_clis() -> dict[str, bool]:
-    return {provider: shutil.which(provider) is not None for provider in KNOWN_PROVIDERS}
+    return {
+        provider: shutil.which(provider) is not None for provider in KNOWN_PROVIDERS
+    }
 
 
 def display_detection(console: Any | None, detected: dict[str, bool]) -> None:
@@ -195,9 +313,13 @@ def display_detection(console: Any | None, detected: dict[str, bool]) -> None:
     output.print("  ".join(parts))
 
 
-def prompt_role_config(detected_providers: list[str], defaults_config: dict[str, Any]) -> dict[str, Any]:
+def prompt_role_config(
+    detected_providers: list[str], defaults_config: dict[str, Any]
+) -> dict[str, Any]:
     if not detected_providers:
-        raise SystemExit("No supported provider CLI detected. Install one of: claude, codex, gemini, opencode.")
+        raise SystemExit(
+            "No supported provider CLI detected. Install one of: claude, codex, gemini, opencode."
+        )
 
     defaults = dict(defaults_config.get("defaults", {}))
     role_defaults = dict(defaults_config.get("roles", {}))
@@ -206,7 +328,9 @@ def prompt_role_config(detected_providers: list[str], defaults_config: dict[str,
     selected_default = _select(
         "Default provider",
         detected_providers,
-        default=builtin_default_provider if builtin_default_provider in detected_providers else detected_providers[0],
+        default=builtin_default_provider
+        if builtin_default_provider in detected_providers
+        else detected_providers[0],
     )
     setup_mode = _select(
         "Role setup",
@@ -234,11 +358,18 @@ def prompt_role_config(detected_providers: list[str], defaults_config: dict[str,
 
     roles_override: dict[str, Any] = {}
     for role in PROMPTED_ROLES:
-        role_cfg = dict(role_defaults.get(role, {})) if isinstance(role_defaults.get(role), dict) else {}
+        role_cfg = (
+            dict(role_defaults.get(role, {}))
+            if isinstance(role_defaults.get(role), dict)
+            else {}
+        )
         baseline_provider = str(role_cfg.get("provider", selected_default))
         baseline_profile = str(role_cfg.get("profile", builtin_default_profile))
         provider_prompt_default = str(role_cfg.get("provider", "default"))
-        if provider_prompt_default != "default" and provider_prompt_default not in detected_providers:
+        if (
+            provider_prompt_default != "default"
+            and provider_prompt_default not in detected_providers
+        ):
             provider_prompt_default = "default"
 
         selected_provider = _select(
@@ -249,10 +380,14 @@ def prompt_role_config(detected_providers: list[str], defaults_config: dict[str,
         selected_profile = _select(
             f"{role}: profile",
             list(PROFILE_CHOICES),
-            default=baseline_profile if baseline_profile in PROFILE_CHOICES else "standard",
+            default=baseline_profile
+            if baseline_profile in PROFILE_CHOICES
+            else "standard",
         )
 
-        effective_provider = selected_default if selected_provider == "default" else selected_provider
+        effective_provider = (
+            selected_default if selected_provider == "default" else selected_provider
+        )
         role_override: dict[str, str] = {}
         if effective_provider != baseline_provider:
             role_override["provider"] = effective_provider
@@ -267,8 +402,12 @@ def prompt_role_config(detected_providers: list[str], defaults_config: dict[str,
     return result
 
 
-def prompt_github_settings(defaults_config: dict[str, Any] | None = None) -> dict[str, Any]:
-    defaults_source = defaults_config if defaults_config is not None else load_builtin_catalog()
+def prompt_github_settings(
+    defaults_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    defaults_source = (
+        defaults_config if defaults_config is not None else load_builtin_catalog()
+    )
     github_defaults = dict(defaults_source.get("github", {}))
 
     default_base_branch = str(github_defaults.get("base_branch", "main"))
@@ -298,7 +437,9 @@ def prompt_github_settings(defaults_config: dict[str, Any] | None = None) -> dic
     return {}
 
 
-def prompt_claude_md(project_dir: Path, console: Any | None = None) -> tuple[list[Path], list[Path]]:
+def prompt_claude_md(
+    project_dir: Path, console: Any | None = None
+) -> tuple[list[Path], list[Path]]:
     output = _console(console)
     q = _require_questionary()
     target = project_dir / "CLAUDE.md"
@@ -355,7 +496,9 @@ def prompt_claude_md(project_dir: Path, console: Any | None = None) -> tuple[lis
 
     source_path = Path(str(source)).expanduser().resolve()
     if not source_path.exists():
-        raise SystemExit(f"Cannot create symlink; source path does not exist: {source_path}")
+        raise SystemExit(
+            f"Cannot create symlink; source path does not exist: {source_path}"
+        )
 
     if target.exists() or target.is_symlink():
         target.unlink()
@@ -368,7 +511,9 @@ def prompt_stubs(project_dir: Path, console: Any | None = None) -> list[str]:
     output = _console(console)
     q = _require_questionary()
 
-    existing = [role for role in PROMPT_STUB_ROLES if _stub_path(project_dir, role).exists()]
+    existing = [
+        role for role in PROMPT_STUB_ROLES if _stub_path(project_dir, role).exists()
+    ]
     if existing:
         output.print(
             f"[dim]Prompt stubs already exist and will be skipped: {', '.join(existing)}[/dim]"
@@ -400,9 +545,13 @@ def generate_config(
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
     if config_path.exists() and not defaults_mode:
-        should_overwrite = _confirm("`.agentmux/config.yaml` already exists. Overwrite it?", default=False)
+        should_overwrite = _confirm(
+            "`.agentmux/config.yaml` already exists. Overwrite it?", default=False
+        )
         if not should_overwrite:
-            raise SystemExit("Aborted. Existing .agentmux/config.yaml was not overwritten.")
+            raise SystemExit(
+                "Aborted. Existing .agentmux/config.yaml was not overwritten."
+            )
 
     data: dict[str, Any] = {"version": 1}
     for section in ("defaults", "roles", "github"):
@@ -432,13 +581,32 @@ def display_summary(
     created_files: list[Path],
     skipped_files: list[Path],
     project_dir: Path,
+    completion_status: tuple[bool, str] = (False, ""),
 ) -> None:
     output = _console(console)
     output.print(_rule("Done"))
     for path in created_files:
-        output.print(f"[green]✓[/green] Created [yellow]{_relative(path, project_dir)}[/yellow]")
+        output.print(
+            f"[green]✓[/green] Created [yellow]{_relative(path, project_dir)}[/yellow]"
+        )
     for path in skipped_files:
-        output.print(f"[dim]• {_relative(path, project_dir)} already exists, skipped[/dim]")
+        output.print(
+            f"[dim]• {_relative(path, project_dir)} already exists, skipped[/dim]"
+        )
+
+    # Show completion status
+    enabled, status = completion_status
+    if status == "enabled":
+        output.print(
+            "[green]✓[/green] Shell completions enabled (restart shell to use)"
+        )
+    elif status == "already-enabled":
+        output.print("[green]✓[/green] Shell completions already enabled")
+    elif status == "skipped":
+        output.print("[dim]• Shell completions skipped[/dim]")
+    elif status == "unsupported-shell":
+        output.print("[dim]• Shell completions not supported for your shell[/dim]")
+
     output.print('[green]✓[/green] Ready to run: [bold]agentmux "your feature"[/bold]')
 
 
@@ -472,11 +640,15 @@ def run_init(defaults_mode: bool = False) -> int:
     created_files: list[Path] = []
     skipped_files: list[Path] = []
 
-    detected_providers = [provider for provider, is_present in detected.items() if is_present]
+    detected_providers = [
+        provider for provider, is_present in detected.items() if is_present
+    ]
 
     if not defaults_mode:
         if not sys.stdin.isatty():
-            raise SystemExit("Interactive init requires a TTY. Use `agentmux init --defaults`.")
+            raise SystemExit(
+                "Interactive init requires a TTY. Use `agentmux init --defaults`."
+            )
         if not detected_providers:
             raise SystemExit(
                 "No supported provider CLI detected. Install one of: claude, codex, gemini, opencode."
@@ -489,7 +661,9 @@ def run_init(defaults_mode: bool = False) -> int:
         github_overrides = prompt_github_settings(defaults_config)
         overrides = _merge_overrides(overrides, github_overrides)
 
-    config_path = generate_config(overrides, project_dir, output, defaults_mode=defaults_mode)
+    config_path = generate_config(
+        overrides, project_dir, output, defaults_mode=defaults_mode
+    )
     created_files.append(config_path)
 
     claude_path = project_dir / "CLAUDE.md"
@@ -520,14 +694,27 @@ def run_init(defaults_mode: bool = False) -> int:
         loaded = load_layered_config(project_dir)
         ensure_mcp_config(
             loaded.agents,
-            [McpServerSpec(name="agentmux-research", module="agentmux.integrations.mcp_research_server", env={})],
+            [
+                McpServerSpec(
+                    name="agentmux-research",
+                    module="agentmux.integrations.mcp_research_server",
+                    env={},
+                )
+            ],
             ("architect", "product-manager"),
             project_dir,
             interactive=True,
             output=sys.stdout,
         )
 
-    display_summary(output, created_files, skipped_files, project_dir)
+        output.print(_rule("Shell Completions"))
+        completion_status = prompt_shell_completions(output)
+    else:
+        completion_status = (False, "skipped")
+
+    display_summary(
+        output, created_files, skipped_files, project_dir, completion_status
+    )
     return 0
 
 
