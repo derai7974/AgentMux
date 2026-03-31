@@ -638,8 +638,12 @@ def create_agent_pane(
     trust_snippet: str | None,
     *,
     display_label: str | None = None,
-) -> str:
-    """Create a new agent pane and leave it parked in the hidden window."""
+) -> tuple[str, int]:
+    """Create a new agent pane and leave it parked in the hidden window.
+
+    Returns:
+        Tuple of (pane_id, process_pid)
+    """
     agent = agents[agent_name]
     agent_cmd = build_agent_command(agent)
     split_target = _find_any_hidden_pane(session_name)
@@ -658,11 +662,14 @@ def create_agent_pane(
             split_target,
             "-P",
             "-F",
-            "#{pane_id}",
+            "#{pane_id} #{pane_pid}",
             agent_cmd,
         ]
     )
-    pane_id = result.stdout.strip()
+    parts = result.stdout.strip().split()
+    pane_id = parts[0]
+    pid = int(parts[1]) if len(parts) > 1 else 0
+
     set_pane_identity(pane_id, role=agent.role, display_label=display_label)
     if _pane_in_window(pane_id, MAIN_WINDOW):
         run_command(
@@ -670,7 +677,79 @@ def create_agent_pane(
         )
 
     accept_trust_prompt(pane_id, snippet=trust_snippet)
-    return pane_id
+    return pane_id, pid
+
+
+def create_batch_agent_pane(
+    session_name: str,
+    agent_name: str,
+    agents: dict[str, AgentConfig],
+    prompt_content: str,
+    *,
+    display_label: str | None = None,
+) -> tuple[str, int]:
+    """Create a batch-mode agent pane with prompt as direct argument.
+
+    For batch mode (e.g., researcher agents), the prompt content is passed
+    directly as a command argument rather than injected via send_keys.
+    This prevents the agent from waiting for interactive input.
+
+    Returns:
+        Tuple of (pane_id, process_pid)
+    """
+    agent = agents[agent_name]
+
+    # Build command with prompt content as final argument
+    env_prefix = ""
+    if agent.env:
+        env_items = [
+            f"{shlex.quote(str(key))}={shlex.quote(str(value))}"
+            for key, value in agent.env.items()
+        ]
+        env_prefix = f"env {' '.join(env_items)} "
+
+    extra_args = " ".join(shlex.quote(a) for a in (agent.args or []))
+    agent_cmd = (
+        env_prefix
+        + f"{shlex.quote(agent.cli)} {shlex.quote(agent.model_flag)} {shlex.quote(agent.model)}"
+        + (f" {extra_args}" if extra_args else "")
+        + f" {shlex.quote(prompt_content)}"
+    )
+
+    split_target = _find_any_hidden_pane(session_name)
+    if not split_target:
+        raise RuntimeError(
+            f"No pane available to seed hidden pane creation for {session_name}"
+        )
+
+    _log(
+        f"create_batch_agent_pane: Creating {agent_name} (batch mode) hidden at {split_target}"
+    )
+    result = run_command(
+        [
+            "tmux",
+            "split-window",
+            "-v",
+            "-t",
+            split_target,
+            "-P",
+            "-F",
+            "#{pane_id} #{pane_pid}",
+            agent_cmd,
+        ]
+    )
+    parts = result.stdout.strip().split()
+    pane_id = parts[0]
+    pid = int(parts[1]) if len(parts) > 1 else 0
+
+    set_pane_identity(pane_id, role=agent.role, display_label=display_label)
+    if _pane_in_window(pane_id, MAIN_WINDOW):
+        run_command(
+            ["tmux", "break-pane", "-d", "-s", pane_id, "-n", "_hidden"], check=False
+        )
+
+    # No trust prompt handling needed for batch mode
+    return pane_id, pid
 
 
 def kill_agent_pane(pane_id: str | None, session_name: str | None = None) -> None:

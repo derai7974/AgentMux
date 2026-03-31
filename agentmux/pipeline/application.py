@@ -143,6 +143,7 @@ class PipelineApplication:
         try:
             return self.orchestrator.run(ctx, args.keep_session)
         except KeyboardInterrupt:
+            self._cleanup_runtime_processes(runtime)
             report = self.interruptions.build_canceled(
                 feature_dir,
                 "The background orchestrator received Ctrl-C.",
@@ -152,6 +153,7 @@ class PipelineApplication:
             self.ui.print(self.interruptions.render(report))
             return 130
         except Exception as exc:
+            self._cleanup_runtime_processes(runtime)
             report = self.interruptions.build_failed(
                 feature_dir,
                 self.interruptions.summarize_exception(
@@ -163,6 +165,17 @@ class PipelineApplication:
             self.interruptions.persist(files, report)
             self.ui.print(self.interruptions.render(report))
             return 1
+
+    def _cleanup_runtime_processes(self, runtime) -> None:
+        """Kill all tracked processes for a runtime instance.
+
+        This is a best-effort cleanup that silently ignores any errors.
+        Used when the runtime object is already available.
+        """
+        try:
+            runtime.kill_tracked_processes(timeout=5.0)
+        except Exception:
+            pass  # Best effort cleanup
 
     def _resolve_workflow_settings(self, loaded) -> WorkflowSettings:
         candidate = getattr(loaded, "workflow_settings", None)
@@ -293,6 +306,23 @@ class PipelineApplication:
             return self._show_failure_screen(report, feature_dir)
         return 0
 
+    def _cleanup_processes(
+        self, feature_dir: Path, session_name: str, agents: dict[str, Any]
+    ) -> None:
+        """Kill all tracked processes for a session during error handling.
+
+        This is a best-effort cleanup that silently ignores any errors.
+        """
+        try:
+            runtime = self.runtime_factory.attach(
+                feature_dir=feature_dir,
+                session_name=session_name,
+                agents=agents,
+            )
+            runtime.kill_tracked_processes(timeout=5.0)
+        except Exception:
+            pass  # Best effort cleanup
+
     def _launch_attached_session(
         self, args, prepared: PreparedSession, agents, session_name: str
     ) -> int:
@@ -315,9 +345,7 @@ class PipelineApplication:
                         config_path=self.config_path,
                         initial_role=initial_role,
                     )
-            self._start_background_orchestrator(
-                feature_dir, args.keep_session, prepared.product_manager
-            )
+            self._start_background_orchestrator(feature_dir, args.keep_session)
             self.ui.print("agentmux: pipeline starting up…")
             subprocess.run(["tmux", "attach-session", "-t", session_name], check=True)
             return self._post_attach_result(
@@ -326,6 +354,7 @@ class PipelineApplication:
                 elapsed_seconds=time.time() - start_time,
             )
         except KeyboardInterrupt:
+            self._cleanup_processes(feature_dir, session_name, agents)
             report = self.interruptions.build_canceled(
                 feature_dir,
                 "The pipeline launcher received Ctrl-C.",
@@ -334,6 +363,7 @@ class PipelineApplication:
             self.interruptions.persist(files, report)
             return self._show_failure_screen(report, feature_dir)
         except subprocess.CalledProcessError as exc:
+            self._cleanup_processes(feature_dir, session_name, agents)
             if not files.state.exists():
                 stderr = exc.stderr.strip() if exc.stderr else "(no stderr)"
                 command = exc.cmd if isinstance(exc.cmd, list) else str(exc.cmd)
@@ -352,6 +382,7 @@ class PipelineApplication:
             self.interruptions.persist(files, report)
             return self._show_failure_screen(report, feature_dir)
         except Exception as exc:
+            self._cleanup_processes(feature_dir, session_name, agents)
             if not files.state.exists():
                 raise
 
@@ -384,7 +415,7 @@ class PipelineApplication:
         return 1
 
     def _start_background_orchestrator(
-        self, feature_dir: Path, keep_session: bool, product_manager: bool
+        self, feature_dir: Path, keep_session: bool
     ) -> None:
         command = [
             sys.executable,
@@ -393,13 +424,12 @@ class PipelineApplication:
             "agentmux.pipeline",
             "--orchestrate",
             str(feature_dir),
+            "run",
         ]
         if self.config_path is not None:
             command.extend(["--config", str(self.config_path)])
         if keep_session:
             command.append("--keep-session")
-        if product_manager:
-            command.append("--product-manager")
 
         files = load_runtime_files(self.project_dir, feature_dir)
         log_handle = files.orchestrator_log.open("a", encoding="utf-8")
@@ -442,37 +472,64 @@ class PipelineApplication:
         self.ui.print(f"Removed {removed} session(s).")
         return 0
 
-    def run_prompt(self, prompt, *, name=None, keep_session=False, product_manager=False) -> int:
+    def run_prompt(
+        self, prompt, *, name=None, keep_session=False, product_manager=False
+    ) -> int:
         self.ensure_dependencies()
-        loaded = load_layered_config(self.project_dir, explicit_config_path=self.config_path)
+        loaded = load_layered_config(
+            self.project_dir, explicit_config_path=self.config_path
+        )
         args = types.SimpleNamespace(
-            prompt=prompt, name=name, keep_session=keep_session,
-            product_manager=product_manager, resume=None, issue=None, orchestrate=None,
+            prompt=prompt,
+            name=name,
+            keep_session=keep_session,
+            product_manager=product_manager,
+            resume=None,
+            issue=None,
+            orchestrate=None,
         )
         return self._run_launcher(args, loaded)
 
     def run_resume(self, session=None, *, keep_session=False) -> int:
         self.ensure_dependencies()
-        loaded = load_layered_config(self.project_dir, explicit_config_path=self.config_path)
+        loaded = load_layered_config(
+            self.project_dir, explicit_config_path=self.config_path
+        )
         args = types.SimpleNamespace(
-            resume=session if session else True, issue=None,
-            prompt=None, name=None, product_manager=False,
-            orchestrate=None, keep_session=keep_session,
+            resume=session if session else True,
+            issue=None,
+            prompt=None,
+            name=None,
+            product_manager=False,
+            orchestrate=None,
+            keep_session=keep_session,
         )
         return self._run_launcher(args, loaded)
 
-    def run_issue(self, number_or_url, *, name=None, keep_session=False, product_manager=False) -> int:
+    def run_issue(
+        self, number_or_url, *, name=None, keep_session=False, product_manager=False
+    ) -> int:
         self.ensure_dependencies()
-        loaded = load_layered_config(self.project_dir, explicit_config_path=self.config_path)
+        loaded = load_layered_config(
+            self.project_dir, explicit_config_path=self.config_path
+        )
         args = types.SimpleNamespace(
-            issue=number_or_url, resume=None, prompt=None,
-            name=name, product_manager=product_manager,
-            orchestrate=None, keep_session=keep_session,
+            issue=number_or_url,
+            resume=None,
+            prompt=None,
+            name=name,
+            product_manager=product_manager,
+            orchestrate=None,
+            keep_session=keep_session,
         )
         return self._run_launcher(args, loaded)
 
     def run_orchestrate(self, feature_dir, *, keep_session=False) -> int:
         self.ensure_dependencies()
-        loaded = load_layered_config(self.project_dir, explicit_config_path=self.config_path)
-        args = types.SimpleNamespace(orchestrate=str(feature_dir), keep_session=keep_session)
+        loaded = load_layered_config(
+            self.project_dir, explicit_config_path=self.config_path
+        )
+        args = types.SimpleNamespace(
+            orchestrate=str(feature_dir), keep_session=keep_session
+        )
         return self._run_background_orchestrator(args, loaded)

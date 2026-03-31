@@ -89,8 +89,8 @@ launchers:
       reviewer: [--agent, reviewer]
       coder: [--agent, coder]
       designer: [--agent, designer]
-      code-researcher: [--agent, code-researcher]
-      web-researcher: [--agent, web-researcher]
+      code-researcher: [--agent, code-researcher, run]
+      web-researcher: [--agent, web-researcher, run]
 
 profiles:
   claude:

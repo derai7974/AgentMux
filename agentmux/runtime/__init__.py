@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import json
+import os
+import signal
 from dataclasses import dataclass
 from pathlib import Path
 import threading
@@ -14,6 +16,7 @@ from .tmux_control import (
     ContentZone,
     _find_pane_by_title,
     create_agent_pane,
+    create_batch_agent_pane,
     send_text,
     send_prompt,
     set_pane_identity,
@@ -26,38 +29,31 @@ SNAPSHOT_VERSION = 2
 
 
 class AgentRuntime(Protocol):
-    def send(self, role: str, prompt_file: Path, display_label: str | None = None) -> None:
-        ...
+    def send(
+        self, role: str, prompt_file: Path, display_label: str | None = None
+    ) -> None: ...
 
-    def send_many(self, role: str, prompt_specs: list["ParallelPromptSpec" | Path]) -> None:
-        ...
+    def send_many(
+        self, role: str, prompt_specs: list["ParallelPromptSpec" | Path]
+    ) -> None: ...
 
-    def deactivate(self, role: str) -> None:
-        ...
+    def deactivate(self, role: str) -> None: ...
 
-    def deactivate_many(self, roles: Iterable[str]) -> None:
-        ...
+    def deactivate_many(self, roles: Iterable[str]) -> None: ...
 
-    def kill_primary(self, role: str) -> None:
-        ...
+    def kill_primary(self, role: str) -> None: ...
 
-    def finish_many(self, role: str) -> None:
-        ...
+    def finish_many(self, role: str) -> None: ...
 
-    def notify(self, role: str, text: str) -> None:
-        ...
+    def notify(self, role: str, text: str) -> None: ...
 
-    def spawn_task(self, role: str, task_id: str, prompt_file: Path) -> None:
-        ...
+    def spawn_task(self, role: str, task_id: str, prompt_file: Path) -> None: ...
 
-    def hide_task(self, role: str, task_id: int | str) -> None:
-        ...
+    def hide_task(self, role: str, task_id: int | str) -> None: ...
 
-    def finish_task(self, role: str, task_id: str) -> None:
-        ...
+    def finish_task(self, role: str, task_id: str) -> None: ...
 
-    def shutdown(self, keep_session: bool) -> None:
-        ...
+    def shutdown(self, keep_session: bool) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -95,6 +91,7 @@ class TmuxAgentRuntime:
         self.parallel_panes = parallel_panes or {}
         self._expected_missing_panes: set[str] = set()
         self._pane_tracking_lock = threading.RLock()
+        self._process_pids: dict[str, int] = {}
         self._normalize_primary_panes()
 
     @classmethod
@@ -143,9 +140,7 @@ class TmuxAgentRuntime:
             if role in allowed_roles
         }
         parallel_panes = {
-            role: workers
-            for role, workers in parallel_panes.items()
-            if role in agents
+            role: workers for role, workers in parallel_panes.items() if role in agents
         }
         runtime = cls(
             feature_dir=feature_dir,
@@ -211,10 +206,27 @@ class TmuxAgentRuntime:
                 for role, workers in sorted(self.parallel_panes.items())
                 if workers
             },
+            "process_pids": self._process_pids,
         }
         tmp = target.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         tmp.rename(target)
+
+    def _track_process_pid(self, pane_id: str, pid: int) -> None:
+        """Track the process ID for a pane."""
+        if pid > 0:
+            self._process_pids[pane_id] = pid
+
+    def _load_process_pids(self) -> dict[str, int]:
+        """Load process PIDs from snapshot."""
+        snapshot_path = self.feature_dir / "runtime_state.json"
+        if not snapshot_path.exists():
+            return {}
+        try:
+            raw = json.loads(snapshot_path.read_text(encoding="utf-8"))
+            return {str(k): int(v) for k, v in raw.get("process_pids", {}).items()}
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return {}
 
     def _validate_pane_id(self, pane_id: str | None) -> str | None:
         if pane_id and tmux_pane_exists(pane_id):
@@ -247,7 +259,9 @@ class TmuxAgentRuntime:
         return raw if isinstance(raw, dict) else {}
 
     def _display_label_for_task(self, role: str, task_id: int | str | None) -> str:
-        return role_display_label(self.feature_dir, role, task_id=task_id, state=self._load_state())
+        return role_display_label(
+            self.feature_dir, role, task_id=task_id, state=self._load_state()
+        )
 
     @contextmanager
     def _expect_missing_panes(self, pane_ids: Iterable[str | None]):
@@ -283,7 +297,9 @@ class TmuxAgentRuntime:
                 )
             )
         for role, workers in sorted(self.parallel_panes.items()):
-            for task_id, pane_id in sorted(workers.items(), key=lambda item: str(item[0])):
+            for task_id, pane_id in sorted(
+                workers.items(), key=lambda item: str(item[0])
+            ):
                 if not pane_id:
                     continue
                 panes.append(
@@ -312,7 +328,8 @@ class TmuxAgentRuntime:
             return [
                 pane
                 for pane in panes
-                if pane.pane_id not in self._expected_missing_panes and not tmux_pane_exists(pane.pane_id)
+                if pane.pane_id not in self._expected_missing_panes
+                and not tmux_pane_exists(pane.pane_id)
             ]
 
     def _rehydrate(self) -> None:
@@ -345,17 +362,20 @@ class TmuxAgentRuntime:
             return None
         if role not in self.agents:
             return None
-        pane_id = create_agent_pane(
+        pane_id, pid = create_agent_pane(
             self.session_name,
             role,
             self.agents,
             self.agents[role].trust_snippet,
         )
         self.primary_panes[role] = pane_id
+        self._track_process_pid(pane_id, pid)
         self._persist_snapshot()
         return pane_id
 
-    def send(self, role: str, prompt_file: Path, display_label: str | None = None) -> None:
+    def send(
+        self, role: str, prompt_file: Path, display_label: str | None = None
+    ) -> None:
         pane_id = self._ensure_primary_pane(role)
         if not pane_id:
             return
@@ -368,7 +388,9 @@ class TmuxAgentRuntime:
         send_prompt(pane_id, prompt_file)
         self._persist_snapshot()
 
-    def send_many(self, role: str, prompt_specs: list[ParallelPromptSpec | Path]) -> None:
+    def send_many(
+        self, role: str, prompt_specs: list[ParallelPromptSpec | Path]
+    ) -> None:
         if not prompt_specs:
             return
         primary = self._ensure_primary_pane(role)
@@ -380,25 +402,30 @@ class TmuxAgentRuntime:
             if isinstance(spec, ParallelPromptSpec):
                 normalized_specs.append(spec)
             else:
-                normalized_specs.append(ParallelPromptSpec(task_id=index, prompt_file=spec))
+                normalized_specs.append(
+                    ParallelPromptSpec(task_id=index, prompt_file=spec)
+                )
 
         workers: dict[int | str, str] = {}
         ordered_task_ids: list[int | str] = []
         for idx, spec in enumerate(normalized_specs, start=1):
             task_id = spec.task_id
             ordered_task_ids.append(task_id)
-            display_label = spec.display_label or self._display_label_for_task(role, task_id)
+            display_label = spec.display_label or self._display_label_for_task(
+                role, task_id
+            )
             if idx == 1:
                 pane_id = primary
                 set_pane_identity(pane_id, role=role, display_label=display_label)
             else:
-                pane_id = create_agent_pane(
+                pane_id, pid = create_agent_pane(
                     self.session_name,
                     role,
                     self.agents,
                     self.agents[role].trust_snippet,
                     display_label=display_label,
                 )
+                self._track_process_pid(pane_id, pid)
             workers[task_id] = pane_id
 
         self._zone.show_parallel([workers[task_id] for task_id in ordered_task_ids])
@@ -445,7 +472,9 @@ class TmuxAgentRuntime:
     def finish_many(self, role: str) -> None:
         workers = self.parallel_panes.get(role, {})
         primary = self.primary_panes.get(role)
-        removed = [pane_id for pane_id in dict.fromkeys(workers.values()) if pane_id != primary]
+        removed = [
+            pane_id for pane_id in dict.fromkeys(workers.values()) if pane_id != primary
+        ]
         with self._expect_missing_panes(removed):
             for pane_id in removed:
                 self._zone.remove(pane_id)
@@ -464,15 +493,29 @@ class TmuxAgentRuntime:
     def spawn_task(self, role: str, task_id: str, prompt_file: Path) -> None:
         if role not in self.agents:
             return
-        pane_id = create_agent_pane(
-            self.session_name,
-            role,
-            self.agents,
-            self.agents[role].trust_snippet,
-            display_label=self._display_label_for_task(role, task_id),
-        )
-        send_prompt(pane_id, prompt_file)
+
+        # Use batch mode for researcher agents to prevent interactive input waiting
+        if role in ("code-researcher", "web-researcher"):
+            prompt_content = prompt_file.read_text(encoding="utf-8")
+            pane_id, pid = create_batch_agent_pane(
+                self.session_name,
+                role,
+                self.agents,
+                prompt_content,
+                display_label=self._display_label_for_task(role, task_id),
+            )
+        else:
+            pane_id, pid = create_agent_pane(
+                self.session_name,
+                role,
+                self.agents,
+                self.agents[role].trust_snippet,
+                display_label=self._display_label_for_task(role, task_id),
+            )
+            send_prompt(pane_id, prompt_file)
+
         self.parallel_panes.setdefault(role, {})[task_id] = pane_id
+        self._track_process_pid(pane_id, pid)
         self._persist_snapshot()
 
     def hide_task(self, role: str, task_id: int | str) -> None:
@@ -495,8 +538,80 @@ class TmuxAgentRuntime:
                 self.parallel_panes.pop(role, None)
             self._persist_snapshot()
 
+    def kill_tracked_processes(self, timeout: float = 5.0) -> list[int]:
+        """Kill all tracked agent processes.
+
+        First sends SIGTERM, waits for timeout, then sends SIGKILL to remaining.
+        Returns list of PIDs that were killed.
+        """
+        killed: list[int] = []
+        pids = self._load_process_pids()
+
+        # Send SIGTERM to all tracked processes
+        for pane_id, pid in list(pids.items()):
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                # Process already dead, remove from tracking
+                self._process_pids.pop(pane_id, None)
+            except PermissionError:
+                pass  # Can't kill this process
+
+        # Wait for graceful shutdown
+        if pids:
+            time.sleep(timeout)
+
+        # Send SIGKILL to any still alive
+        for pane_id, pid in list(pids.items()):
+            try:
+                os.kill(pid, 0)  # Check if still alive
+                os.kill(pid, signal.SIGKILL)
+                killed.append(pid)
+            except ProcessLookupError:
+                killed.append(pid)  # Died gracefully
+            except PermissionError:
+                pass
+            finally:
+                self._process_pids.pop(pane_id, None)
+
+        # Clear process tracking
+        self._process_pids.clear()
+        self._persist_snapshot()
+
+        return killed
+
+    def cleanup_orphaned_processes(self) -> list[int]:
+        """Kill any still-running tracked processes from previous session.
+
+        Used during resume to clean up zombie processes from a crashed session.
+        """
+        orphaned_pids = self._load_process_pids()
+        killed: list[int] = []
+
+        for pane_id, pid in orphaned_pids.items():
+            try:
+                os.kill(pid, 0)  # Check if process exists
+                # Process is still running, kill it
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    time.sleep(0.5)
+                    os.kill(pid, 0)  # Check again
+                    os.kill(pid, signal.SIGKILL)  # Force kill if still alive
+                except ProcessLookupError:
+                    pass  # Died from SIGTERM
+                killed.append(pid)
+            except (ProcessLookupError, PermissionError):
+                pass  # Already dead or can't access
+
+        # Clear the tracking
+        self._process_pids.clear()
+
+        return killed
+
     def shutdown(self, keep_session: bool) -> None:
         if not keep_session:
+            # Kill all tracked processes before killing session
+            self.kill_tracked_processes(timeout=5.0)
             tmux_kill_session(self.session_name)
 
 

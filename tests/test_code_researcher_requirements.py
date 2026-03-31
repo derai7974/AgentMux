@@ -23,11 +23,22 @@ class FakeRuntime:
         self.calls: list[tuple[str, object]] = []
         self.primary_panes = {"architect": "%1"}
 
-    def send(self, role: str, prompt_file: Path, display_label: str | None = None) -> None:
+    def send(
+        self, role: str, prompt_file: Path, display_label: str | None = None
+    ) -> None:
         self.calls.append(("send", role, prompt_file.name))
 
     def send_many(self, role: str, prompt_specs: list[object]) -> None:
-        self.calls.append(("send_many", role, [Path(getattr(item, "prompt_file", item)).name for item in prompt_specs]))
+        self.calls.append(
+            (
+                "send_many",
+                role,
+                [
+                    Path(getattr(item, "prompt_file", item)).name
+                    for item in prompt_specs
+                ],
+            )
+        )
 
     def spawn_task(self, role: str, task_id: str, prompt_file: Path) -> None:
         self.calls.append(("spawn_task", role, task_id, prompt_file.name))
@@ -84,7 +95,9 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
     def _make_ctx(self, feature_dir: Path) -> tuple[PipelineContext, Path]:
         project_dir = feature_dir.parent / "project"
         project_dir.mkdir(parents=True, exist_ok=True)
-        files = create_feature_files(project_dir, feature_dir, "add code researcher", "session-x")
+        files = create_feature_files(
+            project_dir, feature_dir, "add code researcher", "session-x"
+        )
 
         prompts = {"architect": feature_dir / PLANNING_DIR / "architect_prompt.md"}
         for prompt in prompts.values():
@@ -92,9 +105,15 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             prompt.write_text(prompt.name, encoding="utf-8")
 
         agents = {
-            "architect": AgentConfig(role="architect", cli="claude", model="opus", args=[]),
-            "coder": AgentConfig(role="coder", cli="codex", model="gpt-5.3-codex", args=[]),
-            "code-researcher": AgentConfig(role="code-researcher", cli="claude", model="haiku", args=[]),
+            "architect": AgentConfig(
+                role="architect", cli="claude", model="opus", args=[]
+            ),
+            "coder": AgentConfig(
+                role="coder", cli="codex", model="gpt-5.3-codex", args=[]
+            ),
+            "code-researcher": AgentConfig(
+                role="code-researcher", cli="claude", model="haiku", args=[]
+            ),
         }
 
         ctx = PipelineContext(
@@ -135,7 +154,9 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             project_dir = tmp_path / "project"
             feature_dir = tmp_path / "feature"
             project_dir.mkdir()
-            files = create_feature_files(project_dir, feature_dir, "research", "session-x")
+            files = create_feature_files(
+                project_dir, feature_dir, "research", "session-x"
+            )
             self._write_code_request(feature_dir, "auth-module")
 
             prompt = build_code_researcher_prompt("auth-module", files)
@@ -154,7 +175,11 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
                 json.dumps(
                     {
                         "version": 1,
-                        "primary": {"architect": "%1", "coder": "%2", "code-researcher": "%3"},
+                        "primary": {
+                            "architect": "%1",
+                            "coder": "%2",
+                            "code-researcher": "%3",
+                        },
                         "parallel": {
                             "coder": {"1": "%2"},
                             "code-researcher": {"auth-module": "%9"},
@@ -165,37 +190,68 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             )
 
             agents = {
-                "architect": AgentConfig(role="architect", cli="claude", model="opus", args=[]),
-                "coder": AgentConfig(role="coder", cli="codex", model="gpt-5.3-codex", args=[]),
-                "code-researcher": AgentConfig(role="code-researcher", cli="claude", model="haiku", args=[]),
+                "architect": AgentConfig(
+                    role="architect", cli="claude", model="opus", args=[]
+                ),
+                "coder": AgentConfig(
+                    role="coder", cli="codex", model="gpt-5.3-codex", args=[]
+                ),
+                "code-researcher": AgentConfig(
+                    role="code-researcher", cli="claude", model="haiku", args=[]
+                ),
             }
 
             sent: list[str] = []
+            spawned: list[str] = []
 
-            with patch("agentmux.runtime.tmux_pane_exists", side_effect=lambda pane_id: pane_id in {"%1", "%2", "%3", "%9"}), patch(
-                "agentmux.runtime._find_pane_by_title", return_value=None
-            ), patch(
-                "agentmux.runtime.create_agent_pane", return_value="%77"
-            ), patch(
-                "agentmux.runtime.ContentZone",
-                side_effect=lambda session_name, visible=None: FakeZone(session_name, visible),
-            ), patch(
-                "agentmux.runtime.send_prompt",
-                side_effect=lambda pane_id, pf: sent.append(f"{pane_id}:{pf.name}"),
+            with (
+                patch(
+                    "agentmux.runtime.tmux_pane_exists",
+                    side_effect=lambda pane_id: pane_id in {"%1", "%2", "%3", "%9"},
+                ),
+                patch("agentmux.runtime._find_pane_by_title", return_value=None),
+                patch(
+                    "agentmux.runtime.create_agent_pane", return_value=("%77", 12345)
+                ),
+                patch(
+                    "agentmux.runtime.create_batch_agent_pane",
+                    side_effect=lambda *args, **kwargs: (
+                        spawned.append("batch_pane"),
+                        ("%77", 12345),
+                    )[1],
+                ),
+                patch(
+                    "agentmux.runtime.ContentZone",
+                    side_effect=lambda session_name, visible=None: FakeZone(
+                        session_name, visible
+                    ),
+                ),
+                patch(
+                    "agentmux.runtime.send_prompt",
+                    side_effect=lambda pane_id, pf: sent.append(f"{pane_id}:{pf.name}"),
+                ),
             ):
                 runtime = TmuxAgentRuntime.attach(
                     feature_dir=feature_dir,
                     session_name="session-x",
                     agents=agents,
                 )
-                self.assertEqual({"auth-module": "%9"}, runtime.parallel_panes["code-researcher"])
+                self.assertEqual(
+                    {"auth-module": "%9"}, runtime.parallel_panes["code-researcher"]
+                )
                 runtime.spawn_task("code-researcher", "db-schema", prompt_file)
                 runtime.finish_task("code-researcher", "db-schema")
 
-            self.assertEqual(["%77:research_prompt_auth-module.md"], sent)
+            # For batch mode (researcher), create_batch_agent_pane is used instead of send_prompt
+            self.assertEqual(["batch_pane"], spawned)
+            self.assertEqual([], sent)  # No send_prompt for researcher in batch mode
             self.assertEqual(["%77"], runtime._zone.removed)
-            snapshot = json.loads((feature_dir / "runtime_state.json").read_text(encoding="utf-8"))
-            self.assertEqual({"auth-module": "%9"}, snapshot["parallel"]["code-researcher"])
+            snapshot = json.loads(
+                (feature_dir / "runtime_state.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                {"auth-module": "%9"}, snapshot["parallel"]["code-researcher"]
+            )
             self.assertNotIn("db-schema", snapshot["parallel"]["code-researcher"])
 
     def test_planning_detects_task_requested_and_completed(self) -> None:
@@ -209,9 +265,15 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             state["research_tasks"] = {"auth-module": "dispatched"}
             write_state(state_path, state)
 
-            (feature_dir / RESEARCH_DIR / "code-db-schema").mkdir(parents=True, exist_ok=True)
-            (feature_dir / RESEARCH_DIR / "code-auth-module").mkdir(parents=True, exist_ok=True)
-            (feature_dir / RESEARCH_DIR / "code-db-schema" / "request.md").write_text("look at db", encoding="utf-8")
+            (feature_dir / RESEARCH_DIR / "code-db-schema").mkdir(
+                parents=True, exist_ok=True
+            )
+            (feature_dir / RESEARCH_DIR / "code-auth-module").mkdir(
+                parents=True, exist_ok=True
+            )
+            (feature_dir / RESEARCH_DIR / "code-db-schema" / "request.md").write_text(
+                "look at db", encoding="utf-8"
+            )
             (feature_dir / RESEARCH_DIR / "code-auth-module" / "done").touch()
 
             phase = PlanningPhase()
@@ -225,14 +287,20 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             event = phase.detect_event(load_state(state_path), ctx)
             self.assertEqual("code_batch_requested", event)
 
-    def test_planning_snapshot_inputs_include_research_request_and_done_markers(self) -> None:
+    def test_planning_snapshot_inputs_include_research_request_and_done_markers(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             feature_dir = tmp_path / "feature"
             ctx, state_path = self._make_ctx(feature_dir)
             _ = state_path
-            (feature_dir / RESEARCH_DIR / "code-auth-module").mkdir(parents=True, exist_ok=True)
-            (feature_dir / RESEARCH_DIR / "code-auth-module" / "request.md").write_text("look at auth", encoding="utf-8")
+            (feature_dir / RESEARCH_DIR / "code-auth-module").mkdir(
+                parents=True, exist_ok=True
+            )
+            (feature_dir / RESEARCH_DIR / "code-auth-module" / "request.md").write_text(
+                "look at auth", encoding="utf-8"
+            )
             (feature_dir / RESEARCH_DIR / "code-auth-module" / "done").touch()
 
             snapshot = PlanningPhase().snapshot_inputs({}, ctx)
@@ -240,7 +308,9 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             self.assertIn("code-auth-module/request.md", snapshot)
             self.assertIn("code-auth-module/done", snapshot)
 
-    def test_planning_handle_task_requested_spawns_researcher_and_updates_state(self) -> None:
+    def test_planning_handle_task_requested_spawns_researcher_and_updates_state(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             feature_dir = tmp_path / "feature"
@@ -249,7 +319,9 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             state["phase"] = "planning"
             write_state(state_path, state)
 
-            (feature_dir / RESEARCH_DIR / "code-auth-module").mkdir(parents=True, exist_ok=True)
+            (feature_dir / RESEARCH_DIR / "code-auth-module").mkdir(
+                parents=True, exist_ok=True
+            )
             (feature_dir / RESEARCH_DIR / "code-auth-module" / "request.md").write_text(
                 "investigate auth",
                 encoding="utf-8",
@@ -258,16 +330,25 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             stale_done.touch()
 
             phase = PlanningPhase()
-            result = phase.handle_event(load_state(state_path), "code_batch_requested", ctx)
+            result = phase.handle_event(
+                load_state(state_path), "code_batch_requested", ctx
+            )
 
             self.assertIsNone(result)
             self.assertFalse(stale_done.exists())
-            self.assertEqual(("spawn_task", "code-researcher", "auth-module", "prompt.md"), ctx.runtime.calls[-1])
-            self.assertTrue((feature_dir / RESEARCH_DIR / "code-auth-module" / "prompt.md").exists())
+            self.assertEqual(
+                ("spawn_task", "code-researcher", "auth-module", "prompt.md"),
+                ctx.runtime.calls[-1],
+            )
+            self.assertTrue(
+                (feature_dir / RESEARCH_DIR / "code-auth-module" / "prompt.md").exists()
+            )
             updated = load_state(state_path)
             self.assertEqual("dispatched", updated["research_tasks"]["auth-module"])
 
-    def test_planning_handle_task_completed_finishes_researcher_and_notifies_architect(self) -> None:
+    def test_planning_handle_task_completed_finishes_researcher_and_notifies_architect(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             feature_dir = tmp_path / "feature"
@@ -276,16 +357,25 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             state["phase"] = "planning"
             state["research_tasks"] = {"auth-module": "dispatched"}
             write_state(state_path, state)
-            (feature_dir / RESEARCH_DIR / "code-auth-module").mkdir(parents=True, exist_ok=True)
+            (feature_dir / RESEARCH_DIR / "code-auth-module").mkdir(
+                parents=True, exist_ok=True
+            )
             (feature_dir / RESEARCH_DIR / "code-auth-module" / "done").touch()
 
             phase = PlanningPhase()
-            result = phase.handle_event(load_state(state_path), "task_completed:auth-module", ctx)
+            result = phase.handle_event(
+                load_state(state_path), "task_completed:auth-module", ctx
+            )
 
             self.assertIsNone(result)
-            self.assertEqual(("notify", "architect",
-                "Code-research on 'auth-module' is complete. Read 03_research/code-auth-module/summary.md and continue from there.",
-            ), ctx.runtime.calls[-1])
+            self.assertEqual(
+                (
+                    "notify",
+                    "architect",
+                    "Code-research on 'auth-module' is complete. Read 03_research/code-auth-module/summary.md and continue from there.",
+                ),
+                ctx.runtime.calls[-1],
+            )
             updated = load_state(state_path)
             self.assertEqual("done", updated["research_tasks"]["auth-module"])
 

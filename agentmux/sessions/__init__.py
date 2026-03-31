@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import json
+import os
 import re
+import signal
 import shutil
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import time
 from typing import Any
 
 from ..shared.models import RuntimeFiles
@@ -102,6 +106,9 @@ class SessionService:
         if not state_path.exists():
             raise SystemExit(f"No state.json found in {feature_dir}")
 
+        # Kill any orphaned processes from previous session
+        self._cleanup_orphaned_processes(feature_dir)
+
         files = load_runtime_files(self.project_dir, feature_dir)
         state = load_state(state_path)
         state["phase"] = infer_resume_phase(feature_dir, state)
@@ -121,6 +128,43 @@ class SessionService:
             files=files,
             product_manager=bool(state.get("product_manager")),
         )
+
+    def _cleanup_orphaned_processes(self, feature_dir: Path) -> list[int]:
+        """Kill any still-running tracked processes from a crashed session.
+
+        Reads PIDs from runtime_state.json and kills them if still alive.
+        Returns list of PIDs that were killed.
+        """
+        killed: list[int] = []
+        snapshot_path = feature_dir / "runtime_state.json"
+
+        if not snapshot_path.exists():
+            return killed
+
+        try:
+            raw = json.loads(snapshot_path.read_text(encoding="utf-8"))
+            pids = raw.get("process_pids", {})
+        except (json.JSONDecodeError, OSError):
+            return killed
+
+        for pane_id, pid in pids.items():
+            try:
+                pid = int(pid)
+                os.kill(pid, 0)  # Check if process exists
+
+                # Process is still running, kill it
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    time.sleep(0.5)
+                    os.kill(pid, 0)  # Check again
+                    os.kill(pid, signal.SIGKILL)  # Force kill if still alive
+                except ProcessLookupError:
+                    pass  # Died from SIGTERM
+                killed.append(pid)
+            except (ProcessLookupError, PermissionError, ValueError):
+                pass  # Already dead, can't access, or invalid PID
+
+        return killed
 
     def create(self, request: SessionCreateRequest) -> PreparedSession:
         feature_name = request.feature_name or self._timestamped_feature_name(
