@@ -461,12 +461,16 @@ class ExitMessagingTests(unittest.TestCase):
 
             loaded = self._loaded_config()
 
-            def write_log(
-                feature_dir: Path, _keep_session: bool, product_manager: bool
-            ) -> None:
-                _ = product_manager
+            def write_log(feature_dir: Path, _keep_session: bool) -> None:
                 (feature_dir / "orchestrator.log").write_text(
                     "background log\n", encoding="utf-8"
+                )
+
+            def subprocess_run_side_effect(args, **kwargs):
+                if args[0:2] == ["tmux", "attach-session"]:
+                    raise KeyboardInterrupt
+                return subprocess.CompletedProcess(
+                    args=args, returncode=0, stdout="", stderr=""
                 )
 
             stdout_buffer = io.StringIO()
@@ -504,7 +508,7 @@ class ExitMessagingTests(unittest.TestCase):
                 ),
                 patch(
                     "agentmux.pipeline.application.subprocess.run",
-                    side_effect=KeyboardInterrupt,
+                    side_effect=subprocess_run_side_effect,
                 ),
             ):
                 result = self._run_main(app)
@@ -615,10 +619,7 @@ class ExitMessagingTests(unittest.TestCase):
 
             loaded = self._loaded_config()
 
-            def set_failed_state(
-                feature_dir: Path, _keep_session: bool, product_manager: bool
-            ) -> None:
-                _ = product_manager
+            def set_failed_state(feature_dir: Path, _keep_session: bool) -> None:
                 log_path = feature_dir / "orchestrator.log"
                 log_path.write_text("crash details\n", encoding="utf-8")
                 state_path = feature_dir / "state.json"
@@ -696,10 +697,7 @@ class ExitMessagingTests(unittest.TestCase):
 
             loaded = self._loaded_config()
 
-            def cleanup_feature_dir(
-                feature_dir: Path, _keep_session: bool, product_manager: bool
-            ) -> None:
-                _ = product_manager
+            def cleanup_feature_dir(feature_dir: Path, _keep_session: bool) -> None:
                 shutil.rmtree(feature_dir)
 
             with (
@@ -754,10 +752,7 @@ class ExitMessagingTests(unittest.TestCase):
 
             loaded = self._loaded_config()
 
-            def remove_state_only(
-                feature_dir: Path, _keep_session: bool, product_manager: bool
-            ) -> None:
-                _ = product_manager
+            def remove_state_only(feature_dir: Path, _keep_session: bool) -> None:
                 (feature_dir / "state.json").unlink()
 
             with (
