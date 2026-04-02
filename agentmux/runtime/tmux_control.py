@@ -540,9 +540,7 @@ def tmux_new_session(
     )
     control_pane = result.stdout.strip()
     run_command(["tmux", "set-option", "-t", session_name, "pane-border-status", "top"])
-    run_command(
-        ["tmux", "set-option", "-t", session_name, "pane-border-style", "default"]
-    )
+    run_command(["tmux", "set-option", "-t", session_name, "pane-border-style", "none"])
     run_command(
         [
             "tmux",
@@ -550,7 +548,7 @@ def tmux_new_session(
             "-t",
             session_name,
             "pane-active-border-style",
-            "default",
+            "none",
         ]
     )
     run_command(

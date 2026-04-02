@@ -449,7 +449,6 @@ roles:
             self.assertEqual("gpt-5.3-codex", loaded.agents["coder"].model)
             self.assertEqual("haiku", loaded.agents["code-researcher"].model)
 
-
     def test_unconfigured_roles_use_defaults(self) -> None:
         """Roles not explicitly configured should still be created with defaults."""
         with tempfile.TemporaryDirectory() as td:
@@ -461,7 +460,9 @@ roles:
                     "model": "fireworks-ai/accounts/fireworks/routers/kimi-k2p5-turbo",
                 },
                 "roles": {
-                    "architect": {"model": "fireworks-ai/accounts/fireworks/models/glm-5"},
+                    "architect": {
+                        "model": "fireworks-ai/accounts/fireworks/models/glm-5"
+                    },
                 },
             }
             cfg_path.write_text(yaml.dump(cfg), encoding="utf-8")
@@ -469,7 +470,10 @@ roles:
             loaded = load_explicit_config(cfg_path)
 
             # Explicitly configured role uses its override
-            self.assertEqual("fireworks-ai/accounts/fireworks/models/glm-5", loaded.agents["architect"].model)
+            self.assertEqual(
+                "fireworks-ai/accounts/fireworks/models/glm-5",
+                loaded.agents["architect"].model,
+            )
             self.assertEqual("opencode", loaded.agents["architect"].provider)
 
             # Unconfigured roles should still exist with defaults
@@ -480,15 +484,24 @@ roles:
             self.assertIn("designer", loaded.agents)
 
             # Unconfigured roles use defaults
-            self.assertEqual("fireworks-ai/accounts/fireworks/routers/kimi-k2p5-turbo", loaded.agents["code-researcher"].model)
+            self.assertEqual(
+                "fireworks-ai/accounts/fireworks/routers/kimi-k2p5-turbo",
+                loaded.agents["code-researcher"].model,
+            )
             self.assertEqual("opencode", loaded.agents["code-researcher"].provider)
-            self.assertEqual("fireworks-ai/accounts/fireworks/routers/kimi-k2p5-turbo", loaded.agents["web-researcher"].model)
+            self.assertEqual(
+                "fireworks-ai/accounts/fireworks/routers/kimi-k2p5-turbo",
+                loaded.agents["web-researcher"].model,
+            )
             self.assertEqual("opencode", loaded.agents["web-researcher"].provider)
 
-            # Coder has special built-in defaults
+            # Coder also uses global defaults (no special built-in defaults)
             self.assertIn("coder", loaded.agents)
-            self.assertEqual("gpt-5.3-codex", loaded.agents["coder"].model)
-            self.assertEqual("codex", loaded.agents["coder"].provider)
+            self.assertEqual(
+                "fireworks-ai/accounts/fireworks/routers/kimi-k2p5-turbo",
+                loaded.agents["coder"].model,
+            )
+            self.assertEqual("opencode", loaded.agents["coder"].provider)
 
 
 if __name__ == "__main__":

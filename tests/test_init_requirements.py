@@ -146,8 +146,8 @@ class InitRequirementsTests(unittest.TestCase):
         with patch("agentmux.pipeline.init_command.questionary", fake_questionary):
             overrides = prompt_role_config(["claude", "codex"], defaults)
 
-        # coder has different provider in defaults, so it should appear
-        self.assertEqual({"roles": {"coder": {"provider": "claude"}}}, overrides)
+        # coder model differs from baseline, so it should appear
+        self.assertEqual({"roles": {"coder": {"model": "gpt-5.3-codex"}}}, overrides)
 
     def test_prompt_role_config_quick_setup_uses_default_provider_for_all_roles(
         self,
@@ -167,7 +167,7 @@ class InitRequirementsTests(unittest.TestCase):
         with patch("agentmux.pipeline.init_command.questionary", fake_questionary):
             overrides = prompt_role_config(["claude", "codex"], defaults)
 
-        self.assertEqual({"roles": {"coder": {"provider": "claude"}}}, overrides)
+        self.assertEqual({}, overrides)
 
     def test_prompt_stubs_excludes_existing_files_from_choices(self) -> None:
         with tempfile.TemporaryDirectory() as td:
