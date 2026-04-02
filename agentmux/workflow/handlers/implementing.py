@@ -44,10 +44,6 @@ def _build_implementation_schedule(*, planning_dir: Path) -> list[dict[str, obje
     all_indexes: list[int] = []
     for group in execution_plan.groups:
         group_indexes = [_plan_index_from_name(plan.file) for plan in group.plans]
-        if group.mode == "serial" and len(group_indexes) != 1:
-            raise RuntimeError(
-                f"execution_plan.json group `{group.group_id}` uses mode `serial` and must reference exactly one plan."
-            )
         all_indexes.extend(group_indexes)
         plan_paths = [planning_dir / plan.file for plan in group.plans]
         schedule.append(
@@ -223,6 +219,10 @@ class ImplementingHandler:
 
         # Check if all markers in the group are complete
         if not _all_markers_complete(ctx.files.implementation_dir, active_group):
+            # Group not complete - check if there are more pending plans to dispatch
+            # This handles serial groups with multiple plans
+            if str(active_group["mode"]) == "serial":
+                self._dispatch_active_group(ctx, schedule, group_index - 1)
             return updates, None
 
         # Group complete - move to next group or finish

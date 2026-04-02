@@ -446,6 +446,77 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
             write_state(state_path, state)
             self.assertEqual("reviewing", next_phase)
 
+    def test_serial_group_with_multiple_plans_executes_sequentially(self) -> None:
+        """Serial groups with multiple plans should execute one at a time in order."""
+        with tempfile.TemporaryDirectory() as td:
+            ctx, state_path = _make_ctx(Path(td) / "feature")
+            _set_phase(state_path, "implementing")
+            _write_execution_plan(
+                ctx,
+                [
+                    {
+                        "group_id": "integration",
+                        "mode": "serial",
+                        "plans": [
+                            {"file": "plan_1.md", "name": "Docs Update"},
+                            {"file": "plan_2.md", "name": "Test Validation"},
+                        ],
+                    }
+                ],
+            )
+
+            handler = ImplementingHandler()
+            state = load_state(state_path)
+            updates = handler.enter(state, ctx)
+            state.update(updates)
+            write_state(state_path, state)
+
+            # First plan should be dispatched (serial sends one at a time)
+            self.assertIn(
+                ("send", "coder", "coder_prompt_1.txt", "[coder] Docs Update"),
+                ctx.runtime.calls,
+            )
+            # Second plan should NOT be dispatched yet
+            self.assertNotIn(
+                ("send", "coder", "coder_prompt_2.txt", "[coder] Test Validation"),
+                ctx.runtime.calls,
+            )
+
+            # Complete first plan
+            _touch(ctx.files.implementation_dir / "done_1")
+            event = WorkflowEvent(
+                kind="file.created",
+                path="05_implementation/done_1",
+                payload={},
+            )
+            state = load_state(state_path)
+            updates, next_phase = handler.handle_event(event, state, ctx)
+            state.update(updates)
+            write_state(state_path, state)
+
+            # Should still be in implementing phase, not reviewing
+            self.assertIsNone(next_phase)
+            # Second plan should now be dispatched
+            self.assertIn(
+                ("send", "coder", "coder_prompt_2.txt", "[coder] Test Validation"),
+                ctx.runtime.calls,
+            )
+
+            # Complete second plan
+            _touch(ctx.files.implementation_dir / "done_2")
+            event = WorkflowEvent(
+                kind="file.created",
+                path="05_implementation/done_2",
+                payload={},
+            )
+            state = load_state(state_path)
+            updates, next_phase = handler.handle_event(event, state, ctx)
+            state.update(updates)
+            write_state(state_path, state)
+
+            # Now should transition to reviewing
+            self.assertEqual("reviewing", next_phase)
+
     def test_fixing_phase_completes_on_done_1_even_with_multiple_subplans(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             ctx, state_path = _make_ctx(Path(td) / "feature")

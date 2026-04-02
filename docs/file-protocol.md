@@ -25,8 +25,9 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 - `plan_<N>.md` — executable per-unit implementation plans referenced by scheduler metadata
 - `execution_plan.json` — machine-readable schedule of ordered execution groups
   - Each group has a unique `group_id` and an execution mode (`serial` or `parallel`)
-  - `serial` groups must reference exactly one named `plan_<N>.md` entry
-  - `parallel` groups reference one or more named `plan_<N>.md` entries
+  - `serial` groups execute plans one at a time in order (useful for sequential integration steps)
+  - `parallel` groups execute all plans simultaneously
+  - Both modes can reference one or more named `plan_<N>.md` entries
   - Canonical plan-entry shape is `{ "file": "plan_<N>.md", "name": "Human title" }`
   - Plan references must be unique across groups
   - Group ordering defines implementation wave order
