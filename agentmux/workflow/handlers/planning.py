@@ -68,7 +68,7 @@ class PlanningHandler:
         # Check for plan completion (all three files must exist)
         if path in (
             "02_planning/plan.md",
-            "02_planning/tasks.md",
+            "02_planning/execution_plan.json",
             "02_planning/plan_meta.json",
         ):
             return self._handle_plan_written(state, ctx)
@@ -108,10 +108,10 @@ class PlanningHandler:
     ) -> tuple[dict, str | None]:
         """Handle plan written event.
 
-        All three files (plan.md, tasks.md, plan_meta.json) must exist.
+        All three files (plan.md, execution_plan.json, plan_meta.json) must exist.
         """
         # Check if all required files exist
-        if not (ctx.files.plan.exists() and ctx.files.tasks.exists()):
+        if not (ctx.files.plan.exists() and ctx.files.execution_plan.exists()):
             return {}, None
 
         meta_path = ctx.files.planning_dir / "plan_meta.json"

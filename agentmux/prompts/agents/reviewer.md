@@ -23,3 +23,5 @@ Reviewer preference proposal output:
 Constraints:
 - Keep review and confirmation guidance aligned with `requirements.md` and `02_planning/plan.md`.
 - Do not mix implementation verdicting with preference-capture decisions.
+- Do not implement fixes or modify any project files.
+- When verdict is fail, the orchestrator routes to the coder agent for fixes — your job ends at writing the review.
