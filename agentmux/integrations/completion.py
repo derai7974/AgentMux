@@ -5,11 +5,15 @@ from pathlib import Path
 
 from ..sessions.state_store import (
     cleanup_feature_dir,
-    commit_changes,
     feature_slug_from_dir,
 )
 from ..shared.models import GitHubConfig, RuntimeFiles
-from .github import _extract_first_plan_section, _extract_initial_request, create_branch_and_pr
+from .git_manager import GitBranchManager
+from .github import (
+    _extract_first_plan_section,
+    _extract_initial_request,
+    create_pr_only,
+)
 
 
 @dataclass(frozen=True)
@@ -20,7 +24,9 @@ class CompletionResult:
 
 
 class CompletionService:
-    def draft_commit_message(self, *, files: RuntimeFiles, issue_number: str | None) -> str:
+    def draft_commit_message(
+        self, *, files: RuntimeFiles, issue_number: str | None
+    ) -> str:
         initial_request = _extract_initial_request(_read_text(files.requirements))
         summary = _summary_line(initial_request)
         if not summary:
@@ -62,14 +68,36 @@ class CompletionService:
         commit_message: str,
         changed_paths: list[str],
     ) -> CompletionResult:
-        commit_hash = commit_changes(files.project_dir, commit_message, changed_paths)
+        """Finalize approval by committing to feature branch and creating PR.
+
+        Uses GitBranchManager to ensure commits always happen on the correct
+        feature branch, preventing accidental commits to main.
+        """
+        # Use GitBranchManager to ensure we're on the correct branch before committing
+        git_manager = GitBranchManager(files.project_dir)
+        branch_name = (
+            f"{github_config.branch_prefix}{feature_slug_from_dir(files.feature_dir)}"
+        )
+
+        # Ensure branch exists and we're on it BEFORE committing
+        git_manager.ensure_branch(branch_name)
+
+        # Now commit - guaranteed to be on feature branch
+        commit_hash = git_manager.commit_on_branch(
+            branch_name, commit_message, changed_paths
+        )
         if commit_hash is None:
             return CompletionResult(commit_hash=None, pr_url=None, cleaned_up=False)
 
+        # Push the branch immediately after commit
+        git_manager.push_branch(branch_name)
+
         pr_url: str | None = None
         if gh_available:
-            result = create_branch_and_pr(
+            # Use simplified PR creation (no branch switching)
+            result = create_pr_only(
                 project_dir=files.project_dir,
+                branch_name=branch_name,
                 feature_slug=feature_slug_from_dir(files.feature_dir),
                 github_config=github_config,
                 issue_number=issue_number,

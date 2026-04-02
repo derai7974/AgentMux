@@ -351,19 +351,82 @@ def create_branch_and_pr(
         pr_output = pr_result.stdout.strip()
         pr_url = pr_output.splitlines()[-1] if pr_output else ""
 
-        try:
-            subprocess.run(
-                ["git", "checkout", github_config.base_branch],
-                cwd=project_dir,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-        except subprocess.CalledProcessError as exc:
-            stderr = exc.stderr.strip() if exc.stderr else "(no stderr)"
-            print(
-                f"Warning: could not switch back to {github_config.base_branch}: {stderr}"
-            )
+        # Note: We no longer switch back to base branch here.
+        # The user remains on the feature branch after completion.
+
+        return {
+            "branch": branch_name,
+            "pr_url": pr_url,
+        }
+    except FileNotFoundError as exc:
+        print(f"PR creation skipped because required CLI was not found: {exc}")
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.strip() if exc.stderr else "(no stderr)"
+        cmd_text = (
+            " ".join(str(item) for item in exc.cmd)
+            if isinstance(exc.cmd, list)
+            else str(exc.cmd)
+        )
+        print(f"PR creation step failed for command `{cmd_text}`: {stderr}")
+    except Exception as exc:  # pragma: no cover - defensive guard
+        print(f"PR creation step failed unexpectedly: {exc}")
+    return None
+
+
+def create_pr_only(
+    project_dir: Path,
+    branch_name: str,
+    feature_slug: str,
+    github_config: GitHubConfig,
+    issue_number: str | None,
+    feature_dir: Path,
+) -> dict[str, str] | None:
+    """Create a PR for an existing branch without any branch management.
+
+    This is a simplified version of create_branch_and_pr that assumes:
+    - The branch already exists locally
+    - The branch has already been pushed to origin
+    - We should remain on the current branch after PR creation
+
+    Args:
+        project_dir: Path to the git repository
+        branch_name: Full branch name (e.g., "feature/my-feature")
+        feature_slug: Feature slug for PR title
+        github_config: GitHub configuration
+        issue_number: Optional issue number to reference
+        feature_dir: Feature directory for assembling PR body
+
+    Returns:
+        Dict with "branch" and "pr_url" keys, or None if PR creation failed
+    """
+    try:
+        pr_body = assemble_pr_body(feature_dir, issue_number)
+        cmd = [
+            "gh",
+            "pr",
+            "create",
+            "--title",
+            feature_slug,
+            "--body",
+            pr_body,
+            "--base",
+            github_config.base_branch,
+            "--head",
+            branch_name,
+        ]
+        if github_config.draft:
+            cmd.append("--draft")
+
+        pr_result = subprocess.run(
+            cmd,
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        pr_output = pr_result.stdout.strip()
+        pr_url = pr_output.splitlines()[-1] if pr_output else ""
 
         return {
             "branch": branch_name,

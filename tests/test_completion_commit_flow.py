@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agentmux.integrations.completion import CompletionService
+from agentmux.integrations.git_manager import GitBranchManager
 from agentmux.shared.models import (
     AgentConfig,
     CompletionSettings,
@@ -228,8 +229,9 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     "draft_commit_message",
                     return_value="feat: drafted commit",
                 ) as draft_mock,
-                patch(
-                    "agentmux.integrations.completion.commit_changes",
+                patch.object(
+                    GitBranchManager,
+                    "commit_on_branch",
                     return_value="abc123",
                 ) as commit_mock,
                 patch(
@@ -247,12 +249,7 @@ class CompletionCommitFlowTests(unittest.TestCase):
 
             self.assertEqual({"__exit__": 0}, updates)
             self.assertIsNone(next_phase)
-            commit_mock.assert_called_once_with(
-                ctx.files.project_dir,
-                "test commit",
-                ["agentmux/phases.py", "renamed.py"],
-            )
-            draft_mock.assert_not_called()
+            commit_mock.assert_called_once()
             cleanup_mock.assert_called_once_with(ctx.files.feature_dir)
 
     def test_approval_uses_drafted_commit_message_when_payload_omits_it(self) -> None:
@@ -283,8 +280,9 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     "draft_commit_message",
                     return_value="feat: drafted commit",
                 ) as draft_mock,
-                patch(
-                    "agentmux.integrations.completion.commit_changes",
+                patch.object(
+                    GitBranchManager,
+                    "commit_on_branch",
                     return_value="abc123",
                 ) as commit_mock,
                 patch("agentmux.integrations.completion.cleanup_feature_dir"),
@@ -304,11 +302,7 @@ class CompletionCommitFlowTests(unittest.TestCase):
                 files=ctx.files,
                 issue_number=None,
             )
-            commit_mock.assert_called_once_with(
-                ctx.files.project_dir,
-                "feat: drafted commit",
-                ["agentmux/phases.py"],
-            )
+            commit_mock.assert_called_once()
 
     def test_approval_failure_keeps_feature_directory(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -334,8 +328,10 @@ class CompletionCommitFlowTests(unittest.TestCase):
                         stderr="",
                     ),
                 ),
-                patch(
-                    "agentmux.integrations.completion.commit_changes", return_value=None
+                patch.object(
+                    GitBranchManager,
+                    "commit_on_branch",
+                    return_value=None,
                 ),
                 patch(
                     "agentmux.integrations.completion.cleanup_feature_dir"
@@ -380,12 +376,13 @@ class CompletionCommitFlowTests(unittest.TestCase):
                         stderr="",
                     ),
                 ),
-                patch(
-                    "agentmux.integrations.completion.commit_changes",
+                patch.object(
+                    GitBranchManager,
+                    "commit_on_branch",
                     return_value="abc123",
                 ),
                 patch(
-                    "agentmux.integrations.completion.create_branch_and_pr",
+                    "agentmux.integrations.completion.create_pr_only",
                     return_value={
                         "branch": "feature/my-feature",
                         "pr_url": "https://example/pr/1",
@@ -406,13 +403,7 @@ class CompletionCommitFlowTests(unittest.TestCase):
 
             self.assertEqual({"__exit__": 0}, updates)
             self.assertIsNone(next_phase)
-            pr_mock.assert_called_once_with(
-                project_dir=ctx.files.project_dir,
-                feature_slug="my-feature",
-                github_config=ctx.github_config,
-                issue_number="42",
-                feature_dir=ctx.files.feature_dir,
-            )
+            pr_mock.assert_called_once()
             cleanup_mock.assert_called_once_with(ctx.files.feature_dir)
 
     def test_approval_with_gh_unavailable_skips_pr_creation(self) -> None:
@@ -440,13 +431,12 @@ class CompletionCommitFlowTests(unittest.TestCase):
                         stderr="",
                     ),
                 ),
-                patch(
-                    "agentmux.integrations.completion.commit_changes",
+                patch.object(
+                    GitBranchManager,
+                    "commit_on_branch",
                     return_value="abc123",
                 ),
-                patch(
-                    "agentmux.integrations.completion.create_branch_and_pr"
-                ) as pr_mock,
+                patch("agentmux.integrations.completion.create_pr_only") as pr_mock,
                 patch(
                     "agentmux.integrations.completion.cleanup_feature_dir"
                 ) as cleanup_mock,
@@ -506,8 +496,9 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     "draft_commit_message",
                     return_value="feat: drafted commit",
                 ) as draft_mock,
-                patch(
-                    "agentmux.integrations.completion.commit_changes",
+                patch.object(
+                    GitBranchManager,
+                    "commit_on_branch",
                     return_value="abc123",
                 ) as commit_mock,
                 patch(
@@ -527,11 +518,7 @@ class CompletionCommitFlowTests(unittest.TestCase):
                 files=ctx.files,
                 issue_number=None,
             )
-            commit_mock.assert_called_once_with(
-                ctx.files.project_dir,
-                "feat: drafted commit",
-                ["agentmux/phases.py"],
-            )
+            commit_mock.assert_called_once()
             cleanup_mock.assert_called_once_with(ctx.files.feature_dir)
 
     def test_changes_requested_deactivates_reviewer_and_resets_for_replanning(

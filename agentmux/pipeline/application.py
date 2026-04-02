@@ -11,6 +11,7 @@ from typing import Any
 
 from ..configuration import load_layered_config
 from ..integrations.github import GitHubBootstrapper, create_branch
+from ..integrations.git_manager import GitBranchManager
 from ..integrations.mcp import McpAgentPreparer
 from ..runtime import TmuxRuntimeFactory
 from ..runtime.file_events import ensure_watchdog_available
@@ -256,24 +257,38 @@ class PipelineApplication:
                     issue_number=issue.issue_number,
                 )
             )
-            branch_name = f"{loaded.github.branch_prefix}{feature_slug_from_dir(prepared.feature_dir)}"
-            if not create_branch(self.project_dir, branch_name):
-                self.ui.print(
-                    "Warning: Could not create feature branch now; will retry at completion."
+        else:
+            gh_available = github.detect_pr_availability()
+            prompt = self.sessions.prompt_input_from_value(str(args.prompt))
+            prepared = self.sessions.create(
+                SessionCreateRequest(
+                    prompt=prompt,
+                    session_name=loaded.session_name,
+                    feature_name=args.name,
+                    product_manager=bool(args.product_manager),
+                    gh_available=gh_available,
                 )
-            return prepared
-
-        gh_available = github.detect_pr_availability()
-        prompt = self.sessions.prompt_input_from_value(str(args.prompt))
-        return self.sessions.create(
-            SessionCreateRequest(
-                prompt=prompt,
-                session_name=loaded.session_name,
-                feature_name=args.name,
-                product_manager=bool(args.product_manager),
-                gh_available=gh_available,
             )
-        )
+
+        # Create feature branch at startup for ALL sessions (not just --issue)
+        branch_name = f"{loaded.github.branch_prefix}{feature_slug_from_dir(prepared.feature_dir)}"
+        git_manager = GitBranchManager(self.project_dir)
+        branch_state = git_manager.ensure_branch(branch_name)
+
+        if not branch_state.created:
+            self.ui.print(
+                f"Warning: Could not create/switch to feature branch {branch_name}; will retry at completion."
+            )
+        else:
+            # Track branch info in session state
+            from ..sessions.state_store import load_state, write_state
+
+            state = load_state(prepared.files.state)
+            state["feature_branch"] = branch_name
+            state["branch_created"] = True
+            write_state(prepared.files.state, state)
+
+        return prepared
 
     def _post_attach_result(
         self, *, files, feature_dir: Path, elapsed_seconds: float = 0.0
