@@ -8,11 +8,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from agentmux.workflow.event_router import PhaseHandler, WorkflowEvent
-from agentmux.workflow.phase_helpers import send_to_role
-from agentmux.workflow.preference_memory import (
-    apply_preference_proposal,
-    load_preference_proposal,
-    proposal_artifact_for_source,
+from agentmux.workflow.phase_helpers import (
+    apply_role_preferences,
+    filter_file_created_event,
+    send_to_role,
 )
 from agentmux.workflow.prompts import build_confirmation_prompt, write_prompt_file
 from agentmux.agent_labels import role_display_label
@@ -101,10 +100,7 @@ class CompletingHandler:
         ctx: "PipelineContext",
     ) -> tuple[dict, str | None]:
         """Handle events for completing phase."""
-        if event.kind != "file.created":
-            return {}, None
-
-        path = event.path
+        path = filter_file_created_event(event)
         if path is None:
             return {}, None
 
@@ -137,10 +133,7 @@ class CompletingHandler:
             return {}, None
 
         # Apply approved preferences
-        proposal_path = proposal_artifact_for_source(ctx.files, "reviewer")
-        proposal = load_preference_proposal(proposal_path)
-        if proposal:
-            apply_preference_proposal(ctx.files.project_dir, proposal)
+        apply_role_preferences(ctx, "reviewer")
 
         # Get changed paths
         changed_paths = _parse_changed_paths(

@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from agentmux.workflow.event_router import PhaseHandler, WorkflowEvent
-from agentmux.workflow.phase_helpers import send_to_role
+from agentmux.workflow.phase_helpers import (
+    filter_file_created_event,
+    send_to_role,
+)
 from agentmux.workflow.prompts import build_designer_prompt, write_prompt_file
 from agentmux.agent_labels import role_display_label
 
@@ -43,10 +46,7 @@ class DesigningHandler:
         ctx: "PipelineContext",
     ) -> tuple[dict, str | None]:
         """Handle events for designing phase."""
-        if event.kind != "file.created":
-            return {}, None
-
-        path = event.path
+        path = filter_file_created_event(event)
         if path is None:
             return {}, None
 

@@ -12,7 +12,11 @@ from agentmux.workflow.event_router import (
     extract_subplan_index,
 )
 from agentmux.workflow.execution_plan import load_execution_plan
-from agentmux.workflow.phase_helpers import reset_markers, send_to_role
+from agentmux.workflow.phase_helpers import (
+    filter_file_created_event,
+    reset_markers,
+    send_to_role,
+)
 from agentmux.workflow.plan_parser import coder_label_for_subplan
 from agentmux.workflow.prompts import build_coder_subplan_prompt, write_prompt_file
 from agentmux.agent_labels import format_agent_label
@@ -176,10 +180,7 @@ class ImplementingHandler:
         ctx: "PipelineContext",
     ) -> tuple[dict, str | None]:
         """Handle events for implementing phase."""
-        if event.kind != "file.created":
-            return {}, None
-
-        path = event.path
+        path = filter_file_created_event(event)
         if path is None:
             return {}, None
 

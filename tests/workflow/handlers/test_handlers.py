@@ -111,23 +111,13 @@ class TestProductManagementHandler:
         handler = ProductManagementHandler()
         event = WorkflowEvent(kind="file.created", path="01_product_management/done")
 
-        with (
-            patch(
-                "agentmux.workflow.handlers.product_management.apply_preference_proposal"
-            ) as mock_apply,
-            patch(
-                "agentmux.workflow.handlers.product_management.load_preference_proposal"
-            ) as mock_load,
-            patch(
-                "agentmux.workflow.handlers.product_management.proposal_artifact_for_source"
-            ) as mock_proposal,
-        ):
-            mock_load.return_value = None
-            mock_proposal.return_value = mock_ctx.files.pm_preference_proposal
-
+        with patch(
+            "agentmux.workflow.handlers.product_management.apply_role_preferences"
+        ) as mock_apply:
             updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
             mock_ctx.runtime.kill_primary.assert_called_once_with("product-manager")
+            mock_apply.assert_called_once_with(mock_ctx, "product-manager")
             assert updates == {"last_event": "pm_completed"}
             assert next_phase == "planning"
 
@@ -146,11 +136,9 @@ class TestProductManagementHandler:
         (research_dir / "request.md").write_text("research auth")
 
         with (
+            patch("agentmux.workflow.prompts.write_prompt_file") as mock_write,
             patch(
-                "agentmux.workflow.handlers.product_management.write_prompt_file"
-            ) as mock_write,
-            patch(
-                "agentmux.workflow.handlers.product_management.build_code_researcher_prompt"
+                "agentmux.workflow.prompts.build_code_researcher_prompt"
             ) as mock_build,
         ):
             mock_write.return_value = Path("/mock/prompt.md")
@@ -180,11 +168,9 @@ class TestProductManagementHandler:
         (research_dir / "request.md").write_text("research api")
 
         with (
+            patch("agentmux.workflow.prompts.write_prompt_file") as mock_write,
             patch(
-                "agentmux.workflow.handlers.product_management.write_prompt_file"
-            ) as mock_write,
-            patch(
-                "agentmux.workflow.handlers.product_management.build_web_researcher_prompt"
+                "agentmux.workflow.prompts.build_web_researcher_prompt"
             ) as mock_build,
         ):
             mock_write.return_value = Path("/mock/prompt.md")
@@ -226,10 +212,14 @@ class TestProductManagementHandler:
         # Setup state with already dispatched task
         state = {"research_tasks": {"auth": "dispatched"}}
 
-        updates, next_phase = handler.handle_event(event, state, mock_ctx)
+        with (
+            patch("agentmux.workflow.prompts.write_prompt_file"),
+            patch("agentmux.workflow.prompts.build_code_researcher_prompt"),
+        ):
+            updates, next_phase = handler.handle_event(event, state, mock_ctx)
 
-        mock_ctx.runtime.spawn_task.assert_not_called()
-        assert updates == {}
+            mock_ctx.runtime.spawn_task.assert_not_called()
+            assert updates == {}
 
 
 class TestPlanningHandler:
@@ -308,7 +298,9 @@ class TestPlanningHandler:
         with (
             patch("agentmux.workflow.handlers.planning.load_execution_plan"),
             patch("agentmux.workflow.handlers.planning.load_plan_meta") as mock_meta,
-            patch("agentmux.workflow.handlers.planning.apply_preference_proposal"),
+            patch(
+                "agentmux.workflow.handlers.planning.apply_role_preferences"
+            ) as mock_apply,
         ):
             mock_meta.return_value = {"needs_design": False}
 
@@ -316,6 +308,7 @@ class TestPlanningHandler:
 
             assert next_phase == "implementing"
             mock_ctx.runtime.kill_primary.assert_called_once_with("architect")
+            mock_apply.assert_called_once_with(mock_ctx, "architect")
 
     def test_handle_plan_written_needs_design(
         self, mock_ctx: MagicMock, empty_state: dict
@@ -338,7 +331,7 @@ class TestPlanningHandler:
         with (
             patch("agentmux.workflow.handlers.planning.load_execution_plan"),
             patch("agentmux.workflow.handlers.planning.load_plan_meta") as mock_meta,
-            patch("agentmux.workflow.handlers.planning.apply_preference_proposal"),
+            patch("agentmux.workflow.handlers.planning.apply_role_preferences"),
         ):
             mock_meta.return_value = {"needs_design": True}
 
@@ -363,7 +356,7 @@ class TestPlanningHandler:
         with (
             patch("agentmux.workflow.handlers.planning.load_execution_plan"),
             patch("agentmux.workflow.handlers.planning.load_plan_meta") as mock_meta,
-            patch("agentmux.workflow.handlers.planning.apply_preference_proposal"),
+            patch("agentmux.workflow.handlers.planning.apply_role_preferences"),
         ):
             mock_meta.return_value = {}
 
@@ -748,7 +741,9 @@ class TestCompletingHandler:
             patch(
                 "agentmux.workflow.handlers.completing._parse_changed_paths"
             ) as mock_parse,
-            patch("agentmux.workflow.handlers.completing.apply_preference_proposal"),
+            patch(
+                "agentmux.workflow.handlers.completing.apply_role_preferences"
+            ) as mock_apply,
         ):
             mock_instance = MagicMock()
             mock_instance.resolve_commit_message.return_value = "feat: test commit"
@@ -765,6 +760,7 @@ class TestCompletingHandler:
 
             assert updates == {"__exit__": 0}
             assert next_phase is None
+            mock_apply.assert_called_once_with(mock_ctx, "reviewer")
 
     def test_handle_changes_requested(
         self, mock_ctx: MagicMock, empty_state: dict
@@ -892,13 +888,87 @@ class TestHandlerEdgeCases:
         }
 
         with (
-            patch("agentmux.workflow.handlers.product_management.write_prompt_file"),
-            patch(
-                "agentmux.workflow.handlers.product_management.build_code_researcher_prompt"
-            ),
+            patch("agentmux.workflow.prompts.write_prompt_file"),
+            patch("agentmux.workflow.prompts.build_code_researcher_prompt"),
         ):
             updates, _ = handler.handle_event(event, state, mock_ctx)
 
             # Should only add research_tasks, not remove existing fields
             assert "existing_field" not in updates  # Handlers return only updates
             assert "research_tasks" in updates
+
+
+class TestPhaseHelpers:
+    """Tests for extracted phase helper functions."""
+
+    def test_filter_file_created_event_returns_path(self) -> None:
+        """Test that file.created events return their path."""
+        from agentmux.workflow.phase_helpers import filter_file_created_event
+        from agentmux.workflow.event_router import WorkflowEvent
+
+        event = WorkflowEvent(kind="file.created", path="some/path.txt")
+        assert filter_file_created_event(event) == "some/path.txt"
+
+    def test_filter_file_created_event_returns_none_for_other_events(self) -> None:
+        """Test that non-file.created events return None."""
+        from agentmux.workflow.phase_helpers import filter_file_created_event
+        from agentmux.workflow.event_router import WorkflowEvent
+
+        event = WorkflowEvent(kind="interruption.pane_exited", payload={"pane": "test"})
+        assert filter_file_created_event(event) is None
+
+        event = WorkflowEvent(kind="file.activity", path="some/path.txt")
+        assert filter_file_created_event(event) is None
+
+    def test_dispatch_research_task_skips_already_dispatched(
+        self, mock_ctx: MagicMock
+    ) -> None:
+        """Test that already dispatched tasks are not re-dispatched."""
+        from agentmux.workflow.phase_helpers import dispatch_research_task
+
+        state = {"research_tasks": {"auth": "dispatched"}}
+        updates, next_phase = dispatch_research_task(
+            "code-researcher", "auth", state, mock_ctx
+        )
+
+        assert updates == {}
+        assert next_phase is None
+        mock_ctx.runtime.spawn_task.assert_not_called()
+
+    def test_notify_research_complete_updates_state(self, mock_ctx: MagicMock) -> None:
+        """Test that research completion updates state correctly."""
+        from agentmux.workflow.phase_helpers import notify_research_complete
+
+        state = {"research_tasks": {"auth": "dispatched"}}
+        updates, next_phase = notify_research_complete(
+            "code-researcher", "auth", state, mock_ctx, "architect"
+        )
+
+        assert updates["research_tasks"]["auth"] == "done"
+        assert next_phase is None
+        mock_ctx.runtime.finish_task.assert_called_once_with("code-researcher", "auth")
+        mock_ctx.runtime.notify.assert_called_once()
+
+    def test_apply_role_preferences_calls_helpers(self, mock_ctx: MagicMock) -> None:
+        """Test that apply_role_preferences calls the correct helpers."""
+        from agentmux.workflow.phase_helpers import apply_role_preferences
+
+        with (
+            patch(
+                "agentmux.workflow.preference_memory.proposal_artifact_for_source"
+            ) as mock_proposal,
+            patch(
+                "agentmux.workflow.preference_memory.load_preference_proposal"
+            ) as mock_load,
+            patch(
+                "agentmux.workflow.preference_memory.apply_preference_proposal"
+            ) as mock_apply,
+        ):
+            mock_proposal.return_value = mock_ctx.files.pm_preference_proposal
+            mock_load.return_value = None  # No proposal to apply
+
+            apply_role_preferences(mock_ctx, "product-manager")
+
+            mock_proposal.assert_called_once_with(mock_ctx.files, "product-manager")
+            mock_load.assert_called_once_with(mock_ctx.files.pm_preference_proposal)
+            mock_apply.assert_not_called()  # No proposal loaded, so no apply

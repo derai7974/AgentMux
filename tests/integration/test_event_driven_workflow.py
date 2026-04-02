@@ -248,11 +248,9 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
             )
 
             with (
+                patch("agentmux.workflow.prompts.write_prompt_file") as mock_write,
                 patch(
-                    "agentmux.workflow.handlers.planning.write_prompt_file"
-                ) as mock_write,
-                patch(
-                    "agentmux.workflow.handlers.planning.build_code_researcher_prompt"
+                    "agentmux.workflow.prompts.build_code_researcher_prompt"
                 ) as mock_build,
             ):
                 mock_write.return_value = Path("/mock/prompt.md")
