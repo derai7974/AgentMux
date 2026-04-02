@@ -6,7 +6,7 @@ repos:
         args: [--fix]
       - id: ruff-format
   - repo: https://github.com/jazzband/pip-tools
-    rev: 7.5.3
+    rev: v7.5.3
     hooks:
       - id: pip-compile
         name: pip-compile-production
