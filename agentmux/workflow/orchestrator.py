@@ -180,7 +180,9 @@ class PipelineOrchestrator:
         bus.start()
 
         def handle_feature_dir_cleanup():
-            """Clean up feature directory if flagged in state."""
+            """Clean up feature directory if flagged in state and not keeping session."""
+            if keep_session:
+                return  # Don't delete feature dir if keeping session
             state = load_state(ctx.files.state)
             if state.get("cleanup_feature_dir"):
                 cleanup_feature_dir(ctx.files.feature_dir)
