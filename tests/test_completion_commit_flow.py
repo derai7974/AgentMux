@@ -238,9 +238,6 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     "commit_on_branch",
                     return_value="abc123",
                 ) as commit_mock,
-                patch(
-                    "agentmux.integrations.completion.cleanup_feature_dir"
-                ) as cleanup_mock,
             ):
                 event = WorkflowEvent(
                     kind="file.created",
@@ -251,10 +248,9 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     event, state, ctx
                 )
 
-            self.assertEqual({"__exit__": 0}, updates)
+            self.assertEqual({"__exit__": 0, "cleanup_feature_dir": True}, updates)
             self.assertIsNone(next_phase)
             commit_mock.assert_called_once()
-            cleanup_mock.assert_called_once_with(ctx.files.feature_dir)
 
     def test_approval_uses_drafted_commit_message_when_payload_omits_it(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -289,7 +285,6 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     "commit_on_branch",
                     return_value="abc123",
                 ) as commit_mock,
-                patch("agentmux.integrations.completion.cleanup_feature_dir"),
             ):
                 event = WorkflowEvent(
                     kind="file.created",
@@ -300,7 +295,7 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     event, state, ctx
                 )
 
-            self.assertEqual({"__exit__": 0}, updates)
+            self.assertEqual({"__exit__": 0, "cleanup_feature_dir": True}, updates)
             self.assertIsNone(next_phase)
             draft_mock.assert_called_once_with(
                 files=ctx.files,
@@ -337,9 +332,6 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     "commit_on_branch",
                     return_value=None,
                 ),
-                patch(
-                    "agentmux.integrations.completion.cleanup_feature_dir"
-                ) as cleanup_mock,
             ):
                 event = WorkflowEvent(
                     kind="file.created",
@@ -350,9 +342,8 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     event, state, ctx
                 )
 
-            self.assertEqual({"__exit__": 0}, updates)
+            self.assertEqual({"__exit__": 0, "cleanup_feature_dir": False}, updates)
             self.assertIsNone(next_phase)
-            cleanup_mock.assert_not_called()
 
     def test_approval_with_gh_available_creates_pr_before_cleanup(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -392,9 +383,6 @@ class CompletionCommitFlowTests(unittest.TestCase):
                         "pr_url": "https://example/pr/1",
                     },
                 ) as pr_mock,
-                patch(
-                    "agentmux.integrations.completion.cleanup_feature_dir"
-                ) as cleanup_mock,
             ):
                 event = WorkflowEvent(
                     kind="file.created",
@@ -405,10 +393,9 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     event, state, ctx
                 )
 
-            self.assertEqual({"__exit__": 0}, updates)
+            self.assertEqual({"__exit__": 0, "cleanup_feature_dir": True}, updates)
             self.assertIsNone(next_phase)
             pr_mock.assert_called_once()
-            cleanup_mock.assert_called_once_with(ctx.files.feature_dir)
 
     def test_approval_with_gh_unavailable_skips_pr_creation(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -441,9 +428,6 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     return_value="abc123",
                 ),
                 patch("agentmux.integrations.completion.create_pr_only") as pr_mock,
-                patch(
-                    "agentmux.integrations.completion.cleanup_feature_dir"
-                ) as cleanup_mock,
             ):
                 event = WorkflowEvent(
                     kind="file.created",
@@ -454,10 +438,9 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     event, state, ctx
                 )
 
-            self.assertEqual({"__exit__": 0}, updates)
+            self.assertEqual({"__exit__": 0, "cleanup_feature_dir": True}, updates)
             self.assertIsNone(next_phase)
             pr_mock.assert_not_called()
-            cleanup_mock.assert_called_once_with(ctx.files.feature_dir)
 
     def test_skip_final_approval_bypasses_reviewer_prompt_and_prepares_auto_approval(
         self,
@@ -505,9 +488,6 @@ class CompletionCommitFlowTests(unittest.TestCase):
                     "commit_on_branch",
                     return_value="abc123",
                 ) as commit_mock,
-                patch(
-                    "agentmux.integrations.completion.cleanup_feature_dir"
-                ) as cleanup_mock,
             ):
                 event = WorkflowEvent(
                     kind="file.created",
@@ -516,14 +496,13 @@ class CompletionCommitFlowTests(unittest.TestCase):
                 )
                 updates, next_phase = handler.handle_event(event, state, ctx)
 
-            self.assertEqual({"__exit__": 0}, updates)
+            self.assertEqual({"__exit__": 0, "cleanup_feature_dir": True}, updates)
             self.assertIsNone(next_phase)
             draft_mock.assert_called_once_with(
                 files=ctx.files,
                 issue_number=None,
             )
             commit_mock.assert_called_once()
-            cleanup_mock.assert_called_once_with(ctx.files.feature_dir)
 
     def test_changes_requested_deactivates_reviewer_and_resets_for_replanning(
         self,
