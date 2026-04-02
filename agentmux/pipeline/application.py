@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from ..configuration import load_layered_config
-from ..integrations.github import GitHubBootstrapper, create_branch
 from ..integrations.git_manager import GitBranchManager
+from ..integrations.github import GitHubBootstrapper
 from ..integrations.mcp import McpAgentPreparer
 from ..runtime import TmuxRuntimeFactory
 from ..runtime.file_events import ensure_watchdog_available

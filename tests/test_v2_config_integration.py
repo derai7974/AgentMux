@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import yaml
 
-from agentmux.configuration import load_layered_config, load_explicit_config
+from agentmux.configuration import load_explicit_config, load_layered_config
 from agentmux.pipeline.init_command import generate_config, validate_config
 
 

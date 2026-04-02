@@ -19,7 +19,7 @@ def _log(msg: str) -> None:
 
 class InterruptionEventSource:
     def __init__(
-        self, runtime: "TmuxAgentRuntime", *, poll_interval: float = 0.25
+        self, runtime: TmuxAgentRuntime, *, poll_interval: float = 0.25
     ) -> None:
         self._runtime = runtime
         self._poll_interval = poll_interval
@@ -75,7 +75,7 @@ class InterruptionEventSource:
                 )
             )
 
-    def _event_key(self, pane: "RegisteredPaneRef") -> tuple[str, str, str | None]:
+    def _event_key(self, pane: RegisteredPaneRef) -> tuple[str, str, str | None]:
         task_id = None if pane.task_id is None else str(pane.task_id)
         return pane.scope, pane.role, task_id
 

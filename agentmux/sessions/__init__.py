@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 import os
 import re
-import signal
 import shutil
+import signal
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-import time
 from typing import Any
 
 from ..shared.models import ProjectPaths, RuntimeFiles

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, replace
 import json
 import os
-from pathlib import Path
 import sys
-from typing import Callable, Iterable, TextIO
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import TextIO
 
 from ..shared.models import AgentConfig
 
@@ -158,7 +159,7 @@ def _create_runtime_mcp_config(servers: list[McpServerSpec], project_dir: Path) 
             existing_config = json.loads(existing_content)
             if existing_config == config:
                 return config_path
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             pass  # File exists but is invalid, proceed to overwrite
 
     # Write the config file
@@ -446,7 +447,7 @@ def _server_entry_matches(
             servers = data.get("mcpServers", {})
             if isinstance(servers, dict):
                 existing_entry = servers.get(server.name)
-        except (json.JSONDecodeError, ValueError, IOError):
+        except (OSError, json.JSONDecodeError, ValueError):
             return False
     elif isinstance(configurator, CodexConfigurator):
         # For Codex (TOML), we check if the block exists with correct command/args

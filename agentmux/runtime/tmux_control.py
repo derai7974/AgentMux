@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from ..shared.models import AgentConfig
-from ..terminal_ui.layout import MONITOR_MAX_WIDTH, MONITOR_MIN_WIDTH, MONITOR_WIDTH
+from ..terminal_ui.layout import MONITOR_MAX_WIDTH, MONITOR_MIN_WIDTH
 
 MAIN_WINDOW = "pipeline"
 

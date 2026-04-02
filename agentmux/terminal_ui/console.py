@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, TextIO
+from typing import TextIO
 
 from ..sessions import SessionRecord
 

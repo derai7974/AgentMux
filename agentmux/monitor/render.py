@@ -6,9 +6,11 @@ import textwrap
 import time
 from pathlib import Path
 
-from ..shared.models import RuntimeFiles, SESSION_DIR_NAMES
+from agentmux.terminal_ui.colors import PRIMARY, SECONDARY
+from agentmux.terminal_ui.hyperlinks import OSC8_RE, file_hyperlink
+
+from ..shared.models import SESSION_DIR_NAMES, RuntimeFiles
 from .state_reader import (
-    MonitorLogEntry,
     OPTIONAL_PHASES,
     PIPELINE_STATES,
     format_event,
@@ -19,8 +21,6 @@ from .state_reader import (
     read_monitor_log_entries,
     trim_model,
 )
-from agentmux.terminal_ui.colors import PRIMARY, SECONDARY
-from agentmux.terminal_ui.hyperlinks import OSC8_RE, file_hyperlink
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -712,9 +712,9 @@ def _render_agents_section(
         if role == "coder":
             parallel_keys = sorted(
                 [key for key in role_states if key.startswith("coder_")],
-                key=lambda key: int(key.split("_")[1])
-                if key.split("_")[1].isdigit()
-                else 0,
+                key=lambda key: (
+                    int(key.split("_")[1]) if key.split("_")[1].isdigit() else 0
+                ),
             )
             if parallel_keys:
                 for coder_key in parallel_keys:

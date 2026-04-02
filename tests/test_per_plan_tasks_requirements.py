@@ -4,8 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from agentmux.sessions.state_store import create_feature_files
 from agentmux.workflow.prompts import build_coder_subplan_prompt
-from agentmux.sessions.state_store import create_feature_files, load_runtime_files
 
 
 class PerPlanTasksFileTests(unittest.TestCase):
@@ -65,15 +65,21 @@ class PerPlanTasksFileTests(unittest.TestCase):
             planning_dir.mkdir(parents=True, exist_ok=True)
 
             # Create multiple plans with different task content
-            (planning_dir / "plan_1.md").write_text("# Plan 1\nsome content", encoding="utf-8")
+            (planning_dir / "plan_1.md").write_text(
+                "# Plan 1\nsome content", encoding="utf-8"
+            )
             (planning_dir / "tasks_1.md").write_text(
                 "# Tasks for Plan 1\nspecific task for plan 1", encoding="utf-8"
             )
-            (planning_dir / "plan_2.md").write_text("# Plan 2\nsome content", encoding="utf-8")
+            (planning_dir / "plan_2.md").write_text(
+                "# Plan 2\nsome content", encoding="utf-8"
+            )
             (planning_dir / "tasks_2.md").write_text(
                 "# Tasks for Plan 2\nspecific task for plan 2", encoding="utf-8"
             )
-            (planning_dir / "plan_3.md").write_text("# Plan 3\nsome content", encoding="utf-8")
+            (planning_dir / "plan_3.md").write_text(
+                "# Plan 3\nsome content", encoding="utf-8"
+            )
             (planning_dir / "tasks_3.md").write_text(
                 "# Tasks for Plan 3\nspecific task for plan 3", encoding="utf-8"
             )
@@ -105,7 +111,9 @@ class PerPlanTasksFileTests(unittest.TestCase):
             planning_dir.mkdir(parents=True, exist_ok=True)
 
             # Only create plan file, NOT the corresponding tasks file
-            (planning_dir / "plan_5.md").write_text("# Plan 5\nsome content", encoding="utf-8")
+            (planning_dir / "plan_5.md").write_text(
+                "# Plan 5\nsome content", encoding="utf-8"
+            )
 
             with self.assertRaises(FileNotFoundError) as context:
                 build_coder_subplan_prompt(

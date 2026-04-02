@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 from urllib.parse import urlparse
 
 from ..shared.models import GitHubConfig

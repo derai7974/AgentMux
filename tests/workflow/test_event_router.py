@@ -2,14 +2,19 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from agentmux.shared.models import (
+    AgentConfig,
+    GitHubConfig,
+    RuntimeFiles,
+    WorkflowSettings,
+)
 from agentmux.workflow.event_router import (
-    WorkflowEvent,
     PhaseHandler,
+    WorkflowEvent,
     WorkflowEventRouter,
     extract_research_topic,
     extract_subplan_index,
@@ -17,12 +22,6 @@ from agentmux.workflow.event_router import (
     path_matches_any,
 )
 from agentmux.workflow.transitions import PipelineContext
-from agentmux.shared.models import (
-    AgentConfig,
-    GitHubConfig,
-    RuntimeFiles,
-    WorkflowSettings,
-)
 
 
 class TestWorkflowEvent:

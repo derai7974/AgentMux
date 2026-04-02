@@ -29,7 +29,7 @@ from agentmux.workflow.handlers import (
 )
 
 if TYPE_CHECKING:
-    from agentmux.workflow.transitions import PipelineContext
+    pass
 
 
 @pytest.fixture
@@ -833,7 +833,6 @@ class TestPhaseHandlersRegistry:
 
     def test_all_handlers_implement_protocol(self) -> None:
         """Test that all handlers implement the PhaseHandler protocol."""
-        from agentmux.workflow.event_router import PhaseHandler
 
         for name, handler in PHASE_HANDLERS.items():
             assert hasattr(handler, "enter"), f"{name} missing enter()"
@@ -903,16 +902,16 @@ class TestPhaseHelpers:
 
     def test_filter_file_created_event_returns_path(self) -> None:
         """Test that file.created events return their path."""
-        from agentmux.workflow.phase_helpers import filter_file_created_event
         from agentmux.workflow.event_router import WorkflowEvent
+        from agentmux.workflow.phase_helpers import filter_file_created_event
 
         event = WorkflowEvent(kind="file.created", path="some/path.txt")
         assert filter_file_created_event(event) == "some/path.txt"
 
     def test_filter_file_created_event_returns_none_for_other_events(self) -> None:
         """Test that non-file.created events return None."""
-        from agentmux.workflow.phase_helpers import filter_file_created_event
         from agentmux.workflow.event_router import WorkflowEvent
+        from agentmux.workflow.phase_helpers import filter_file_created_event
 
         event = WorkflowEvent(kind="interruption.pane_exited", payload={"pane": "test"})
         assert filter_file_created_event(event) is None

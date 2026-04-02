@@ -1,24 +1,25 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 import json
 import os
 import signal
-from dataclasses import dataclass
-from pathlib import Path
 import threading
 import time
-from typing import Iterable, Literal, Protocol
+from collections.abc import Iterable
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Literal, Protocol
 
 from ..agent_labels import role_display_label
-from ..shared.models import AgentConfig, BATCH_AGENT_ROLES
+from ..shared.models import BATCH_AGENT_ROLES, AgentConfig
 from .tmux_control import (
     ContentZone,
     _find_pane_by_title,
     create_agent_pane,
     create_batch_agent_pane,
-    send_text,
     send_prompt,
+    send_text,
     set_pane_identity,
     tmux_kill_session,
     tmux_new_session,
@@ -34,7 +35,7 @@ class AgentRuntime(Protocol):
     ) -> None: ...
 
     def send_many(
-        self, role: str, prompt_specs: list["ParallelPromptSpec" | Path]
+        self, role: str, prompt_specs: list[ParallelPromptSpec | Path]
     ) -> None: ...
 
     def deactivate(self, role: str) -> None: ...
@@ -106,7 +107,7 @@ class TmuxAgentRuntime:
         agents: dict[str, AgentConfig],
         config_path: Path | None,
         initial_role: str = "architect",
-    ) -> "TmuxAgentRuntime":
+    ) -> TmuxAgentRuntime:
         if initial_role not in agents:
             raise ValueError(f"Unknown initial role: {initial_role}")
         panes, zone = tmux_new_session(
@@ -137,7 +138,7 @@ class TmuxAgentRuntime:
         project_dir: Path,
         session_name: str,
         agents: dict[str, AgentConfig],
-    ) -> "TmuxAgentRuntime":
+    ) -> TmuxAgentRuntime:
         primary_panes, parallel_panes, visible = cls._load_snapshot(feature_dir)
         allowed_roles = {"_control", "architect", *agents.keys()}
         primary_panes = {
@@ -529,7 +530,7 @@ class TmuxAgentRuntime:
                 output_log_path=output_log_path,
             )
         else:
-            print(f"[ORCH] spawn_task: normal mode")
+            print("[ORCH] spawn_task: normal mode")
             pane_id, pid = create_agent_pane(
                 self.session_name,
                 role,

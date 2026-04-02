@@ -6,8 +6,9 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from agentmux.agent_labels import format_agent_label
+from agentmux.runtime import ParallelPromptSpec
 from agentmux.workflow.event_router import (
-    PhaseHandler,
     WorkflowEvent,
     extract_subplan_index,
 )
@@ -19,8 +20,6 @@ from agentmux.workflow.phase_helpers import (
 )
 from agentmux.workflow.plan_parser import coder_label_for_subplan
 from agentmux.workflow.prompts import build_coder_subplan_prompt, write_prompt_file
-from agentmux.agent_labels import format_agent_label
-from agentmux.runtime import ParallelPromptSpec
 
 if TYPE_CHECKING:
     from agentmux.workflow.transitions import PipelineContext
@@ -141,7 +140,7 @@ def _set_implementation_progress(
 class ImplementingHandler:
     """Event-driven handler for implementing phase."""
 
-    def enter(self, state: dict, ctx: "PipelineContext") -> dict:
+    def enter(self, state: dict, ctx: PipelineContext) -> dict:
         """Called when entering implementing phase.
 
         Resets markers and dispatches first group.
@@ -173,7 +172,7 @@ class ImplementingHandler:
         self,
         event: WorkflowEvent,
         state: dict,
-        ctx: "PipelineContext",
+        ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle events for implementing phase."""
         path = filter_file_created_event(event)
@@ -191,7 +190,7 @@ class ImplementingHandler:
         self,
         subplan_index: int,
         state: dict,
-        ctx: "PipelineContext",
+        ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle a subplan completion."""
         schedule = _build_implementation_schedule(planning_dir=ctx.files.planning_dir)
@@ -231,7 +230,7 @@ class ImplementingHandler:
     def _handle_group_completed(
         self,
         state: dict,
-        ctx: "PipelineContext",
+        ctx: PipelineContext,
         schedule: list[dict[str, object]],
     ) -> tuple[dict, str | None]:
         """Handle group completion."""
@@ -278,7 +277,7 @@ class ImplementingHandler:
 
     def _dispatch_active_group(
         self,
-        ctx: "PipelineContext",
+        ctx: PipelineContext,
         schedule: list[dict[str, object]],
         active_group_index: int,
     ) -> None:

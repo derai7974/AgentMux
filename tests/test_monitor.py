@@ -7,8 +7,8 @@ from subprocess import CompletedProcess
 from unittest.mock import patch
 
 from agentmux import monitor
-from agentmux.shared.models import SESSION_DIR_NAMES, RuntimeFiles
 from agentmux.monitor.state_reader import EVENT_LABELS, OPTIONAL_PHASES, PIPELINE_STATES
+from agentmux.shared.models import SESSION_DIR_NAMES, RuntimeFiles
 
 
 def _make_test_files(feature_dir: Path) -> RuntimeFiles:
@@ -404,27 +404,27 @@ class MonitorTests(unittest.TestCase):
                 "coder": {"cli": "codex", "model": "gpt-5.3-codex"},
             }
 
-            with patch(
-                "agentmux.monitor.render_module.get_role_states",
-                return_value={
-                    "architect": "inactive",
-                    "reviewer": "working",
-                    "coder": "idle",
-                },
+            with (
+                patch(
+                    "agentmux.monitor.render_module.get_role_states",
+                    return_value={
+                        "architect": "inactive",
+                        "reviewer": "working",
+                        "coder": "idle",
+                    },
+                ),
+                patch("agentmux.monitor.render_module.time.time", return_value=0.0),
             ):
-                with patch(
-                    "agentmux.monitor.render_module.time.time", return_value=0.0
-                ):
-                    output = self._strip_ansi(
-                        monitor.render(
-                            session_name="session-x",
-                            files=files,
-                            agents=agents,
-                            width=60,
-                            height=24,
-                            start_time=0.0,
-                        )
+                output = self._strip_ansi(
+                    monitor.render(
+                        session_name="session-x",
+                        files=files,
+                        agents=agents,
+                        width=60,
+                        height=24,
+                        start_time=0.0,
                     )
+                )
 
             self.assertNotIn("architect", output)
             self.assertIn("reviewer", output)
@@ -455,23 +455,23 @@ class MonitorTests(unittest.TestCase):
                 "coder": {"cli": "codex", "model": "gpt-5.3-codex"},
             }
 
-            with patch(
-                "agentmux.monitor.render_module.get_role_states",
-                return_value={"coder_2": "working"},
+            with (
+                patch(
+                    "agentmux.monitor.render_module.get_role_states",
+                    return_value={"coder_2": "working"},
+                ),
+                patch("agentmux.monitor.render_module.time.time", return_value=0.0),
             ):
-                with patch(
-                    "agentmux.monitor.render_module.time.time", return_value=0.0
-                ):
-                    output = self._strip_ansi(
-                        monitor.render(
-                            session_name="session-x",
-                            files=files,
-                            agents=agents,
-                            width=60,
-                            height=24,
-                            start_time=0.0,
-                        )
+                output = self._strip_ansi(
+                    monitor.render(
+                        session_name="session-x",
+                        files=files,
+                        agents=agents,
+                        width=60,
+                        height=24,
+                        start_time=0.0,
                     )
+                )
 
             self.assertIn("[coder] API wiring", output)
             self.assertNotIn("coder 2", output)
@@ -493,23 +493,23 @@ class MonitorTests(unittest.TestCase):
                 "designer": {"cli": "claude", "model": "sonnet"},
             }
 
-            with patch(
-                "agentmux.monitor.render_module.get_role_states",
-                return_value={"reviewer": "working", "designer": "idle"},
+            with (
+                patch(
+                    "agentmux.monitor.render_module.get_role_states",
+                    return_value={"reviewer": "working", "designer": "idle"},
+                ),
+                patch("agentmux.monitor.render_module.time.time", return_value=0.0),
             ):
-                with patch(
-                    "agentmux.monitor.render_module.time.time", return_value=0.0
-                ):
-                    output = self._strip_ansi(
-                        monitor.render(
-                            session_name="session-x",
-                            files=files,
-                            agents=agents,
-                            width=70,
-                            height=24,
-                            start_time=0.0,
-                        )
+                output = self._strip_ansi(
+                    monitor.render(
+                        session_name="session-x",
+                        files=files,
+                        agents=agents,
+                        width=70,
+                        height=24,
+                        start_time=0.0,
                     )
+                )
 
             self.assertIn("[reviewer] iteration 2", output)
             self.assertIn("[designer] tmp", output)

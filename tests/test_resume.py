@@ -12,11 +12,11 @@ from unittest.mock import Mock, patch
 
 import agentmux.pipeline.application as application
 from agentmux.configuration import infer_project_dir
-from agentmux.terminal_ui.console import ConsoleUI
-from agentmux.workflow.interruptions import InterruptionService
-from agentmux.shared.models import AgentConfig, GitHubConfig, SESSION_DIR_NAMES
 from agentmux.sessions import SessionRecord, SessionService
 from agentmux.sessions.state_store import infer_resume_phase, write_state
+from agentmux.shared.models import SESSION_DIR_NAMES, AgentConfig, GitHubConfig
+from agentmux.terminal_ui.console import ConsoleUI
+from agentmux.workflow.interruptions import InterruptionService
 
 PLANNING_DIR = SESSION_DIR_NAMES["planning"]
 IMPLEMENTATION_DIR = SESSION_DIR_NAMES["implementation"]

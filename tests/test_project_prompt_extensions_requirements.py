@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from agentmux.sessions.state_store import create_feature_files
 from agentmux.workflow import prompts as prompts_module
 from agentmux.workflow.prompts import (
     build_architect_prompt,
@@ -19,7 +20,6 @@ from agentmux.workflow.prompts import (
     build_reviewer_prompt,
     build_web_researcher_prompt,
 )
-from agentmux.sessions.state_store import create_feature_files
 
 
 class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):

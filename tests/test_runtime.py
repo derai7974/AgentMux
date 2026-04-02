@@ -7,11 +7,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agentmux.shared.models import AgentConfig
-from agentmux.runtime import ParallelPromptSpec
-from agentmux.runtime import TmuxAgentRuntime
+from agentmux.runtime import ParallelPromptSpec, TmuxAgentRuntime
 from agentmux.runtime.event_bus import EventBus
 from agentmux.runtime.interruption_sources import InterruptionEventSource
+from agentmux.shared.models import AgentConfig
 
 
 def _agents() -> dict[str, AgentConfig]:

@@ -171,7 +171,7 @@ def _enable_completions(config_path: Path, shell: str) -> bool:
         if existing_content and not existing_content.endswith("\n"):
             new_content += "\n"
 
-        new_content += f"\n# AgentMux Shell Completions\n"
+        new_content += "\n# AgentMux Shell Completions\n"
         new_content += f"{completion_line}\n"
 
         config_path.write_text(new_content, encoding="utf-8")
