@@ -28,7 +28,7 @@ Pane identity and pane display are separate:
 
 - `@role` remains the stable logical role used for pane lookup and resume (`coder`, `architect`, etc.)
 - `@pane_label` is optional display metadata used for pane borders and visible pane titles
-- Pane borders and titles render only the already-formatted display label, with no session or feature suffix appended
+- Pane borders are hidden (`pane-border-style default`) while titles remain visible at the top of each pane via `pane-border-status top`
 - Coder panes use the structured plan name or fix iteration, reviewer panes use review iteration, and designer panes use the feature being designed
 
 ## Invariant
