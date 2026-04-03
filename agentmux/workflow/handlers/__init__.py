@@ -1,5 +1,6 @@
 """Phase handlers for the event-driven workflow router."""
 
+from .architecting import ArchitectingHandler
 from .completing import CompletingHandler
 from .designing import DesigningHandler
 from .failed import FailedHandler
@@ -11,6 +12,7 @@ from .reviewing import ReviewingHandler
 
 PHASE_HANDLERS = {
     "product_management": ProductManagementHandler(),
+    "architecting": ArchitectingHandler(),
     "planning": PlanningHandler(),
     "designing": DesigningHandler(),
     "implementing": ImplementingHandler(),
@@ -22,6 +24,7 @@ PHASE_HANDLERS = {
 
 __all__ = [
     "PHASE_HANDLERS",
+    "ArchitectingHandler",
     "ProductManagementHandler",
     "PlanningHandler",
     "DesigningHandler",

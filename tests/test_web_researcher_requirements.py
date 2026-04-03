@@ -251,7 +251,7 @@ class WebResearcherRequirementsTests(unittest.TestCase):
             self.assertEqual(
                 (
                     "notify",
-                    "architect",
+                    "planner",
                     "Web research on 'openai-models' is complete. "
                     "Read 03_research/web-openai-models/summary.md "
                     "and continue from there.",

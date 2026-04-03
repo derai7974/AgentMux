@@ -20,8 +20,10 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 
 ## Planning (`02_planning/`)
 
-- `architect_prompt.md` / `changes_prompt.txt` — architect prompts
-- `plan.md` — human-readable planning overview
+- `architect_prompt.md` / `changes_prompt.txt` — architect prompts (for architecting phase)
+- `planner_prompt.md` — planner prompt for creating execution plans
+- `architecture.md` — technical architecture document created by architect (the "What" and "With what")
+- `plan.md` — human-readable planning overview created by planner
 - `plan_<N>.md` — executable per-unit implementation plans referenced by scheduler metadata
 - `execution_plan.json` — machine-readable schedule of ordered execution groups
   - Each group has a unique `group_id` and an execution mode (`serial` or `parallel`)

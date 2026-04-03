@@ -445,3 +445,25 @@ def build_change_prompt(files: RuntimeFiles) -> str:
         {"feature_dir": files.feature_dir},
     )
     return _expand_session_includes(rendered, files.feature_dir)
+
+
+def build_planner_prompt(files: RuntimeFiles) -> str:
+    """Build prompt for planner agent.
+
+    The planner receives the architecture document and creates execution plans.
+    """
+    rendered = _render_template(
+        _load_template(
+            "agents",
+            "planner",
+            project_dir=files.project_dir,
+        ),
+        {
+            "feature_dir": files.feature_dir,
+            "project_dir": files.project_dir,
+            "planner_preference_proposal_file": files.relative_path(
+                files.planning_dir / "approved_preferences.json"
+            ),
+        },
+    )
+    return _expand_session_includes(rendered, files.feature_dir)

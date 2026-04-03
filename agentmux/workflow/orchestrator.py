@@ -125,12 +125,13 @@ class PipelineOrchestrator:
         """Determine which agent owns a research task based on current phase.
 
         During product_management phase, the product-manager owns the research.
-        During planning/implementing phases, the architect owns the research.
+        During architecting/planning/implementing phases, the architect owns
+        the research.
         """
         phase = state.get("phase", "")
         if phase == "product_management":
             return "product-manager"
-        elif phase in ("planning", "implementing"):
+        elif phase in ("architecting", "planning", "implementing"):
             return "architect"
         return None
 

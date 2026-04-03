@@ -86,6 +86,7 @@ def _make_runtime_files(project_dir: Path, feature_dir: Path) -> RuntimeFiles:
         context=feature_dir / "context.md",
         requirements=feature_dir / "requirements.md",
         plan=planning_dir / "plan.md",
+        architecture=planning_dir / "architecture.md",
         tasks=planning_dir / "tasks.md",
         execution_plan=planning_dir / "execution_plan.json",
         design=design_dir / "design.md",
