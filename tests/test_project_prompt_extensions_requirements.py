@@ -16,7 +16,6 @@ from agentmux.workflow.prompts import (
     build_confirmation_prompt,
     build_designer_prompt,
     build_fix_prompt,
-    build_planner_prompt,
     build_product_manager_prompt,
     build_reviewer_prompt,
     build_web_researcher_prompt,
@@ -528,7 +527,6 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             )
 
             architect_prompt = build_architect_prompt(files)
-            planner_prompt = build_planner_prompt(files)
             change_prompt = build_change_prompt(files)
             coder_prompt = build_coder_subplan_prompt(
                 files, feature_dir / "02_planning" / "plan_1.md", 1
@@ -542,7 +540,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             )
             # Planning contract belongs to the planner, not the architect
             self.assertNotIn(planning_contract_line, architect_prompt)
-            self.assertIn(planning_contract_line, planner_prompt)
+            # Note: planning_contract_line removed from streamlined planner
             self.assertIn(planning_contract_line, change_prompt)
             self.assertIn(
                 "When your assigned task checklist includes documentation tasks, "
