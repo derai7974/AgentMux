@@ -169,12 +169,13 @@ class TestPlannerPromptTemplates(unittest.TestCase):
             content = planner_prompt.read_text(encoding="utf-8")
             self.assertIn("[[include:context.md]]", content)
 
-    def test_planner_agent_includes_requirements_include(self) -> None:
-        """Planner agent prompt should include requirements.md."""
+    def test_planner_agent_does_not_include_requirements(self) -> None:
+        """Planner should NOT include requirements.md - architecture is truth."""
         planner_prompt = self.agents_dir / "planner.md"
         if planner_prompt.exists():
             content = planner_prompt.read_text(encoding="utf-8")
-            self.assertIn("[[include:requirements.md]]", content)
+            # Planner should NOT include requirements.md - architecture is truth
+            self.assertNotIn("[[include:requirements.md]]", content)
 
     def test_planner_agent_includes_architecture_include(self) -> None:
         """Planner agent prompt should include architecture.md."""

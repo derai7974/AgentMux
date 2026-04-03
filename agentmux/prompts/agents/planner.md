@@ -8,16 +8,8 @@ Approved preference proposal artifact: [[placeholder:planner_preference_proposal
 [[include:context.md]]
 </file>
 
-<file path="requirements.md">
-[[include:requirements.md]]
-</file>
-
 <file path="02_planning/architecture.md">
 [[include:02_planning/architecture.md]]
-</file>
-
-<file path="state.json">
-[[include:state.json]]
 </file>
 
 ## Your Role

@@ -32,6 +32,12 @@ class TasksRequirementsTests(unittest.TestCase):
             f"# Tasks for {plan_name}\n\n- [ ] one task\n", encoding="utf-8"
         )
 
+        # Create required files for prompts
+        (feature_dir / "context.md").write_text("# Context", encoding="utf-8")
+        (planning_dir / "architecture.md").write_text(
+            "# Architecture", encoding="utf-8"
+        )
+
     def test_command_prompt_templates_no_longer_include_docs_agent_handoff_template(
         self,
     ) -> None:

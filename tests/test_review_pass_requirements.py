@@ -59,6 +59,11 @@ class ReviewPassRequirementsTests(unittest.TestCase):
             project_dir, feature_dir, "review handling", "session-x"
         )
 
+        # Create required files for reviewer prompts
+        files.context.write_text("# Context", encoding="utf-8")
+        files.architecture.parent.mkdir(parents=True, exist_ok=True)
+        files.architecture.write_text("# Architecture", encoding="utf-8")
+
         prompts = {"architect": feature_dir / PLANNING_DIR / "architect_prompt.md"}
         for prompt in prompts.values():
             prompt.parent.mkdir(parents=True, exist_ok=True)

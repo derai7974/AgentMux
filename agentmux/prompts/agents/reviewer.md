@@ -4,6 +4,14 @@ Session directory: [[placeholder:feature_dir]]
 Project directory: [[placeholder:project_dir]]
 Approved preference proposal artifact (confirmation step): [[placeholder:reviewer_preference_proposal_file]]
 
+<file path="context.md">
+[[include:context.md]]
+</file>
+
+<file path="02_planning/architecture.md">
+[[include:02_planning/architecture.md]]
+</file>
+
 You have two distinct responsibilities:
 
 1. Implementation review (`06_review/review.md`): focus strictly on correctness versus `requirements.md` and `02_planning/plan.md`.

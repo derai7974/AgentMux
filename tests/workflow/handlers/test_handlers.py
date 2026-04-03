@@ -51,6 +51,8 @@ def mock_ctx(tmp_path: Path) -> MagicMock:
     ctx.files.review = tmp_path / "06_review" / "review.md"
     ctx.files.fix_request = tmp_path / "06_review" / "fix_request.txt"
     ctx.files.requirements = tmp_path / "requirements.md"
+    ctx.files.context = tmp_path / "context.md"
+    ctx.files.architecture = tmp_path / "02_planning" / "architecture.md"
     ctx.files.pm_preference_proposal = (
         tmp_path / "01_product_management" / "preference_proposal.json"
     )
@@ -67,6 +69,12 @@ def mock_ctx(tmp_path: Path) -> MagicMock:
     ctx.max_review_iterations = 3
     ctx.workflow_settings.completion.skip_final_approval = False
     ctx.github_config.branch_prefix = "feature/"
+
+    # Create required files for prompts that include them
+    ctx.files.context.write_text("# Context")
+    ctx.files.architecture.parent.mkdir(parents=True, exist_ok=True)
+    ctx.files.architecture.write_text("# Architecture")
+
     return ctx
 
 

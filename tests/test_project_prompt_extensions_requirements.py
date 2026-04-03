@@ -82,6 +82,12 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             f"# Tasks for {plan_name}\n\n- [ ] one task\n", encoding="utf-8"
         )
 
+        # Create required files for prompts
+        (feature_dir / "context.md").write_text("# Context", encoding="utf-8")
+        (planning_dir / "architecture.md").write_text(
+            "# Architecture", encoding="utf-8"
+        )
+
     def _write_confirmation_inputs(self, feature_dir: Path) -> None:
         planning_dir = feature_dir / "02_planning"
         planning_dir.mkdir(parents=True, exist_ok=True)
@@ -89,6 +95,12 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
         review_dir = feature_dir / "06_review"
         review_dir.mkdir(parents=True, exist_ok=True)
         (review_dir / "review.md").write_text("verdict: pass\n", encoding="utf-8")
+
+        # Create required files for reviewer prompts
+        (feature_dir / "context.md").write_text("# Context", encoding="utf-8")
+        (planning_dir / "architecture.md").write_text(
+            "# Architecture", encoding="utf-8"
+        )
 
     def _write_fix_inputs(self, feature_dir: Path) -> None:
         planning_dir = feature_dir / "02_planning"
@@ -685,6 +697,11 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             files = create_feature_files(
                 project_dir, feature_dir, "preference capture", "session"
             )
+
+            # Create required files for reviewer prompts
+            files.context.write_text("# Context", encoding="utf-8")
+            files.architecture.parent.mkdir(parents=True, exist_ok=True)
+            files.architecture.write_text("# Architecture", encoding="utf-8")
 
             product_prompt = build_product_manager_prompt(files)
             architect_prompt = build_architect_prompt(files)

@@ -7,16 +7,8 @@ The project codebase is at `[[placeholder:project_dir]]`; reference it for exist
 [[include:context.md]]
 </file>
 
-<file path="requirements.md">
-[[include:requirements.md]]
-</file>
-
 <file path="02_planning/plan.md">
 [[include:02_planning/plan.md]]
-</file>
-
-<file path="state.json">
-[[include:state.json]]
 </file>
 
 Your job:

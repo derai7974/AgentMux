@@ -12,10 +12,6 @@ Approved preference proposal artifact: [[placeholder:architect_preference_propos
 [[include:requirements.md]]
 </file>
 
-<file path="state.json">
-[[include:state.json]]
-</file>
-
 ## Research
 
 Before drafting the plan, assess what you need to know about the codebase or external landscape.

@@ -6,10 +6,6 @@ Session directory: [[placeholder:feature_dir]]
 [[include:context.md]]
 </file>
 
-<file path="requirements.md">
-[[include:requirements.md]]
-</file>
-
 <file path="[[placeholder:plan_file]]">
 [[include:[[placeholder:plan_file]]]]
 </file>
@@ -19,10 +15,6 @@ Session directory: [[placeholder:feature_dir]]
 </file>
 
 [[include-optional:04_design/design.md]]
-
-<file path="state.json">
-[[include:state.json]]
-</file>
 
 [[placeholder:research_handoff]]
 
