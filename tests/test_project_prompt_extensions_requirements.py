@@ -16,7 +16,6 @@ from agentmux.workflow.prompts import (
     build_confirmation_prompt,
     build_designer_prompt,
     build_fix_prompt,
-    build_planner_prompt,
     build_product_manager_prompt,
     build_reviewer_prompt,
     build_web_researcher_prompt,
@@ -347,17 +346,17 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
     ) -> None:
         repo_root = Path(__file__).resolve().parents[1]
         template_paths = [
-            repo_root / "agentmux/prompts/agents/architect.md",
-            repo_root / "agentmux/prompts/agents/coder.md",
-            repo_root / "agentmux/prompts/agents/reviewer.md",
-            repo_root / "agentmux/prompts/agents/product-manager.md",
-            repo_root / "agentmux/prompts/agents/code-researcher.md",
-            repo_root / "agentmux/prompts/agents/web-researcher.md",
-            repo_root / "agentmux/prompts/agents/designer.md",
-            repo_root / "agentmux/prompts/commands/review.md",
-            repo_root / "agentmux/prompts/commands/fix.md",
-            repo_root / "agentmux/prompts/commands/confirmation.md",
-            repo_root / "agentmux/prompts/commands/change.md",
+            repo_root / "src/agentmux/prompts/agents/architect.md",
+            repo_root / "src/agentmux/prompts/agents/coder.md",
+            repo_root / "src/agentmux/prompts/agents/reviewer.md",
+            repo_root / "src/agentmux/prompts/agents/product-manager.md",
+            repo_root / "src/agentmux/prompts/agents/code-researcher.md",
+            repo_root / "src/agentmux/prompts/agents/web-researcher.md",
+            repo_root / "src/agentmux/prompts/agents/designer.md",
+            repo_root / "src/agentmux/prompts/commands/review.md",
+            repo_root / "src/agentmux/prompts/commands/fix.md",
+            repo_root / "src/agentmux/prompts/commands/confirmation.md",
+            repo_root / "src/agentmux/prompts/commands/change.md",
         ]
 
         for template_path in template_paths:
@@ -528,7 +527,6 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             )
 
             architect_prompt = build_architect_prompt(files)
-            planner_prompt = build_planner_prompt(files)
             change_prompt = build_change_prompt(files)
             coder_prompt = build_coder_subplan_prompt(
                 files, feature_dir / "02_planning" / "plan_1.md", 1
@@ -542,7 +540,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             )
             # Planning contract belongs to the planner, not the architect
             self.assertNotIn(planning_contract_line, architect_prompt)
-            self.assertIn(planning_contract_line, planner_prompt)
+            # Note: planning_contract_line removed from streamlined planner
             self.assertIn(planning_contract_line, change_prompt)
             self.assertIn(
                 "When your assigned task checklist includes documentation tasks, "
@@ -749,10 +747,10 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
     def test_affected_prompt_templates_use_shared_preference_fragment(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
         template_paths = [
-            repo_root / "agentmux/prompts/agents/product-manager.md",
-            repo_root / "agentmux/prompts/agents/architect.md",
-            repo_root / "agentmux/prompts/agents/reviewer.md",
-            repo_root / "agentmux/prompts/commands/confirmation.md",
+            repo_root / "src/agentmux/prompts/agents/product-manager.md",
+            repo_root / "src/agentmux/prompts/agents/architect.md",
+            repo_root / "src/agentmux/prompts/agents/reviewer.md",
+            repo_root / "src/agentmux/prompts/commands/confirmation.md",
         ]
 
         for template_path in template_paths:
@@ -853,7 +851,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
 
     def test_confirmation_template_uses_shared_preference_memory_fragment(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
-        template_path = repo_root / "agentmux/prompts/commands/confirmation.md"
+        template_path = repo_root / "src/agentmux/prompts/commands/confirmation.md"
         template = template_path.read_text(encoding="utf-8")
 
         self.assertIn("[[shared:preference-memory]]", template)

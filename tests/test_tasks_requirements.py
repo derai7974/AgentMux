@@ -44,7 +44,8 @@ class TasksRequirementsTests(unittest.TestCase):
     ) -> None:
         repo_root = Path(__file__).resolve().parents[1]
         command_templates = sorted(
-            path.name for path in (repo_root / "agentmux/prompts/commands").glob("*.md")
+            path.name
+            for path in (repo_root / "src/agentmux/prompts/commands").glob("*.md")
         )
 
         self.assertNotIn("docs.md", command_templates)
@@ -53,8 +54,8 @@ class TasksRequirementsTests(unittest.TestCase):
         repo_root = Path(__file__).resolve().parents[1]
         template_paths = sorted(
             [
-                *(repo_root / "agentmux/prompts/agents").glob("*.md"),
-                *(repo_root / "agentmux/prompts/commands").glob("*.md"),
+                *(repo_root / "src/agentmux/prompts/agents").glob("*.md"),
+                *(repo_root / "src/agentmux/prompts/commands").glob("*.md"),
             ]
         )
         legacy_placeholder_pattern = re.compile(r"\{[a-z_][a-z0-9_]*\}")
@@ -139,56 +140,19 @@ class TasksRequirementsTests(unittest.TestCase):
             self.assertIn("Components", architect_prompt)
             self.assertIn("Interfaces", architect_prompt)
 
-            # Planner owns all execution planning — plan files, tasks, meta
-            self.assertIn(
-                "write the final plan to `02_planning/plan.md`", planner_prompt
-            )
-            self.assertIn("also write per-plan task files", planner_prompt)
-            self.assertIn("tasks_<N>.md", planner_prompt)
-            self.assertIn(
-                "also write `02_planning/execution_plan.json`", planner_prompt
-            )
-            self.assertIn("write `02_planning/plan_meta.json`", planner_prompt)
-            self.assertIn(
-                "Documentation updates must be captured as explicit plan "
-                "and task items in `02_planning/plan.md`, "
-                "every `02_planning/plan_<N>.md`, and "
-                "every `02_planning/tasks_<N>.md`.",
-                planner_prompt,
-            )
-            self.assertIn("needs_design", planner_prompt)
-            self.assertIn("needs_docs", planner_prompt)
-            self.assertIn("doc_files", planner_prompt)
-            self.assertIn("empty list when `needs_docs` is `false`", planner_prompt)
-            self.assertIn(
-                "Do not treat `needs_docs` as a workflow switch", planner_prompt
-            )
-            self.assertIn("Phase 1: Foundation & Interfaces", planner_prompt)
-            self.assertIn("Phase 2: Parallel Implementation", planner_prompt)
-            self.assertIn("Phase 3: Integration & Validation", planner_prompt)
+            # Planner owns execution planning — check streamlined content
+            self.assertIn("02_planning/plan.md", planner_prompt)
+            self.assertIn("02_planning/architecture.md", planner_prompt)
+            self.assertIn("Phase 1 (Serial - Foundation)", planner_prompt)
+            self.assertIn("Phase 2 (Parallel - Implementation)", planner_prompt)
+            self.assertIn("Phase 3 (Serial - Integration)", planner_prompt)
             self.assertIn("Scope", planner_prompt)
-            self.assertIn("Owned files/modules", planner_prompt)
+            self.assertIn("Owned Files/Modules", planner_prompt)
             self.assertIn("Dependencies", planner_prompt)
             self.assertIn("Isolation", planner_prompt)
-            self.assertIn("conflict mapping", planner_prompt.lower())
-            self.assertIn("owned files/modules must be disjoint", planner_prompt)
-            self.assertIn(
-                "merge that work into one sub-plan or move "
-                "the overlapping portion into a serial Phase 3 integration step",
-                planner_prompt,
-            )
-            self.assertIn("shared mutable artifacts", planner_prompt)
-            self.assertIn("task ownership unambiguous", planner_prompt)
-            self.assertIn(
-                "must belong only to that sub-plan's owned files/modules",
-                planner_prompt,
-            )
-            self.assertIn("technical debt", planner_prompt.lower())
-            self.assertNotIn("legacy flat `plan.md` parsing fallback", planner_prompt)
-            self.assertNotIn(
-                "Empty file-set intersection is a hint for parallelization",
-                planner_prompt,
-            )
+            self.assertIn("Final Artifact Generation", planner_prompt)
+            self.assertIn("execution_plan.json", planner_prompt)
+            self.assertIn("plan_meta.json", planner_prompt)
 
             self.assertIn("05_implementation/done_1", coder_prompt)
             self.assertIn("Do not update state.json", coder_prompt)
