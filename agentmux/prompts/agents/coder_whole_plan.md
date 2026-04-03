@@ -23,6 +23,7 @@ Do not defer documentation to a separate docs agent or post-review docs phase.
 [[shared:coder-discipline]]
 13. If implementation reveals that requirements or a plan need adjustment (e.g. a requirement turns out to be infeasible as written, or tasks need reordering), update `requirements.md` and the embedded plan's task list accordingly so they stay in sync with reality.
 14. [[placeholder:completion_instruction]]
+15. Sub-agent delegation: For each plan, spawn a dedicated sub-agent and delegate that plan's full implementation to it. The sub-agent works through the plan's task checklist end-to-end (TDD → implement → validate → check off). Only move to the next plan once the sub-agent for the current plan has completed and its tasks are checked off.
 
 [[placeholder:project_instructions]]
 
