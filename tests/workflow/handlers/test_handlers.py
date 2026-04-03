@@ -51,6 +51,8 @@ def mock_ctx(tmp_path: Path) -> MagicMock:
     ctx.files.review = tmp_path / "06_review" / "review.md"
     ctx.files.fix_request = tmp_path / "06_review" / "fix_request.txt"
     ctx.files.requirements = tmp_path / "requirements.md"
+    ctx.files.context = tmp_path / "context.md"
+    ctx.files.architecture = tmp_path / "02_planning" / "architecture.md"
     ctx.files.pm_preference_proposal = (
         tmp_path / "01_product_management" / "preference_proposal.json"
     )
@@ -67,6 +69,12 @@ def mock_ctx(tmp_path: Path) -> MagicMock:
     ctx.max_review_iterations = 3
     ctx.workflow_settings.completion.skip_final_approval = False
     ctx.github_config.branch_prefix = "feature/"
+
+    # Create required files for prompts that include them
+    ctx.files.context.write_text("# Context")
+    ctx.files.architecture.parent.mkdir(parents=True, exist_ok=True)
+    ctx.files.architecture.write_text("# Architecture")
+
     return ctx
 
 
@@ -225,10 +233,10 @@ class TestProductManagementHandler:
 class TestPlanningHandler:
     """Tests for PlanningHandler."""
 
-    def test_enter_sends_architect_prompt(
+    def test_enter_sends_planner_prompt(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
-        """Test that enter() sends architect prompt."""
+        """Test that enter() sends planner prompt."""
         handler = PlanningHandler()
 
         with (
@@ -237,17 +245,17 @@ class TestPlanningHandler:
             ) as mock_write,
             patch("agentmux.workflow.handlers.planning.send_to_role") as mock_send,
             patch(
-                "agentmux.workflow.handlers.planning.build_architect_prompt"
+                "agentmux.workflow.handlers.planning.build_planner_prompt"
             ) as mock_build,
         ):
             mock_write.return_value = Path("/mock/prompt.md")
-            mock_build.return_value = "architect prompt"
+            mock_build.return_value = "planner prompt"
 
             handler.enter(empty_state, mock_ctx)
 
             mock_build.assert_called_once_with(mock_ctx.files)
             mock_send.assert_called_once_with(
-                mock_ctx, "architect", Path("/mock/prompt.md")
+                mock_ctx, "planner", Path("/mock/prompt.md")
             )
 
     def test_enter_sends_change_prompt_on_replan(
@@ -277,7 +285,7 @@ class TestPlanningHandler:
 
             mock_build.assert_called_once_with(mock_ctx.files)
             mock_send.assert_called_once_with(
-                mock_ctx, "architect", Path("/mock/prompt.md")
+                mock_ctx, "planner", Path("/mock/prompt.md")
             )
 
     def test_handle_plan_written_all_files_exist(
@@ -307,8 +315,8 @@ class TestPlanningHandler:
             updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
             assert next_phase == "implementing"
-            mock_ctx.runtime.kill_primary.assert_called_once_with("architect")
-            mock_apply.assert_called_once_with(mock_ctx, "architect")
+            mock_ctx.runtime.kill_primary("planner")
+            mock_apply.assert_called_once_with(mock_ctx, "planner")
 
     def test_handle_plan_written_needs_design(
         self, mock_ctx: MagicMock, empty_state: dict

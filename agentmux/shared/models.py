@@ -7,6 +7,7 @@ from typing import Any
 
 SESSION_DIR_NAMES: dict[str, str] = {
     "product_management": "01_product_management",
+    "architecting": "02_planning",
     "planning": "02_planning",
     "research": "03_research",
     "design": "04_design",
@@ -20,6 +21,7 @@ PROMPT_AGENT_ROLES: tuple[str, ...] = (
     "code-researcher",
     "coder",
     "designer",
+    "planner",
     "product-manager",
     "reviewer",
     "reviewer_expert",
@@ -33,6 +35,7 @@ BATCH_AGENT_ROLES: frozenset[str] = frozenset({"code-researcher", "web-researche
 PREFERENCE_PROPOSAL_SOURCES: tuple[str, ...] = (
     "product-manager",
     "architect",
+    "planner",
     "reviewer",
 )
 
@@ -85,6 +88,7 @@ class RuntimeFiles:
     context: Path
     requirements: Path
     plan: Path
+    architecture: Path
     tasks: Path
     execution_plan: Path
     design: Path

@@ -78,11 +78,10 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
         files.plan.write_text("# Plan\n", encoding="utf-8")
         files.tasks.parent.mkdir(parents=True, exist_ok=True)
         files.tasks.write_text("# Tasks\n", encoding="utf-8")
+        files.architecture.write_text("# Architecture\n", encoding="utf-8")
 
         agents = {
-            "architect": AgentConfig(
-                role="architect", cli="claude", model="opus", args=[]
-            ),
+            "planner": AgentConfig(role="planner", cli="claude", model="opus", args=[]),
             "coder": AgentConfig(
                 role="coder", cli="codex", model="gpt-5.3-codex", args=[]
             ),
@@ -279,9 +278,9 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
             self.assertIn("research_tasks", updates)
             self.assertEqual("done", updates["research_tasks"].get("auth"))
 
-            # Verify architect was notified
+            # Verify planner was notified
             self.assertTrue(
-                any("architect" in role for role, _ in ctx.runtime.notifications)
+                any("planner" in role for role, _ in ctx.runtime.notifications)
             )
 
 

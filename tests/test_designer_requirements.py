@@ -272,8 +272,8 @@ class DesignerRequirementsTests(unittest.TestCase):
 
             self.assertEqual("designing", next_phase)
             self.assertEqual("plan_written", updates.get("last_event"))
-            self.assertIn(("deactivate", "architect"), ctx.runtime.calls)
-            self.assertIn(("kill_primary", "architect"), ctx.runtime.calls)
+            self.assertIn(("deactivate", "planner"), ctx.runtime.calls)
+            self.assertIn(("kill_primary", "planner"), ctx.runtime.calls)
 
     def test_enter_designing_builds_designer_prompt(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -322,6 +322,7 @@ class DesignerRequirementsTests(unittest.TestCase):
         self.assertEqual(
             {
                 "product_management",
+                "architecting",
                 "planning",
                 "designing",
                 "implementing",

@@ -108,7 +108,7 @@ The pipeline application:
 The workflow progresses through these states (stored in `.agentmux/.sessions/<feature>/state.json`):
 
 ``` 
-product_management? → planning → designing? → implementing → reviewing
+product_management? → architecting → planning → designing? → implementing → reviewing
     → verdict:pass → completing
     → verdict:fail → fixing → reviewing (review loop)
     → loop cap reached → completing
@@ -117,7 +117,8 @@ product_management? → planning → designing? → implementing → reviewing
 
 Role routing in these phases:
 - `product-manager`: product management phase only
-- `architect`: planning/replanning only
+- `architect`: architecting phase only — creates technical architecture document (the "What" and "With what")
+- `planner`: planning/replanning only — creates execution plans from architecture (the "How" and "When")
 - `reviewer`: reviewing and final confirmation/completion prompts (dynamically routed to specialized reviewers based on `plan_meta.review_strategy`):
   - `reviewer_logic`: Logic & Alignment reviewer (functional correctness vs plan)
   - `reviewer_quality`: Quality & Style reviewer (clean code, naming, standards)  

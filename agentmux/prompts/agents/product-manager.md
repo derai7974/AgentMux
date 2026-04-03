@@ -12,10 +12,6 @@ Approved preference proposal artifact: [[placeholder:pm_preference_proposal_file
 [[include:requirements.md]]
 </file>
 
-<file path="state.json">
-[[include:state.json]]
-</file>
-
 ## Research
 
 Before finalizing recommendations, assess what you need to know about the codebase or external landscape.

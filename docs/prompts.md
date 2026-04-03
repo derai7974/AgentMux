@@ -4,7 +4,7 @@
 
 ## Template directories
 
-- `agentmux/prompts/agents/` — role-level prompts (define what each agent is): `architect.md`, `product-manager.md`, `reviewer.md`, `coder.md`, `code-researcher.md`, `web-researcher.md`, `designer.md`
+- `agentmux/prompts/agents/` — role-level prompts (define what each agent is): `architect.md`, `planner.md`, `product-manager.md`, `reviewer.md`, `coder.md`, `code-researcher.md`, `web-researcher.md`, `designer.md`
 - `agentmux/prompts/commands/` — phase-specific command prompts (what to do at each step): `review.md`, `fix.md`, `confirmation.md`, `change.md`
 
 ## Placeholder syntax
@@ -49,14 +49,14 @@ Curly braces in project content stay literal; only `[[placeholder:...]]` markers
 Preference memory uses session-scoped proposal artifacts so agents never mutate project extensions directly:
 
 - `01_product_management/approved_preferences.json` (product-manager approvals)
-- `02_planning/approved_preferences.json` (architect approvals)
+- `02_planning/approved_preferences.json` (architect and planner approvals)
 - `08_completion/approved_preferences.json` (reviewer approvals)
 
 Each proposal uses this shape:
 
 ```json
 {
-  "source_role": "product-manager|architect|reviewer",
+  "source_role": "product-manager|architect|planner|reviewer",
   "approved": [
     {"target_role": "coder", "bullet": "- ..."}
   ]
@@ -125,7 +125,7 @@ Planning and replanning prompts share one contract for implementation scheduling
 - `02_planning/plan_meta.json` remains workflow intent metadata (`needs_design`, `needs_docs`, `doc_files`)
 - Documentation updates must be represented in planning artifacts (`plan.md`, `plan_<N>.md`, and corresponding `tasks_<N>.md`) rather than a dedicated post-review docs phase.
 
-Architect output requirements for parallel work include:
+Architect output requirements (for architecture.md) and Planner output requirements (for execution plans) include:
 
 - A Phase 1 / Phase 2 / Phase 3 breakdown where Phase 1 defines interfaces/contracts and Phase 2 uses those contracts for parallel implementation
 - Per parallel sub-plan sections for `Scope`, `Owned files/modules`, `Dependencies`, and `Isolation`
@@ -136,7 +136,8 @@ Architect output requirements for parallel work include:
 - A callout for any enabling refactor needed to preserve boundaries, plus explicit technical debt rationale when refactor work is deferred
 
 Current split:
-- `build_architect_prompt()` renders planning prompts only
+- `build_architect_prompt()` renders architecting prompts (creates architecture.md)
+- `build_planner_prompt()` renders planning prompts (creates plan.md, execution_plan.json from architecture.md)
 - `build_change_prompt()` applies the same staged planning artifact contract in replanning mode
 - planning/replanning prompt contracts require:
   - `02_planning/plan.md` as the human-readable overview

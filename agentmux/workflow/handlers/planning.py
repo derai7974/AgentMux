@@ -1,4 +1,8 @@
-"""Event-driven handler for planning phase."""
+"""Event-driven handler for planning phase.
+
+The planning phase is where the planner creates execution plans based on
+the architecture document produced by the architect in the architecting phase.
+"""
 
 from __future__ import annotations
 
@@ -19,8 +23,8 @@ from agentmux.workflow.phase_helpers import (
     send_to_role,
 )
 from agentmux.workflow.prompts import (
-    build_architect_prompt,
     build_change_prompt,
+    build_planner_prompt,
     write_prompt_file,
 )
 
@@ -29,12 +33,15 @@ if TYPE_CHECKING:
 
 
 class PlanningHandler:
-    """Event-driven handler for planning phase."""
+    """Event-driven handler for planning phase.
+
+    The planner receives the architecture document and creates execution plans.
+    """
 
     def enter(self, state: dict, ctx: PipelineContext) -> dict:
         """Called when entering planning phase.
 
-        Sends architect prompt (initial or changes).
+        Sends planner prompt (initial or changes).
         """
         is_replan = (
             state.get("last_event") == "changes_requested"
@@ -44,13 +51,13 @@ class PlanningHandler:
             ctx.files.feature_dir,
             ctx.files.relative_path(
                 ctx.files.planning_dir
-                / ("changes_prompt.txt" if is_replan else "architect_prompt.md")
+                / ("changes_prompt.txt" if is_replan else "planner_prompt.md")
             ),
             build_change_prompt(ctx.files)
             if is_replan
-            else build_architect_prompt(ctx.files),
+            else build_planner_prompt(ctx.files),
         )
-        send_to_role(ctx, "architect", prompt_file)
+        send_to_role(ctx, "planner", prompt_file)
         return {}
 
     def handle_event(
@@ -83,19 +90,19 @@ class PlanningHandler:
             if topic:
                 return dispatch_research_task("web-researcher", topic, state, ctx)
 
-        # Check for research done
+        # Check for research done - notify planner (not architect)
         if path_matches("03_research/code-*/done", path):
             topic = extract_research_topic(path, "code-")
             if topic:
                 return notify_research_complete(
-                    "code-researcher", topic, state, ctx, "architect"
+                    "code-researcher", topic, state, ctx, "planner"
                 )
 
         if path_matches("03_research/web-*/done", path):
             topic = extract_research_topic(path, "web-")
             if topic:
                 return notify_research_complete(
-                    "web-researcher", topic, state, ctx, "architect"
+                    "web-researcher", topic, state, ctx, "planner"
                 )
 
         return {}, None
@@ -117,8 +124,8 @@ class PlanningHandler:
         if not meta_path.exists():
             return {}, None
 
-        # Apply approved preferences
-        apply_role_preferences(ctx, "architect")
+        # Apply approved preferences from planner
+        apply_role_preferences(ctx, "planner")
 
         # Load execution plan and meta
         load_execution_plan(ctx.files.planning_dir)
@@ -129,9 +136,9 @@ class PlanningHandler:
         if ctx.files.changes.exists():
             ctx.files.changes.unlink()
 
-        # Deactivate and kill architect
-        ctx.runtime.deactivate("architect")
-        ctx.runtime.kill_primary("architect")
+        # Deactivate and kill planner - their work is done
+        ctx.runtime.deactivate("planner")
+        ctx.runtime.kill_primary("planner")
 
         # Determine next phase
         next_phase = "designing" if needs_design else "implementing"

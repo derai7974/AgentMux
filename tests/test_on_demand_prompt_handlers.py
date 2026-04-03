@@ -81,6 +81,12 @@ def _make_ctx(feature_dir: Path) -> tuple[PipelineContext, Path]:
     files.fix_request.write_text("# Fix request\n", encoding="utf-8")
     files.review.parent.mkdir(parents=True, exist_ok=True)
     files.review.write_text("verdict: pass\n", encoding="utf-8")
+
+    # Create required files for reviewer prompts
+    files.context.write_text("# Context", encoding="utf-8")
+    files.architecture.parent.mkdir(parents=True, exist_ok=True)
+    files.architecture.write_text("# Architecture", encoding="utf-8")
+
     architect_prompt = feature_dir / "02_planning" / "architect_prompt.md"
     architect_prompt.parent.mkdir(parents=True, exist_ok=True)
     architect_prompt.write_text("architect prompt", encoding="utf-8")

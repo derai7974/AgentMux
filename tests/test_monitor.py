@@ -26,6 +26,7 @@ def _make_test_files(feature_dir: Path) -> RuntimeFiles:
         context=feature_dir / "context.md",
         requirements=feature_dir / "requirements.md",
         plan=feature_dir / SESSION_DIR_NAMES["planning"] / "plan.md",
+        architecture=feature_dir / SESSION_DIR_NAMES["planning"] / "architecture.md",
         tasks=feature_dir / SESSION_DIR_NAMES["planning"] / "tasks.md",
         execution_plan=feature_dir
         / SESSION_DIR_NAMES["planning"]

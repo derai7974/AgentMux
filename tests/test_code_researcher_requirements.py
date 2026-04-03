@@ -309,7 +309,7 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
                 "dispatched", updates.get("research_tasks", {}).get("auth-module")
             )
 
-    def test_planning_handle_task_completed_finishes_researcher_and_notifies_architect(
+    def test_planning_handle_task_completed_finishes_researcher_and_notifies_planner(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -339,7 +339,7 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             self.assertEqual(
                 (
                     "notify",
-                    "architect",
+                    "planner",
                     "Code-research on 'auth-module' is complete. "
                     "Read 03_research/code-auth-module/summary.md "
                     "and continue from there.",

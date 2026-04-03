@@ -4,6 +4,14 @@ Session directory: [[placeholder:feature_dir]]
 Project directory: [[placeholder:project_dir]]
 Approved preference proposal artifact (confirmation step): [[placeholder:reviewer_preference_proposal_file]]
 
+<file path="context.md">
+[[include:context.md]]
+</file>
+
+<file path="02_planning/architecture.md">
+[[include:02_planning/architecture.md]]
+</file>
+
 ## Your Specialization
 
 You focus **exclusively** on Clean Code principles, naming conventions, and project standards adherence.

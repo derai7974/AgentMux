@@ -8,10 +8,6 @@ Topic: [[placeholder:topic]]
 [[include:context.md]]
 </file>
 
-<file path="requirements.md">
-[[include:requirements.md]]
-</file>
-
 <file path="03_research/web-[[placeholder:topic]]/request.md">
 [[include:03_research/web-[[placeholder:topic]]/request.md]]
 </file>
