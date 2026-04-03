@@ -198,3 +198,14 @@ providers:
       reviewer_quality:
       - --agent
       - agentmux-reviewer
+  copilot:
+    command: copilot
+    model_flag: --model
+    trust_snippet: trust the files
+    single_coder: true
+    default_model: claude-sonnet-4.6
+    default_role_args:
+    - --allow-all
+    - --reasoning-effort
+    - high
+    role_args: {}
