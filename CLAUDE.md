@@ -63,16 +63,16 @@ This project uses [Ruff](https://docs.astral.sh/ruff/) for Python linting and fo
 
 ```bash
 # Check for lint issues
-ruff check agentmux tests
+ruff check src tests
 
 # Auto-fix lint issues
-ruff check --fix agentmux tests
+ruff check --fix src tests
 
 # Check formatting without changes
-ruff format --check agentmux tests
+ruff format --check src tests
 
 # Format code in place
-ruff format agentmux tests
+ruff format src tests
 
 # Run all pre-commit hooks manually
 pre-commit run --all-files

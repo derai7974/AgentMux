@@ -48,7 +48,7 @@ jobs:
           python -m pip install -r requirements-dev.txt
 
       - name: Run ruff linter
-        run: ruff check agentmux tests
+        run: ruff check src tests
 
       - name: Check formatting
-        run: ruff format --check agentmux tests
+        run: ruff format --check src tests
