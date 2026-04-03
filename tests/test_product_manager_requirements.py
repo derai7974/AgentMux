@@ -215,7 +215,7 @@ class ProductManagerRequirementsTests(unittest.TestCase):
                 event, load_state(state_path), ctx
             )
             # Handler returns next_phase as the phase name, not in updates
-            self.assertEqual("planning", next_phase)
+            self.assertEqual("architecting", next_phase)
             self.assertEqual("pm_completed", updates.get("last_event"))
             self.assertIn(("kill_primary", "product-manager"), ctx.runtime.calls)
             self.assertNotIn(("deactivate", "product-manager"), ctx.runtime.calls)

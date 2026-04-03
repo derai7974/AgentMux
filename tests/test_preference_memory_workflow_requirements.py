@@ -134,7 +134,7 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             )
             self.assertTrue(target.is_file())
             self.assertIn("- Keep plans executable", target.read_text(encoding="utf-8"))
-            self.assertEqual("planning", next_phase)
+            self.assertEqual("architecting", next_phase)
             self.assertEqual("pm_completed", updates.get("last_event"))
 
     def test_pm_completed_without_proposal_file_is_prompt_extension_noop(self) -> None:

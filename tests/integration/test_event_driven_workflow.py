@@ -147,13 +147,26 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
             )
             updates, next_phase = router.handle(event, load_state(state_path), ctx)
 
+            # Verify transition to architecting
+            state = load_state(state_path)
+            self.assertEqual("architecting", state["phase"])
+            self.assertEqual("pm_completed", state["last_event"])
+
+            # 2. Create architecture.md to trigger transition to planning
+            ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+            ctx.files.architecture.write_text("# Test Architecture\n", encoding="utf-8")
+
+            event = WorkflowEvent(
+                kind="file.created", path="02_planning/architecture.md"
+            )
+            updates, next_phase = router.handle(event, load_state(state_path), ctx)
+
             # Verify transition to planning
             state = load_state(state_path)
             self.assertEqual("planning", state["phase"])
-            self.assertEqual("pm_completed", state["last_event"])
+            self.assertEqual("architecture_written", state["last_event"])
 
-            # 2. Create plan files to trigger transition to implementing
-            ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+            # 3. Create plan files to trigger transition to implementing
             ctx.files.plan.write_text("# Test Plan\n", encoding="utf-8")
             ctx.files.tasks.write_text("# Tasks\n- [ ] task\n", encoding="utf-8")
             (ctx.files.planning_dir / "plan_meta.json").write_text(
@@ -178,7 +191,7 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
             self.assertEqual("implementing", state["phase"])
             self.assertEqual("plan_written", state["last_event"])
 
-            # 3. Create done marker to trigger transition to reviewing
+            # 4. Create done marker to trigger transition to reviewing
             ctx.files.implementation_dir.mkdir(parents=True, exist_ok=True)
             (ctx.files.implementation_dir / "done_1").touch()
 
@@ -190,7 +203,7 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
             self.assertEqual("reviewing", state["phase"])
             self.assertEqual("implementation_completed", state["last_event"])
 
-            # 4. Create review.md with pass verdict to trigger transition to completing
+            # 5. Create review.md with pass verdict to trigger transition to completing
             ctx.files.review.parent.mkdir(parents=True, exist_ok=True)
             ctx.files.review.write_text("verdict: pass\n", encoding="utf-8")
 
@@ -202,7 +215,7 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
             self.assertEqual("completing", state["phase"])
             self.assertEqual("review_passed", state["last_event"])
 
-            # 5. Create approval.json to trigger completion
+            # 6. Create approval.json to trigger completion
             ctx.files.completion_dir.mkdir(parents=True, exist_ok=True)
             (ctx.files.completion_dir / "approval.json").write_text(
                 json.dumps({"action": "approve", "exclude_files": []}), encoding="utf-8"

@@ -127,7 +127,7 @@ class TestProductManagementHandler:
             mock_ctx.runtime.kill_primary.assert_called_once_with("product-manager")
             mock_apply.assert_called_once_with(mock_ctx, "product-manager")
             assert updates == {"last_event": "pm_completed"}
-            assert next_phase == "planning"
+            assert next_phase == "architecting"
 
     def test_handle_code_research_request(
         self, mock_ctx: MagicMock, empty_state: dict

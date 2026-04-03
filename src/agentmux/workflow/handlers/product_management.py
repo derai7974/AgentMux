@@ -98,5 +98,5 @@ class ProductManagementHandler:
         # Kill product-manager pane
         ctx.runtime.kill_primary("product-manager")
 
-        # Transition to planning
-        return {"last_event": "pm_completed"}, "planning"
+        # Transition to architecting
+        return {"last_event": "pm_completed"}, "architecting"
