@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -217,17 +218,12 @@ def _prompt_changes(console: Console | None) -> str:
 # ──────────────────────────────────────────────────────────────
 
 
-def run(feature_dir: Path) -> None:
+def run(feature_dir: Path, project_dir: Path) -> None:
     completion_dir = feature_dir / "08_completion"
     completion_dir.mkdir(parents=True, exist_ok=True)
 
-    # Infer project_dir (feature_dir lives in .agentmux/.sessions/<name>/)
-    project_dir = feature_dir.parent.parent.parent
-
     # Infer feature name
     name = feature_dir.name
-    import re
-
     match = re.match(r"^\d{8}-\d{6}-(.+)$", name)
     feature_name = match.group(1) if match else name
 
@@ -275,13 +271,19 @@ def main() -> None:
         description="Agentmux native completion confirmation UI"
     )
     parser.add_argument(
+        "--project-dir",
+        required=True,
+        type=Path,
+        help="Absolute path to the project root directory.",
+    )
+    parser.add_argument(
         "--feature-dir",
         required=True,
         type=Path,
         help="Path to the feature session directory",
     )
     args = parser.parse_args()
-    run(args.feature_dir)
+    run(args.feature_dir, args.project_dir)
 
 
 if __name__ == "__main__":

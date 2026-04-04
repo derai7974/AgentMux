@@ -817,6 +817,7 @@ def create_completion_pane(
     completion_cmd = (
         f"{shlex.quote(sys.executable)} -m agentmux.terminal_ui.completion_ui"
         f" --feature-dir {shlex.quote(str(feature_dir))}"
+        f" --project-dir {shlex.quote(str(project_dir))}"
     )
 
     split_target = _find_any_hidden_pane(session_name)

@@ -24,6 +24,12 @@ from agentmux.workflow.prompts import (
 if TYPE_CHECKING:
     from agentmux.workflow.transitions import PipelineContext
 
+_REVIEWER_ROLE_MAP = {
+    "logic": "reviewer_logic",
+    "quality": "reviewer_quality",
+    "expert": "reviewer_expert",
+}
+
 
 class ReviewingHandler:
     """Event-driven handler for reviewing phase."""
@@ -101,7 +107,7 @@ class ReviewingHandler:
 
         # Check for implementation summary written by reviewer
         if path == "08_completion/summary.md" and state.get("awaiting_summary"):
-            return self._handle_summary_written(state, ctx)
+            return self._handle_summary_written(ctx)
 
         return {}, None
 
@@ -151,12 +157,7 @@ class ReviewingHandler:
         """Send summary prompt to reviewer and wait for summary.md."""
         plan_meta = load_plan_meta(ctx.files.planning_dir)
         reviewer_type = select_reviewer_type(plan_meta)
-        reviewer_role_map = {
-            "logic": "reviewer_logic",
-            "quality": "reviewer_quality",
-            "expert": "reviewer_expert",
-        }
-        reviewer_role = reviewer_role_map[reviewer_type]
+        reviewer_role = _REVIEWER_ROLE_MAP[reviewer_type]
 
         # Clear any stale summary from a previous run
         if ctx.files.summary.exists():
@@ -181,17 +182,11 @@ class ReviewingHandler:
 
     def _handle_summary_written(
         self,
-        state: dict,
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Summary is ready — kill reviewer and move to completing."""
         plan_meta = load_plan_meta(ctx.files.planning_dir)
         reviewer_type = select_reviewer_type(plan_meta)
-        reviewer_role_map = {
-            "logic": "reviewer_logic",
-            "quality": "reviewer_quality",
-            "expert": "reviewer_expert",
-        }
-        reviewer_role = reviewer_role_map[reviewer_type]
+        reviewer_role = _REVIEWER_ROLE_MAP[reviewer_type]
         ctx.runtime.kill_primary(reviewer_role)
         return {"awaiting_summary": False}, "completing"
