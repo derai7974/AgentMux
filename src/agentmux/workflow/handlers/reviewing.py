@@ -39,6 +39,12 @@ class ReviewingHandler:
 
         Sends reviewer prompt based on review_strategy routing.
         """
+        # On resume, if the reviewer already wrote review.md leave it in place.
+        # seed_existing_files() will publish FILE_EVENT_CREATED for it and
+        # handle_event() will process the verdict correctly.
+        if state.get("last_event") == "resumed" and ctx.files.review.exists():
+            return {}
+
         if ctx.files.review.exists():
             ctx.files.review.unlink()
 
@@ -127,21 +133,24 @@ class ReviewingHandler:
             else ""
         )
 
+        review_iteration = int(state.get("review_iteration", 0))
+
+        # Archive this review for history (review_0.md, review_1.md, …).
+        # review.md itself is kept so the summary prompt and monitor can still
+        # reference it by the canonical name.
+        archive_path = ctx.files.review_dir / f"review_{review_iteration}.md"
+        archive_path.write_text(review_text, encoding="utf-8")
+
         if first_line == "verdict: pass":
             ctx.runtime.finish_many("coder")
             ctx.runtime.kill_primary("coder")
             return self._request_summary(state, ctx)
 
         if first_line == "verdict: fail":
-            review_iteration = int(state.get("review_iteration", 0))
             if review_iteration >= ctx.max_review_iterations:
                 return {"last_event": "review_failed"}, "completing"
 
-            # Copy review to fix_request
-            ctx.files.fix_request.write_text(
-                ctx.files.review.read_text(encoding="utf-8"),
-                encoding="utf-8",
-            )
+            ctx.files.fix_request.write_text(review_text, encoding="utf-8")
             return {
                 "last_event": "review_failed",
                 "review_iteration": review_iteration + 1,
