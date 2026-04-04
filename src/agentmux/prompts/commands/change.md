@@ -20,7 +20,7 @@ Session directory: [[placeholder:feature_dir]]
 
 Your job:
 1. Revise requirements/plan as needed based on the change feedback.
-2. Present the revised implementation plan in chat for user approval.
+2. Use the `[[placeholder:user_ask_tool]]` tool to present the revised implementation plan and ask for approval.
 3. Iterate with the user until explicit approval.
 4. Use the same phased planning model as initial planning:
    - Phase 1: Foundation & Interfaces

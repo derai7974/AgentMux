@@ -38,7 +38,7 @@ class ProductManagementHandler:
             ctx.files.relative_path(
                 ctx.files.product_management_dir / "product_manager_prompt.md"
             ),
-            build_product_manager_prompt(ctx.files),
+            build_product_manager_prompt(ctx.files, ctx.agents.get("product-manager")),
         )
         send_to_role(ctx, "product-manager", prompt_file)
         return {}  # No state updates

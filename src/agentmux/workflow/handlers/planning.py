@@ -53,9 +53,9 @@ class PlanningHandler:
                 ctx.files.planning_dir
                 / ("changes_prompt.txt" if is_replan else "planner_prompt.md")
             ),
-            build_change_prompt(ctx.files)
+            build_change_prompt(ctx.files, ctx.agents.get("planner"))
             if is_replan
-            else build_planner_prompt(ctx.files),
+            else build_planner_prompt(ctx.files, ctx.agents.get("planner")),
         )
         send_to_role(ctx, "planner", prompt_file)
         return {}

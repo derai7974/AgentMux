@@ -26,7 +26,7 @@ Approved preference proposal artifact: [[placeholder:reviewer_preference_proposa
 
 Your job:
 1. Present what was implemented to the user.
-2. Ask whether the user approves completing the pipeline. Be explicit that files in this feature directory will only be deleted if commit succeeds.
+2. Use the `[[placeholder:user_ask_tool]]` tool to ask whether the user approves completing the pipeline. Be explicit that files in this feature directory will only be deleted if commit succeeds.
 3. Review the changed files from git status and use them as commit candidates:
    ```
    [[placeholder:changed_files]]
@@ -36,7 +36,7 @@ Your job:
    - `{{"action": "approve", "exclude_files": ["relative/path"], "commit_message": "optional summary"}}`
    - `exclude_files` is optional and defaults to `[]` (commit all changed files).
    - `commit_message` is optional. If present, completion uses it as the final commit message; if omitted, completion drafts a deterministic fallback.
-5. Ask for exclusions only. Do not ask the user to enumerate all commit files. Also ask for an optional `commit_message` summary.
+5. Use the `[[placeholder:user_ask_tool]]` tool to ask for exclusions only. Do not ask the user to enumerate all commit files. Also ask for an optional `commit_message` summary.
 6. If the user requests changes, write the user feedback to `08_completion/changes.md`.
 [[shared:preference-memory]]
 7. If one or more candidates are approved, write `[[placeholder:reviewer_preference_proposal_file]]` as JSON:

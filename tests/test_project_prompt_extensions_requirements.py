@@ -888,7 +888,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             )
             self.assertIn("exclude_files` is optional and defaults to `[]`", prompt)
             self.assertIn(
-                "Ask for exclusions only. Do not ask the user "
+                "ask for exclusions only. Do not ask the user "
                 "to enumerate all commit files.",
                 prompt,
             )

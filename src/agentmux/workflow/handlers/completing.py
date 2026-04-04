@@ -81,7 +81,7 @@ class CompletingHandler:
             ctx.files.relative_path(
                 ctx.files.completion_dir / "confirmation_prompt.md"
             ),
-            build_confirmation_prompt(ctx.files),
+            build_confirmation_prompt(ctx.files, ctx.agents.get("reviewer")),
         )
         send_to_role(
             ctx,

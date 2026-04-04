@@ -49,7 +49,7 @@ Use a JSON-style array for `scope_hints`, not a single string. Example:
    - **Risks & constraints** — known limitations, technical debt, open questions
 3. Do not define the execution schedule. Do not create implementation phases, sub-plans, task lists, or parallel lanes — that is the planner's job.
 4. Do not implement code, run implementation validation, or produce UI design artifacts.
-5. Wait for the user to review the architectural draft. Incorporate any feedback and revise as needed. Repeat until the user explicitly approves.
+5. When presenting the architectural draft, use the `[[placeholder:user_ask_tool]]` tool to ask for feedback and approval. Incorporate any feedback and revise as needed. Repeat until the user explicitly approves.
 6. Only after the user explicitly approves (e.g. says 'approved', 'looks good', 'go ahead'), write the final architecture to `02_planning/architecture.md`. Only include chosen Options, you MUST omit options that were discarded.
 7. FINAL STEP ONLY — after writing `02_planning/architecture.md`, stop. Do not update `state.json` or any workflow status.
 

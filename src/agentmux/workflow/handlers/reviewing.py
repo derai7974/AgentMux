@@ -61,7 +61,10 @@ class ReviewingHandler:
         config = reviewer_config[reviewer_type]
 
         # Build the command prompt (review.md) combined with agent prompt
-        agent_prompt = config["prompt_builder"](ctx.files)
+        reviewer_role = config["role"]
+        agent_prompt = config["prompt_builder"](
+            ctx.files, ctx.agents.get(reviewer_role)
+        )
         command_prompt = build_reviewer_prompt(ctx.files, is_review=True)
         full_prompt = f"{agent_prompt}\n\n{command_prompt}"
 
