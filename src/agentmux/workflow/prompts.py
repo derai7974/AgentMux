@@ -19,7 +19,7 @@ USER_ASK_TOOLS: dict[str, str] = {
     "copilot": "ask_user",
 }
 
-_USER_ASK_FALLBACK = "a plain text message in the conversation"
+_USER_ASK_FALLBACK = "your native ask / question tool"
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 _SHARED_FRAGMENT_PATTERN = re.compile(r"\[\[shared:([a-z0-9][a-z0-9_-]*)\]\]")
