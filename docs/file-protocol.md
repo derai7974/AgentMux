@@ -15,7 +15,7 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 ## Product Management (`01_product_management/`)
 
 - `product_manager_prompt.md` — prompt for PM analysis phase
-- `analysis.md` — PM write-up (business case, integration assessment, alternatives)
+- `analysis.md` — PM usability rationale: friction points, integration fit, alternatives considered and rejected, notes for the architect. Advisory only — if it conflicts with `requirements.md`, `requirements.md` wins.
 - `done` — completion marker for PM handoff to planning
 
 ## Planning (`02_planning/`)
