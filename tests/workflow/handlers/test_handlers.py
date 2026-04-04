@@ -107,7 +107,7 @@ class TestProductManagementHandler:
 
             updates = handler.enter(empty_state, mock_ctx)
 
-            mock_build.assert_called_once_with(mock_ctx.files)
+            mock_build.assert_called_once_with(mock_ctx.files, None)
             mock_write.assert_called_once()
             mock_send.assert_called_once_with(
                 mock_ctx, "product-manager", Path("/mock/prompt.md")
@@ -253,7 +253,7 @@ class TestPlanningHandler:
 
             handler.enter(empty_state, mock_ctx)
 
-            mock_build.assert_called_once_with(mock_ctx.files)
+            mock_build.assert_called_once_with(mock_ctx.files, None)
             mock_send.assert_called_once_with(
                 mock_ctx, "planner", Path("/mock/prompt.md")
             )
@@ -283,7 +283,7 @@ class TestPlanningHandler:
 
             handler.enter(state, mock_ctx)
 
-            mock_build.assert_called_once_with(mock_ctx.files)
+            mock_build.assert_called_once_with(mock_ctx.files, None)
             mock_send.assert_called_once_with(
                 mock_ctx, "planner", Path("/mock/prompt.md")
             )
@@ -291,7 +291,6 @@ class TestPlanningHandler:
     def test_handle_plan_written_all_files_exist(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
-        """Test transition when all plan files exist."""
         handler = PlanningHandler()
         event = WorkflowEvent(kind="file.created", path="02_planning/plan.md")
 
@@ -702,7 +701,7 @@ class TestCompletingHandler:
 
             handler.enter(empty_state, mock_ctx)
 
-            mock_build.assert_called_once_with(mock_ctx.files)
+            mock_build.assert_called_once_with(mock_ctx.files, None)
             mock_send.assert_called_once()
 
     def test_enter_auto_approve_when_configured(

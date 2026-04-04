@@ -3,9 +3,23 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..shared.models import ProjectPaths, RuntimeFiles, tasks_file_for_plan
 from .execution_plan import load_execution_plan
+
+if TYPE_CHECKING:
+    from ..shared.models import AgentConfig
+
+# Maps provider/CLI names to their native user-input tool name.
+USER_ASK_TOOLS: dict[str, str] = {
+    "claude": "AskUserQuestion",
+    "opencode": "question",
+    "gemini": "ask_user",
+    "copilot": "ask_user",
+}
+
+_USER_ASK_FALLBACK = "a plain text message in the conversation"
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 _SHARED_FRAGMENT_PATTERN = re.compile(r"\[\[shared:([a-z0-9][a-z0-9_-]*)\]\]")
@@ -25,6 +39,18 @@ _CONFIRMATION_APPROVAL_FIELDS: tuple[str, ...] = (
 
 def confirmation_approval_payload_fields() -> tuple[str, ...]:
     return _CONFIRMATION_APPROVAL_FIELDS
+
+
+def _user_ask_tool_for(agent: AgentConfig | None) -> str:
+    """Return the provider-native user-input tool name for the given agent.
+
+    Falls back to a plain-text description when the agent's CLI is not
+    in the mapping (e.g. codex) or when no agent is provided.
+    """
+    if agent is None:
+        return _USER_ASK_FALLBACK
+    key = agent.provider or agent.cli
+    return USER_ASK_TOOLS.get(key, _USER_ASK_FALLBACK)
 
 
 def _append_confirmation_commit_message_contract(prompt: str) -> str:
@@ -147,7 +173,9 @@ def _build_coder_research_handoff(files: RuntimeFiles) -> str:
     )
 
 
-def build_architect_prompt(files: RuntimeFiles) -> str:
+def build_architect_prompt(
+    files: RuntimeFiles, agent: AgentConfig | None = None
+) -> str:
     rendered = _render_template(
         _load_template(
             "agents",
@@ -160,12 +188,15 @@ def build_architect_prompt(files: RuntimeFiles) -> str:
             "architect_preference_proposal_file": files.relative_path(
                 files.architect_preference_proposal
             ),
+            "user_ask_tool": _user_ask_tool_for(agent),
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)
 
 
-def build_product_manager_prompt(files: RuntimeFiles) -> str:
+def build_product_manager_prompt(
+    files: RuntimeFiles, agent: AgentConfig | None = None
+) -> str:
     rendered = _render_template(
         _load_template(
             "agents",
@@ -178,12 +209,15 @@ def build_product_manager_prompt(files: RuntimeFiles) -> str:
             "pm_preference_proposal_file": files.relative_path(
                 files.pm_preference_proposal
             ),
+            "user_ask_tool": _user_ask_tool_for(agent),
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)
 
 
-def build_reviewer_prompt(files: RuntimeFiles, is_review: bool = False) -> str:
+def build_reviewer_prompt(
+    files: RuntimeFiles, is_review: bool = False, agent: AgentConfig | None = None
+) -> str:
     if is_review:
         rendered = _render_template(
             _load_template(
@@ -206,12 +240,15 @@ def build_reviewer_prompt(files: RuntimeFiles, is_review: bool = False) -> str:
             "reviewer_preference_proposal_file": files.relative_path(
                 files.reviewer_preference_proposal
             ),
+            "user_ask_tool": _user_ask_tool_for(agent),
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)
 
 
-def build_reviewer_logic_prompt(files: RuntimeFiles) -> str:
+def build_reviewer_logic_prompt(
+    files: RuntimeFiles, agent: AgentConfig | None = None
+) -> str:
     """Build prompt for Logic & Alignment reviewer."""
     rendered = _render_template(
         _load_template(
@@ -225,12 +262,15 @@ def build_reviewer_logic_prompt(files: RuntimeFiles) -> str:
             "reviewer_preference_proposal_file": files.relative_path(
                 files.reviewer_preference_proposal
             ),
+            "user_ask_tool": _user_ask_tool_for(agent),
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)
 
 
-def build_reviewer_quality_prompt(files: RuntimeFiles) -> str:
+def build_reviewer_quality_prompt(
+    files: RuntimeFiles, agent: AgentConfig | None = None
+) -> str:
     """Build prompt for Quality & Style reviewer."""
     rendered = _render_template(
         _load_template(
@@ -244,12 +284,15 @@ def build_reviewer_quality_prompt(files: RuntimeFiles) -> str:
             "reviewer_preference_proposal_file": files.relative_path(
                 files.reviewer_preference_proposal
             ),
+            "user_ask_tool": _user_ask_tool_for(agent),
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)
 
 
-def build_reviewer_expert_prompt(files: RuntimeFiles) -> str:
+def build_reviewer_expert_prompt(
+    files: RuntimeFiles, agent: AgentConfig | None = None
+) -> str:
     """Build prompt for Deep-Dive Expert reviewer."""
     rendered = _render_template(
         _load_template(
@@ -263,6 +306,7 @@ def build_reviewer_expert_prompt(files: RuntimeFiles) -> str:
             "reviewer_preference_proposal_file": files.relative_path(
                 files.reviewer_preference_proposal
             ),
+            "user_ask_tool": _user_ask_tool_for(agent),
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)
@@ -458,7 +502,9 @@ def build_fix_prompt(files: RuntimeFiles) -> str:
     return _expand_session_includes(rendered, files.feature_dir)
 
 
-def build_confirmation_prompt(files: RuntimeFiles) -> str:
+def build_confirmation_prompt(
+    files: RuntimeFiles, agent: AgentConfig | None = None
+) -> str:
     changed_files = _CHANGED_FILES_FALLBACK
     try:
         result = subprocess.run(
@@ -486,6 +532,7 @@ def build_confirmation_prompt(files: RuntimeFiles) -> str:
             "reviewer_preference_proposal_file": files.relative_path(
                 files.reviewer_preference_proposal
             ),
+            "user_ask_tool": _user_ask_tool_for(agent),
         },
     )
     prompt = _expand_session_includes(rendered, files.feature_dir)
@@ -536,19 +583,22 @@ def build_initial_prompts(files: RuntimeFiles) -> dict[str, Path]:
     return {}
 
 
-def build_change_prompt(files: RuntimeFiles) -> str:
+def build_change_prompt(files: RuntimeFiles, agent: AgentConfig | None = None) -> str:
     rendered = _render_template(
         _load_template(
             "commands",
             "change",
             project_dir=files.project_dir,
         ),
-        {"feature_dir": files.feature_dir},
+        {
+            "feature_dir": files.feature_dir,
+            "user_ask_tool": _user_ask_tool_for(agent),
+        },
     )
     return _expand_session_includes(rendered, files.feature_dir)
 
 
-def build_planner_prompt(files: RuntimeFiles) -> str:
+def build_planner_prompt(files: RuntimeFiles, agent: AgentConfig | None = None) -> str:
     """Build prompt for planner agent.
 
     The planner receives the architecture document and creates execution plans.
@@ -565,6 +615,7 @@ def build_planner_prompt(files: RuntimeFiles) -> str:
             "planner_preference_proposal_file": files.relative_path(
                 files.planning_dir / "approved_preferences.json"
             ),
+            "user_ask_tool": _user_ask_tool_for(agent),
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)

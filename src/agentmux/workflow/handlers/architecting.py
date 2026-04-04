@@ -43,7 +43,7 @@ class ArchitectingHandler:
         prompt_file = write_prompt_file(
             ctx.files.feature_dir,
             ctx.files.relative_path(ctx.files.planning_dir / "architect_prompt.md"),
-            build_architect_prompt(ctx.files),
+            build_architect_prompt(ctx.files, ctx.agents.get("architect")),
         )
         send_to_role(ctx, "architect", prompt_file)
         return {}
