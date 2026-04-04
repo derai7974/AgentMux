@@ -90,6 +90,8 @@ Agents still read the referenced prompt file themselves. Prompt files are now se
 
 Prompt files are built lazily by handlers just before injection, not pre-generated. Each `build_*_prompt()` function in `agentmux/workflow/prompts.py` loads and renders the markdown template for its phase.
 
+Startup and resume now use explicit phase bootstrap: the orchestrator re-enters the active phase before steady-state event sources start, and that phase entry is what causes the handler to build and send the current prompt. Prompt injection therefore does not depend on the first seeded `file.created` event.
+
 ## Coder research handoff
 
 Coder prompt rendering injects a `Research handoff` block into `agentmux/prompts/agents/coder.md` via `[[placeholder:research_handoff]]`.

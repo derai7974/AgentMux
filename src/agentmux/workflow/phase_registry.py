@@ -26,6 +26,7 @@ from .handlers.implementing import ImplementingHandler
 from .handlers.planning import PlanningHandler
 from .handlers.product_management import ProductManagementHandler
 from .handlers.reviewing import ReviewingHandler
+from .phase_helpers import select_reviewer_type
 
 # ---------------------------------------------------------------------------
 # Resume-check helpers (extracted from sessions/state_store.infer_resume_phase)
@@ -41,6 +42,13 @@ def _pm_done(feature_dir: Path, state: dict[str, Any]) -> bool:
     if not bool(state.get("product_manager")):
         return True  # Phase not requested for this run
     return (feature_dir / "01_product_management" / "done").exists()
+
+
+def _first_available_role(roles: tuple[str, ...], agents: dict[str, Any]) -> str | None:
+    for role in roles:
+        if role in agents:
+            return role
+    return None
 
 
 def _implementing_done(feature_dir: Path, state: dict[str, Any]) -> bool:
@@ -123,9 +131,37 @@ def _designing_needed_and_done(feature_dir: Path, state: dict[str, Any]) -> bool
     return (feature_dir / "04_design" / "design.md").exists()
 
 
+def _reviewing_startup_role(
+    feature_dir: Path, state: dict[str, Any], agents: dict[str, Any]
+) -> str | None:
+    _ = state
+    plan_meta_path = feature_dir / "02_planning" / "plan_meta.json"
+    plan_meta: dict[str, Any] = {}
+    if plan_meta_path.exists():
+        try:
+            loaded = json.loads(plan_meta_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            loaded = {}
+        if isinstance(loaded, dict):
+            plan_meta = loaded
+
+    reviewer_type = select_reviewer_type(plan_meta)
+    reviewer_role = {
+        "logic": "reviewer_logic",
+        "quality": "reviewer_quality",
+        "expert": "reviewer_expert",
+    }[reviewer_type]
+    if reviewer_role in agents:
+        return reviewer_role
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Core dataclasses
 # ---------------------------------------------------------------------------
+
+
+StartupRoleResolver = Callable[[Path, dict[str, Any], dict[str, Any]], str | None]
 
 
 @dataclass(frozen=True)
@@ -157,6 +193,16 @@ class PhaseDescriptor:
     primary_roles: tuple[str, ...]
     resume_check: ResumeCheck = field(default_factory=ResumeCheck)
     research_owner: str | None = None
+    startup_role_resolver: StartupRoleResolver | None = None
+
+    def resolve_startup_role(
+        self, feature_dir: Path, state: dict[str, Any], agents: dict[str, Any]
+    ) -> str | None:
+        if self.startup_role_resolver is not None:
+            role = self.startup_role_resolver(feature_dir, state, agents)
+            if role is not None:
+                return role
+        return _first_available_role(self.primary_roles, agents)
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +260,7 @@ PHASE_REGISTRY: tuple[PhaseDescriptor, ...] = (
             "reviewer_expert",
         ),  # noqa: E501
         resume_check=ResumeCheck(custom=_reviewing_done),
+        startup_role_resolver=_reviewing_startup_role,
     ),
     PhaseDescriptor(
         name="fixing",
@@ -245,6 +292,21 @@ PHASE_REGISTRY: tuple[PhaseDescriptor, ...] = (
 # Replaces PHASE_HANDLERS in workflow/handlers/__init__.py.
 # Instances are created once at import time (same behaviour as before).
 PHASE_HANDLERS: dict[str, Any] = {p.name: p.handler_class() for p in PHASE_REGISTRY}
+
+PHASE_BY_NAME: dict[str, PhaseDescriptor] = {p.name: p for p in PHASE_REGISTRY}
+
+
+def resolve_phase_startup_role(
+    phase_name: str,
+    feature_dir: Path,
+    state: dict[str, Any],
+    agents: dict[str, Any],
+) -> str | None:
+    descriptor = PHASE_BY_NAME.get(phase_name)
+    if descriptor is None:
+        return None
+    return descriptor.resolve_startup_role(feature_dir, state, agents)
+
 
 # Maps phase name → research-owning role for _determine_research_owner().
 PHASE_RESEARCH_OWNERS: dict[str, str] = {

@@ -165,12 +165,9 @@ class PipelineOrchestrator:
         self._ctx = ctx
         self._exit_code = None
         self._exit_event = threading.Event()
-
-        # Build event bus with our callback
         wake_event = threading.Event()
         bus = self.build_event_bus(ctx.files, ctx.runtime, wake_event)
         bus.register(self._on_event)
-        bus.start()
 
         def handle_feature_dir_cleanup():
             """Clean up feature dir if flagged in state and not keeping session."""
@@ -188,6 +185,10 @@ class PipelineOrchestrator:
             stack.callback(cleanup_compression, ctx.files.feature_dir)
             stack.callback(cleanup_mcp, ctx.files.feature_dir, ctx.files.project_dir)
             stack.callback(bus.stop)
+
+            state = load_state(ctx.files.state)
+            self._router.enter_current_phase(state, ctx)
+            bus.start()
 
             # Block until exit signal (no loop!)
             self._exit_event.wait()
