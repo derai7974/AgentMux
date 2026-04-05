@@ -591,7 +591,6 @@ def tmux_new_session(
             "none",
         ]
     )
-    run_command(["tmux", "set-option", "-t", session_name, "pane-border-lines", "none"])
     run_command(
         [
             "tmux",
