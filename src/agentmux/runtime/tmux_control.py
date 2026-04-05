@@ -616,6 +616,10 @@ def tmux_new_session(
         check=False,
     )
     run_command(
+        ["tmux", "set-option", "-p", "-t", control_pane, "remain-on-exit", "on"],
+        check=False,
+    )
+    run_command(
         ["tmux", "set-environment", "-t", session_name, "CONTROL_PANE", control_pane]
     )
 
