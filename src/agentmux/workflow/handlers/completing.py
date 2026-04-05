@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from agentmux.integrations.completion import CompletionService
 from agentmux.sessions.state_store import feature_slug_from_dir, read_json_resilient
 from agentmux.shared.models import ProjectPaths
+from agentmux.workflow.event_catalog import EVENT_CHANGES_REQUESTED
 from agentmux.workflow.event_router import EventSpec, WorkflowEvent
 from agentmux.workflow.phase_helpers import apply_role_preferences
 
@@ -217,5 +218,5 @@ class CompletingHandler:
             "subplan_count": 0,
             "review_iteration": 0,
             "completed_subplans": [],
-            "last_event": "changes_requested",
+            "last_event": EVENT_CHANGES_REQUESTED,
         }, "planning"

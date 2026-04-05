@@ -6,6 +6,19 @@ from ..sessions.state_store import now_iso, read_json_resilient, write_state
 from .transitions import PipelineContext
 
 
+def validate_last_event(value: str) -> None:
+    """Validate that value is a known workflow event name.
+
+    Raises ValueError for unknown event names to catch typos at write time.
+    """
+    from .event_catalog import VALID_LAST_EVENTS  # lazy import avoids circular deps
+
+    if value not in VALID_LAST_EVENTS:
+        raise ValueError(
+            f"Unknown last_event: {value!r}. Valid values: {sorted(VALID_LAST_EVENTS)}"
+        )
+
+
 def send_to_role(
     ctx: PipelineContext,
     role: str,
@@ -23,6 +36,7 @@ def write_phase(
     last_event: str,
     **extra_fields: object,
 ) -> None:
+    validate_last_event(last_event)
     state["phase"] = phase
     state["last_event"] = last_event
     state["updated_at"] = now_iso()

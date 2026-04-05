@@ -17,6 +17,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .event_catalog import (
+    EVENT_ARCHITECTURE_WRITTEN,
+    EVENT_CHANGES_REQUESTED,
+    EVENT_DESIGN_WRITTEN,
+    EVENT_IMPLEMENTATION_COMPLETED,
+    EVENT_PLAN_WRITTEN,
+    EVENT_PM_COMPLETED,
+    EVENT_REVIEW_FAILED,
+    EVENT_REVIEW_PASSED,
+    WORKFLOW_EVENT_CATALOG,
+)
 from .handlers.architecting import ArchitectingHandler
 from .handlers.completing import CompletingHandler
 from .handlers.designing import DesigningHandler
@@ -194,7 +205,7 @@ class PhaseDescriptor:
     resume_check: ResumeCheck = field(default_factory=ResumeCheck)
     research_owner: str | None = None
     startup_role_resolver: StartupRoleResolver | None = None
-    event_labels: dict[str, str] = field(default_factory=dict)
+    emitted_events: tuple[str, ...] = field(default_factory=tuple)
 
     def resolve_startup_role(
         self, feature_dir: Path, state: dict[str, Any], agents: dict[str, Any]
@@ -210,15 +221,6 @@ class PhaseDescriptor:
 # Registry
 # ---------------------------------------------------------------------------
 
-_GLOBAL_EVENT_LABELS: dict[str, str] = {
-    "feature_created": "starting up",
-    "resumed": "resumed",
-    "research_dispatched": "researching…",
-    "research_complete": "research done",
-    "web_research_dispatched": "web research…",
-    "web_research_complete": "web research done",
-}
-
 PHASE_REGISTRY: tuple[PhaseDescriptor, ...] = (
     PhaseDescriptor(
         name="product_management",
@@ -227,7 +229,7 @@ PHASE_REGISTRY: tuple[PhaseDescriptor, ...] = (
         primary_roles=("product-manager",),
         resume_check=ResumeCheck(custom=_pm_done),
         research_owner="product-manager",
-        event_labels={"pm_completed": "pm done"},
+        emitted_events=(EVENT_PM_COMPLETED,),
     ),
     PhaseDescriptor(
         name="architecting",
@@ -236,6 +238,7 @@ PHASE_REGISTRY: tuple[PhaseDescriptor, ...] = (
         primary_roles=("architect",),
         resume_check=ResumeCheck(completion_artifact="02_planning/architecture.md"),
         research_owner="architect",
+        emitted_events=(EVENT_ARCHITECTURE_WRITTEN,),
     ),
     PhaseDescriptor(
         name="planning",
@@ -244,7 +247,7 @@ PHASE_REGISTRY: tuple[PhaseDescriptor, ...] = (
         primary_roles=("planner",),
         resume_check=ResumeCheck(completion_artifact="02_planning/plan.md"),
         research_owner="architect",
-        event_labels={"plan_written": "plan ready", "plan_approved": "plan approved"},
+        emitted_events=(EVENT_PLAN_WRITTEN,),
     ),
     PhaseDescriptor(
         name="designing",
@@ -252,7 +255,7 @@ PHASE_REGISTRY: tuple[PhaseDescriptor, ...] = (
         handler_class=DesigningHandler,
         primary_roles=("designer",),
         resume_check=ResumeCheck(custom=_designing_needed_and_done),
-        event_labels={"design_written": "design ready"},
+        emitted_events=(EVENT_DESIGN_WRITTEN,),
     ),
     PhaseDescriptor(
         name="implementing",
@@ -261,10 +264,7 @@ PHASE_REGISTRY: tuple[PhaseDescriptor, ...] = (
         primary_roles=("coder",),
         resume_check=ResumeCheck(custom=_implementing_done),
         research_owner="architect",
-        event_labels={
-            "implementation_started": "coding…",
-            "implementation_completed": "code done",
-        },
+        emitted_events=(EVENT_IMPLEMENTATION_COMPLETED,),
     ),
     PhaseDescriptor(
         name="reviewing",
@@ -275,10 +275,10 @@ PHASE_REGISTRY: tuple[PhaseDescriptor, ...] = (
             "reviewer_logic",
             "reviewer_quality",
             "reviewer_expert",
-        ),  # noqa: E501
+        ),
         resume_check=ResumeCheck(custom=_reviewing_done),
         startup_role_resolver=_reviewing_startup_role,
-        event_labels={"review_written": "review ready", "fix_requested": "fix needed"},
+        emitted_events=(EVENT_REVIEW_FAILED, EVENT_REVIEW_PASSED),
     ),
     PhaseDescriptor(
         name="fixing",
@@ -286,19 +286,15 @@ PHASE_REGISTRY: tuple[PhaseDescriptor, ...] = (
         handler_class=FixingHandler,
         primary_roles=("coder",),
         resume_check=ResumeCheck(custom=_fixing_done),
-        event_labels={"fix_completed": "fix done"},
+        emitted_events=(EVENT_IMPLEMENTATION_COMPLETED,),
     ),
     PhaseDescriptor(
         name="completing",
         dir_name="08_completion",
         handler_class=CompletingHandler,
         primary_roles=("reviewer",),
-        resume_check=ResumeCheck(),  # Always the last phase to resume into
-        event_labels={
-            "approved": "approved ✓",
-            "changes_requested": "changes asked",
-            "confirmation_sent": "awaiting ok",
-        },
+        resume_check=ResumeCheck(),
+        emitted_events=(EVENT_CHANGES_REQUESTED,),
     ),
     PhaseDescriptor(
         name="failed",
@@ -310,8 +306,7 @@ PHASE_REGISTRY: tuple[PhaseDescriptor, ...] = (
 )
 
 PHASE_EVENT_LABELS: dict[str, str] = {
-    **_GLOBAL_EVENT_LABELS,
-    **{k: v for p in PHASE_REGISTRY for k, v in p.event_labels.items()},
+    name: defn.display_label for name, defn in WORKFLOW_EVENT_CATALOG.items()
 }
 
 # ---------------------------------------------------------------------------

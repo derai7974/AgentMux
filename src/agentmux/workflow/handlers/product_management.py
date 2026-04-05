@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from agentmux.workflow.event_catalog import EVENT_PM_COMPLETED
 from agentmux.workflow.event_router import (
     EventSpec,
     WorkflowEvent,
@@ -127,4 +128,4 @@ class ProductManagementHandler:
         ctx.runtime.kill_primary("product-manager")
 
         # Transition to architecting
-        return {"last_event": "pm_completed"}, "architecting"
+        return {"last_event": EVENT_PM_COMPLETED}, "architecting"

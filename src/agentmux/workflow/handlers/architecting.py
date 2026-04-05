@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from agentmux.workflow.event_catalog import EVENT_ARCHITECTURE_WRITTEN
 from agentmux.workflow.event_router import (
     EventSpec,
     WorkflowEvent,
@@ -145,4 +146,4 @@ class ArchitectingHandler:
         ctx.runtime.kill_primary("architect")
 
         # Transition to planning phase (planner takes over)
-        return {"last_event": "architecture_written"}, "planning"
+        return {"last_event": EVENT_ARCHITECTURE_WRITTEN}, "planning"

@@ -15,6 +15,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from agentmux.workflow.event_catalog import (
+    EVENT_CHANGES_REQUESTED,
+    EVENT_PLAN_WRITTEN,
+    EVENT_PM_COMPLETED,
+    EVENT_REVIEW_PASSED,
+)
 from agentmux.workflow.event_router import WorkflowEvent
 from agentmux.workflow.handlers import (
     PHASE_HANDLERS,
@@ -129,7 +135,7 @@ class TestProductManagementHandler:
 
             mock_ctx.runtime.kill_primary.assert_called_once_with("product-manager")
             mock_apply.assert_called_once_with(mock_ctx, "product-manager")
-            assert updates == {"last_event": "pm_completed"}
+            assert updates == {"last_event": EVENT_PM_COMPLETED}
             assert next_phase == "architecting"
 
     def test_handle_code_research_request(
@@ -268,7 +274,7 @@ class TestPlanningHandler:
     ) -> None:
         """Test that enter() sends change prompt when replanning."""
         handler = PlanningHandler()
-        state = {"last_event": "changes_requested"}
+        state = {"last_event": EVENT_CHANGES_REQUESTED}
 
         # Create changes.md to trigger replan mode
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
@@ -438,7 +444,7 @@ class TestImplementingHandler:
     def test_enter_resets_markers_and_dispatches(self, mock_ctx: MagicMock) -> None:
         """Test that enter() resets markers and dispatches first group."""
         handler = ImplementingHandler()
-        state = {"last_event": "plan_written"}
+        state = {"last_event": EVENT_PLAN_WRITTEN}
 
         # Create execution plan
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
@@ -610,7 +616,7 @@ class TestReviewingHandler:
         # Stays in reviewing, awaiting summary
         assert next_phase is None
         assert updates.get("awaiting_summary") is True
-        assert updates.get("last_event") == "review_passed"
+        assert updates.get("last_event") == EVENT_REVIEW_PASSED
 
     def test_handle_review_failed_under_max_iterations(
         self, mock_ctx: MagicMock, empty_state: dict

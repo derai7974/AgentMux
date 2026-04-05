@@ -6,6 +6,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from agentmux.agent_labels import role_display_label
+from agentmux.workflow.event_catalog import (
+    EVENT_RESUMED,
+    EVENT_REVIEW_FAILED,
+    EVENT_REVIEW_PASSED,
+)
 from agentmux.workflow.event_router import EventSpec, WorkflowEvent
 from agentmux.workflow.phase_helpers import (
     load_plan_meta,
@@ -83,7 +88,7 @@ class ReviewingHandler:
         # On resume, if the reviewer already wrote review.md leave it in place.
         # seed_existing_files() will publish FILE_EVENT_CREATED for it and
         # handle_event() will process the verdict correctly.
-        if state.get("last_event") == "resumed" and ctx.files.review.exists():
+        if state.get("last_event") == EVENT_RESUMED and ctx.files.review.exists():
             return {}
 
         if ctx.files.review.exists():
@@ -181,11 +186,11 @@ class ReviewingHandler:
 
         if first_line == "verdict: fail":
             if review_iteration >= ctx.max_review_iterations:
-                return {"last_event": "review_failed"}, "completing"
+                return {"last_event": EVENT_REVIEW_FAILED}, "completing"
 
             ctx.files.fix_request.write_text(review_text, encoding="utf-8")
             return {
-                "last_event": "review_failed",
+                "last_event": EVENT_REVIEW_FAILED,
                 "review_iteration": review_iteration + 1,
             }, "fixing"
 
@@ -220,7 +225,7 @@ class ReviewingHandler:
                 ctx.files.feature_dir, reviewer_role, state=state
             ),
         )
-        return {"last_event": "review_passed", "awaiting_summary": True}, None
+        return {"last_event": EVENT_REVIEW_PASSED, "awaiting_summary": True}, None
 
     def _handle_summary_written(
         self,

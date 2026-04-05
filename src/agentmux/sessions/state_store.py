@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from ..shared.models import SESSION_DIR_NAMES, RuntimeFiles
+from ..workflow.event_catalog import EVENT_FEATURE_CREATED
 
 STATE_FILE_NAME = "state.json"
 
@@ -80,6 +81,10 @@ def update_phase(
     last_event: str | None = None,
     **extra_fields: Any,
 ) -> dict[str, Any]:
+    if last_event is not None:
+        from ..workflow.phase_helpers import validate_last_event  # noqa: PLC0415
+
+        validate_last_event(last_event)
     state = load_state(state_path)
     state["phase"] = phase
     state["updated_at"] = now_iso()
@@ -176,7 +181,7 @@ def create_feature_files(
         "session_name": session_name,
         "phase": "product_management" if product_manager else "architecting",
         "product_manager": bool(product_manager),
-        "last_event": "feature_created",
+        "last_event": EVENT_FEATURE_CREATED,
         "subplan_count": 0,
         "completed_subplans": [],
         "review_iteration": 0,

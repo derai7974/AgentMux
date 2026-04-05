@@ -8,6 +8,12 @@ from typing import TYPE_CHECKING
 
 from agentmux.agent_labels import format_agent_label
 from agentmux.runtime import ParallelPromptSpec
+from agentmux.workflow.event_catalog import (
+    EVENT_CHANGES_REQUESTED,
+    EVENT_DESIGN_WRITTEN,
+    EVENT_IMPLEMENTATION_COMPLETED,
+    EVENT_PLAN_WRITTEN,
+)
 from agentmux.workflow.event_router import (
     EventSpec,
     WorkflowEvent,
@@ -151,9 +157,9 @@ class ImplementingHandler:
         Resets markers and dispatches first group (or whole plan in single-coder mode).
         """
         if state.get("last_event") in {
-            "plan_written",
-            "design_written",
-            "changes_requested",
+            EVENT_PLAN_WRITTEN,
+            EVENT_DESIGN_WRITTEN,
+            EVENT_CHANGES_REQUESTED,
         }:
             reset_markers(ctx.files.implementation_dir, "done_*")
         ctx.runtime.kill_primary("coder")
@@ -227,7 +233,7 @@ class ImplementingHandler:
             ):
                 ctx.runtime.finish_many("coder")
                 ctx.runtime.deactivate("coder")
-                updates["last_event"] = "implementation_completed"
+                updates["last_event"] = EVENT_IMPLEMENTATION_COMPLETED
                 return updates, "reviewing"
             return updates, None
 
@@ -281,7 +287,7 @@ class ImplementingHandler:
                 "implementation_completed_group_ids": state.get(
                     "implementation_completed_group_ids"
                 ),
-                "last_event": "implementation_completed",
+                "last_event": EVENT_IMPLEMENTATION_COMPLETED,
             }
             ctx.runtime.deactivate("coder")
             return updates, "reviewing"
