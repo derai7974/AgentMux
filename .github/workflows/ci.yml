@@ -29,7 +29,7 @@ jobs:
           python -m pip install -r requirements-dev.txt
 
       - name: Run tests
-        run: python -m pytest tests
+        run: python -m pytest tests --import-mode=importlib
 
   lint:
     runs-on: ubuntu-latest
