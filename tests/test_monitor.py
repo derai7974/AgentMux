@@ -60,11 +60,18 @@ def _make_test_files(feature_dir: Path) -> RuntimeFiles:
 
 
 class MonitorTests(unittest.TestCase):
-    def _render(self, feature_dir: Path, *, width: int = 40, height: int = 24) -> str:
+    def _render(
+        self,
+        feature_dir: Path,
+        *,
+        width: int = 40,
+        height: int = 24,
+        session_name: str = "session-x",
+    ) -> str:
         files = _make_test_files(feature_dir)
         with patch("agentmux.monitor.render_module.time.time", return_value=0.0):
             return monitor.render(
-                session_name="session-x",
+                session_name=session_name,
                 files=files,
                 agents={},
                 width=width,
@@ -1033,6 +1040,59 @@ class MonitorTests(unittest.TestCase):
             self.assertIn("logic", logic_label)
             self.assertIn("quality", quality_label)
             self.assertIn("expert", expert_label)
+
+    def test_render_output_height_matches_terminal_with_long_session_name(
+        self,
+    ) -> None:
+        """Output must be exactly `height` visual lines even when footer wraps."""
+        from agentmux.monitor.render import _vlines
+
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            runtime_state_path = feature_dir / "runtime_state.json"
+
+            state_path.write_text('{"phase": "implementing"}', encoding="utf-8")
+            runtime_state_path.write_text('{"primary": {}}', encoding="utf-8")
+
+            long_name = "agentmux-add-user-authentication-system"
+            height = 18
+            width = 40
+            output = self._render(
+                feature_dir, width=width, height=height, session_name=long_name
+            )
+            stripped = self._strip_ansi(output)
+            lines = stripped.split("\n")
+            visual_lines = sum(_vlines(line, width) for line in lines)
+            self.assertEqual(
+                height,
+                visual_lines,
+                f"Expected {height} visual lines, got {visual_lines}",
+            )
+            # Verify session name is present
+            self.assertIn("agentmux-add-user-authentication", stripped)
+
+    def test_render_output_height_matches_terminal_short_session_name(
+        self,
+    ) -> None:
+        """Output must be exactly `height` lines with short session name."""
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            state_path = feature_dir / "state.json"
+            runtime_state_path = feature_dir / "runtime_state.json"
+
+            state_path.write_text('{"phase": "implementing"}', encoding="utf-8")
+            runtime_state_path.write_text('{"primary": {}}', encoding="utf-8")
+
+            height = 18
+            output = self._render(feature_dir, width=40, height=height)
+            stripped = self._strip_ansi(output)
+            lines = stripped.split("\n")
+            self.assertEqual(
+                height,
+                len(lines),
+                f"Expected {height} lines, got {len(lines)}",
+            )
 
 
 if __name__ == "__main__":

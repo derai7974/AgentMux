@@ -52,6 +52,16 @@ def _vlen(s: str) -> int:
     return len(_ANSI_RE.sub("", s))
 
 
+def _vlines(text: str, width: int) -> int:
+    """Return the number of visual terminal lines a string occupies."""
+    if width <= 0:
+        return 1
+    visible = _vlen(text)
+    if visible == 0:
+        return 1
+    return max(1, (visible + width - 1) // width)  # ceiling division
+
+
 def _truncate_text(text: str, width: int) -> str:
     if width <= 0:
         return ""
@@ -865,11 +875,12 @@ class Monitor:
             f"{DIM}◷ {hours}:{minutes:02d}:{seconds:02d}  │  "
             f"{self.session_name}{RESET}",
         ]
+        footer_visual_lines = sum(_vlines(line, width) for line in footer)
 
         log_rows: list[str] = []
         log_path = self.files.status_log
         if log_path is not None:
-            reserved = len(body) + len(footer)
+            reserved = len(body) + footer_visual_lines
             available_for_log = height - reserved - 1
             if available_for_log >= 2:
                 entries = read_monitor_log_entries(
@@ -896,7 +907,7 @@ class Monitor:
             lines.append("")
             lines.extend(log_rows)
 
-        target_body = max(0, height - len(footer))
+        target_body = max(0, height - footer_visual_lines)
         while len(lines) < target_body:
             lines.append("")
         return "\n".join((lines[:target_body] + footer)[:height])
