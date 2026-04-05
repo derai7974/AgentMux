@@ -432,6 +432,94 @@ roles:
         self.assertIn("sonnet", cmd)
         self.assertIn("/tmp/prompt.md", cmd)
 
+    def test_interactive_agent_excludes_batch_subcommand(self) -> None:
+        """Interactive agents (no prompt_file) must NOT include batch_subcommand."""
+        cmd = build_agent_command(
+            AgentConfig(
+                role="architect",
+                cli="opencode",
+                model="opencode/qwen3-plus",
+                model_flag=None,
+                batch_subcommand="run",
+                args=["--agent", "agentmux-architect"],
+            )
+        )
+        # Should be: opencode --agent agentmux-architect
+        # NOT: opencode run --agent agentmux-architect
+        self.assertNotIn("run", cmd)
+        self.assertIn("opencode", cmd)
+        self.assertIn("--agent", cmd)
+        self.assertIn("agentmux-architect", cmd)
+
+    def test_batch_agent_includes_batch_subcommand_with_prompt_file(self) -> None:
+        """Batch agents (with prompt_file) MUST include batch_subcommand."""
+        cmd = build_agent_command(
+            AgentConfig(
+                role="code-researcher",
+                cli="opencode",
+                model="opencode/qwen3-plus",
+                model_flag=None,
+                batch_subcommand="run",
+                args=["--agent", "agentmux-code-researcher"],
+            ),
+            prompt_file="/tmp/prompt.md",
+        )
+        # Should be: opencode run --agent agentmux-code-researcher /tmp/prompt.md
+        self.assertIn("run", cmd)
+        self.assertIn("opencode", cmd)
+        self.assertIn("/tmp/prompt.md", cmd)
+
+    def test_opencode_architect_command_is_interactive(self) -> None:
+        """Regression test: opencode architect must NOT use 'run' subcommand."""
+        # This is the exact scenario that caused the orchestrator crash
+        cmd = build_agent_command(
+            AgentConfig(
+                role="architect",
+                cli="opencode",
+                model="opencode/qwen3-plus",
+                model_flag=None,
+                batch_subcommand="run",
+                args=["--agent", "agentmux-architect"],
+            )
+        )
+        # Must NOT contain 'run' - that's for batch mode only
+        self.assertNotIn(" run ", f" {cmd} ")
+        # Must be a valid interactive command
+        self.assertTrue(cmd.startswith("opencode"))
+        self.assertIn("--agent", cmd)
+
+    def test_claude_architect_command_unaffected(self) -> None:
+        """Claude architect should work as before (no batch_subcommand)."""
+        cmd = build_agent_command(
+            AgentConfig(
+                role="architect",
+                cli="claude",
+                model="sonnet",
+                model_flag="--model",
+                args=["--permission-mode", "acceptEdits"],
+            )
+        )
+        self.assertIn("claude", cmd)
+        self.assertIn("--model", cmd)
+        self.assertIn("sonnet", cmd)
+        self.assertNotIn("run", cmd)
+
+    def test_batch_subcommand_none_with_prompt_file(self) -> None:
+        """When batch_subcommand is None, prompt_file is still appended."""
+        cmd = build_agent_command(
+            AgentConfig(
+                role="researcher",
+                cli="claude",
+                model="sonnet",
+                model_flag="--model",
+                batch_subcommand=None,
+                args=[],
+            ),
+            prompt_file="/tmp/prompt.md",
+        )
+        self.assertIn("/tmp/prompt.md", cmd)
+        self.assertNotIn(" run ", f" {cmd} ")
+
     def test_accept_trust_prompt_accepts_when_snippet_is_present(self) -> None:
         commands: list[list[str]] = []
 

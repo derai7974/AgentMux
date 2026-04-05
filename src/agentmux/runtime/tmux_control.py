@@ -43,11 +43,10 @@ def build_agent_command(agent: AgentConfig, prompt_file: str | None = None) -> s
         ]
         env_prefix = f"env {' '.join(env_items)} "
 
-    cli_segment = (
-        f"{shlex.quote(agent.cli)} {shlex.quote(agent.batch_subcommand)}"
-        if agent.batch_subcommand
-        else shlex.quote(agent.cli)
-    )
+    if agent.batch_subcommand and prompt_file is not None:
+        cli_segment = f"{shlex.quote(agent.cli)} {shlex.quote(agent.batch_subcommand)}"
+    else:
+        cli_segment = shlex.quote(agent.cli)
 
     if agent.model_flag is not None:
         model_segment = f" {shlex.quote(agent.model_flag)} {shlex.quote(agent.model)}"
