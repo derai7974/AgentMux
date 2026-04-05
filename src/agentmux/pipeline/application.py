@@ -258,6 +258,7 @@ class PipelineApplication:
                     product_manager=bool(args.product_manager),
                     gh_available=issue.gh_available,
                     issue_number=issue.issue_number,
+                    issue_title=issue.slug_source,
                 )
             )
         else:
