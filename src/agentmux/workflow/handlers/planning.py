@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from agentmux.workflow.event_catalog import EVENT_CHANGES_REQUESTED, EVENT_PLAN_WRITTEN
 from agentmux.workflow.event_router import (
     EventSpec,
     WorkflowEvent,
@@ -92,7 +93,7 @@ class PlanningHandler:
         Sends planner prompt (initial or changes).
         """
         is_replan = (
-            state.get("last_event") == "changes_requested"
+            state.get("last_event") == EVENT_CHANGES_REQUESTED
             and ctx.files.changes.exists()
         )
         prompt_file = write_prompt_file(
@@ -171,4 +172,4 @@ class PlanningHandler:
 
         # Determine next phase
         next_phase = "designing" if needs_design else "implementing"
-        return {"last_event": "plan_written"}, next_phase
+        return {"last_event": EVENT_PLAN_WRITTEN}, next_phase

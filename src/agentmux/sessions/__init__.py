@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from ..shared.models import ProjectPaths, RuntimeFiles
+from ..workflow.event_catalog import EVENT_RESUMED
 from .state_store import (
     create_feature_files,
     infer_resume_phase,
@@ -114,7 +115,7 @@ class SessionService:
         files = load_runtime_files(self.project_dir, feature_dir)
         state = load_state(state_path)
         state["phase"] = infer_resume_phase(feature_dir, state)
-        state["last_event"] = "resumed"
+        state["last_event"] = EVENT_RESUMED
         state["updated_at"] = now_iso()
         state["updated_by"] = "pipeline"
         for key in (

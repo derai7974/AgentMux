@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from agentmux.agent_labels import role_display_label
+from agentmux.workflow.event_catalog import EVENT_DESIGN_WRITTEN
 from agentmux.workflow.event_router import EventSpec, WorkflowEvent
 from agentmux.workflow.phase_helpers import send_to_role
 from agentmux.workflow.prompts import build_designer_prompt, write_prompt_file
@@ -61,5 +62,5 @@ class DesigningHandler:
         """Handle events for designing phase."""
         if event.kind == "design_written":
             ctx.runtime.deactivate("designer")
-            return {"last_event": "design_written"}, "implementing"
+            return {"last_event": EVENT_DESIGN_WRITTEN}, "implementing"
         return {}, None

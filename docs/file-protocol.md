@@ -102,3 +102,24 @@ Execution scheduling is strict:
 - `WorkflowEventRouter.enter_current_phase()` in `agentmux/workflow/event_router.py` — explicitly bootstraps the active phase before steady-state event processing starts
 - `build_*_prompt()` in `agentmux/workflow/prompts.py` — loads and renders the markdown template for each phase; called lazily by handlers
 - Handler functions in `agentmux/workflow/handlers.py` — each builds and writes its prompt file just before sending to agent
+
+## Workflow Events
+
+`state.json` contains a `last_event` field that records the most recent workflow event driving the current phase. The authoritative catalog of valid values and display metadata is in `src/agentmux/workflow/event_catalog.py`. Phase-to-event emission wiring lives in `src/agentmux/workflow/phase_registry.py` via `PhaseDescriptor.emitted_events`. Unknown values are rejected at write time by `validate_last_event()` in `phase_helpers.py`.
+
+| Constant | String Value | Display Label | Emitted By | Consumed By | Transitions To |
+|---|---|---|---|---|---|
+| `EVENT_FEATURE_CREATED` | `feature_created` | `starting up` | `state_store.create_feature_files()` | — | — |
+| `EVENT_RESUMED` | `resumed` | `resumed` | `sessions.prepare_resumed_session()` | `reviewing` phase enter | — |
+| `EVENT_PM_COMPLETED` | `pm_completed` | `pm done` | `ProductManagementHandler` | — | `architecting` |
+| `EVENT_ARCHITECTURE_WRITTEN` | `architecture_written` | `architecture ready` | `ArchitectingHandler` | — | `planning` |
+| `EVENT_PLAN_WRITTEN` | `plan_written` | `plan ready` | `PlanningHandler` | `implementing` enter | `designing`, `implementing` |
+| `EVENT_DESIGN_WRITTEN` | `design_written` | `design ready` | `DesigningHandler` | `implementing` enter | `implementing` |
+| `EVENT_IMPLEMENTATION_COMPLETED` | `implementation_completed` | `code done` | `ImplementingHandler`, `FixingHandler` | — | `reviewing` |
+| `EVENT_REVIEW_FAILED` | `review_failed` | `fix needed` | `ReviewingHandler` | `fixing` enter | `fixing`, `completing` |
+| `EVENT_REVIEW_PASSED` | `review_passed` | `review passed` | `ReviewingHandler` | — | — |
+| `EVENT_CHANGES_REQUESTED` | `changes_requested` | `changes asked` | `CompletingHandler` | `planning` enter, `implementing` enter | `planning` |
+| `EVENT_RUN_CANCELED` | `run_canceled` | `canceled` | orchestrator interruption | — | `failed` |
+| `EVENT_RUN_FAILED` | `run_failed` | `run failed` | orchestrator interruption | — | `failed` |
+
+The table above summarizes runtime behavior from three sources: event metadata in `event_catalog.py`, phase emission wiring in `phase_registry.py`, and the phase-local consumption/transition logic in the individual handler modules.

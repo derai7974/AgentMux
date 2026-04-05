@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from agentmux.agent_labels import role_display_label
+from agentmux.workflow.event_catalog import (
+    EVENT_IMPLEMENTATION_COMPLETED,
+    EVENT_REVIEW_FAILED,
+)
 from agentmux.workflow.event_router import EventSpec, WorkflowEvent
 from agentmux.workflow.phase_helpers import (
     reset_markers,
@@ -24,7 +28,7 @@ class FixingHandler:
 
         Sends fix prompt to coder.
         """
-        if state.get("last_event") == "review_failed":
+        if state.get("last_event") == EVENT_REVIEW_FAILED:
             reset_markers(ctx.files.implementation_dir, "done_*")
 
         ctx.runtime.kill_primary("coder")
@@ -66,5 +70,5 @@ class FixingHandler:
         if event.kind == "fix_done":
             ctx.runtime.finish_many("coder")
             ctx.runtime.deactivate("coder")
-            return {"last_event": "implementation_completed"}, "reviewing"
+            return {"last_event": EVENT_IMPLEMENTATION_COMPLETED}, "reviewing"
         return {}, None

@@ -963,22 +963,16 @@ class MonitorTests(unittest.TestCase):
         expected_keys = {
             "feature_created",
             "resumed",
+            "pm_completed",
+            "architecture_written",
             "plan_written",
             "design_written",
-            "research_dispatched",
-            "research_complete",
-            "web_research_dispatched",
-            "web_research_complete",
-            "implementation_started",
             "implementation_completed",
-            "review_written",
-            "fix_requested",
-            "fix_completed",
-            "approved",
+            "review_failed",
+            "review_passed",
             "changes_requested",
-            "plan_approved",
-            "confirmation_sent",
-            "pm_completed",
+            "run_canceled",
+            "run_failed",
         }
         for key in expected_keys:
             self.assertIn(key, EVENT_LABELS)

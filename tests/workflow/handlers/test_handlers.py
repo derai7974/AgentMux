@@ -15,6 +15,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from agentmux.workflow.event_catalog import (
+    EVENT_CHANGES_REQUESTED,
+    EVENT_PLAN_WRITTEN,
+    EVENT_PM_COMPLETED,
+    EVENT_REVIEW_PASSED,
+)
 from agentmux.workflow.event_router import WorkflowEvent
 from agentmux.workflow.handlers import (
     PHASE_HANDLERS,
@@ -129,7 +135,7 @@ class TestProductManagementHandler:
 
             mock_ctx.runtime.kill_primary.assert_called_once_with("product-manager")
             mock_apply.assert_called_once_with(mock_ctx, "product-manager")
-            assert updates == {"last_event": "pm_completed"}
+            assert updates == {"last_event": EVENT_PM_COMPLETED}
             assert next_phase == "architecting"
 
     def test_handle_code_research_request(
@@ -268,7 +274,7 @@ class TestPlanningHandler:
     ) -> None:
         """Test that enter() sends change prompt when replanning."""
         handler = PlanningHandler()
-        state = {"last_event": "changes_requested"}
+        state = {"last_event": EVENT_CHANGES_REQUESTED}
 
         # Create changes.md to trigger replan mode
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
@@ -438,7 +444,7 @@ class TestImplementingHandler:
     def test_enter_resets_markers_and_dispatches(self, mock_ctx: MagicMock) -> None:
         """Test that enter() resets markers and dispatches first group."""
         handler = ImplementingHandler()
-        state = {"last_event": "plan_written"}
+        state = {"last_event": EVENT_PLAN_WRITTEN}
 
         # Create execution plan
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
@@ -563,6 +569,122 @@ class TestImplementingHandler:
         mock_ctx.runtime.deactivate.assert_called_once_with("coder")
         assert next_phase == "reviewing"
 
+    def test_enter_single_coder_copilot_sends_fleet_prefix(
+        self, mock_ctx: MagicMock
+    ) -> None:
+        """Test that single-coder copilot mode sends /fleet as prefix_command."""
+        from agentmux.shared.models import AgentConfig
+
+        handler = ImplementingHandler()
+        state = {"last_event": EVENT_PLAN_WRITTEN}
+
+        # Configure coder as copilot with single_coder
+        mock_ctx.agents = {
+            "coder": AgentConfig(
+                role="coder",
+                cli="copilot",
+                model="claude-sonnet-4.6",
+                provider="copilot",
+                single_coder=True,
+            )
+        }
+
+        # Create execution plan
+        mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.planning_dir / "execution_plan.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "groups": [
+                        {
+                            "group_id": "group1",
+                            "mode": "serial",
+                            "plans": [{"file": "plan_1.md", "name": "Plan 1"}],
+                        }
+                    ],
+                }
+            )
+        )
+        (mock_ctx.files.planning_dir / "plan_1.md").write_text("plan 1")
+        mock_ctx.files.implementation_dir.mkdir(parents=True, exist_ok=True)
+
+        with (
+            patch("agentmux.workflow.handlers.implementing.reset_markers"),
+            patch(
+                "agentmux.workflow.handlers.implementing.write_prompt_file"
+            ) as mock_write,
+            patch(
+                "agentmux.workflow.handlers.implementing.build_coder_whole_plan_prompt"
+            ) as mock_build,
+            patch("agentmux.workflow.handlers.implementing.send_to_role") as mock_send,
+        ):
+            mock_write.return_value = Path("/mock/prompt.md")
+            mock_build.return_value = "coder whole plan prompt"
+
+            handler.enter(state, mock_ctx)
+
+            mock_send.assert_called_once()
+            call_kwargs = mock_send.call_args[1]
+            assert call_kwargs.get("prefix_command") == "/fleet"
+
+    def test_enter_single_coder_non_copilot_no_fleet_prefix(
+        self, mock_ctx: MagicMock
+    ) -> None:
+        """Test that single-coder non-copilot mode does NOT send /fleet prefix."""
+        from agentmux.shared.models import AgentConfig
+
+        handler = ImplementingHandler()
+        state = {"last_event": EVENT_PLAN_WRITTEN}
+
+        # Configure coder as non-copilot with single_coder
+        mock_ctx.agents = {
+            "coder": AgentConfig(
+                role="coder",
+                cli="some-cli",
+                model="some-model",
+                provider="some-provider",
+                single_coder=True,
+            )
+        }
+
+        # Create execution plan
+        mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.planning_dir / "execution_plan.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "groups": [
+                        {
+                            "group_id": "group1",
+                            "mode": "serial",
+                            "plans": [{"file": "plan_1.md", "name": "Plan 1"}],
+                        }
+                    ],
+                }
+            )
+        )
+        (mock_ctx.files.planning_dir / "plan_1.md").write_text("plan 1")
+        mock_ctx.files.implementation_dir.mkdir(parents=True, exist_ok=True)
+
+        with (
+            patch("agentmux.workflow.handlers.implementing.reset_markers"),
+            patch(
+                "agentmux.workflow.handlers.implementing.write_prompt_file"
+            ) as mock_write,
+            patch(
+                "agentmux.workflow.handlers.implementing.build_coder_whole_plan_prompt"
+            ) as mock_build,
+            patch("agentmux.workflow.handlers.implementing.send_to_role") as mock_send,
+        ):
+            mock_write.return_value = Path("/mock/prompt.md")
+            mock_build.return_value = "coder whole plan prompt"
+
+            handler.enter(state, mock_ctx)
+
+            mock_send.assert_called_once()
+            call_kwargs = mock_send.call_args[1]
+            assert call_kwargs.get("prefix_command") is None
+
 
 class TestReviewingHandler:
     """Tests for ReviewingHandler."""
@@ -610,7 +732,7 @@ class TestReviewingHandler:
         # Stays in reviewing, awaiting summary
         assert next_phase is None
         assert updates.get("awaiting_summary") is True
-        assert updates.get("last_event") == "review_passed"
+        assert updates.get("last_event") == EVENT_REVIEW_PASSED
 
     def test_handle_review_failed_under_max_iterations(
         self, mock_ctx: MagicMock, empty_state: dict
