@@ -187,7 +187,7 @@ class ProductManagerRequirementsTests(unittest.TestCase):
             self.assertIn("01_product_management/done", prompt)
             self.assertNotIn("04_design/design.md", prompt)
             self.assertNotIn("/frontend-design", prompt)
-            self.assertIn("needs_design: true", prompt)
+            self.assertIn("Design handoff needed", prompt)
             self.assertIn("must not create design artifacts", prompt)
 
     def test_product_management_phase_entry_and_completion_transition(self) -> None:

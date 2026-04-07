@@ -385,7 +385,7 @@ def build_coder_subplan_prompt(
 def build_coder_whole_plan_prompt(files: RuntimeFiles) -> str:
     """Build a single combined prompt for single-coder mode (e.g. copilot).
 
-    Reads all sub-plans from execution_plan.json and embeds their content
+    Reads all sub-plans from execution_plan.yaml and embeds their content
     inline so one coder instance can implement the full plan using internal
     sub-agents.  The coder is instructed to write each done_N marker as it
     finishes the corresponding plan.
@@ -400,7 +400,7 @@ def build_coder_whole_plan_prompt(files: RuntimeFiles) -> str:
             match = re.match(r"^plan_(\d+)\.md$", plan_ref.file)
             if match is None:
                 raise RuntimeError(
-                    f"Unexpected plan file name in execution_plan.json: {plan_ref.file}"
+                    f"Unexpected plan file name in execution_plan.yaml: {plan_ref.file}"
                 )
             index = int(match.group(1))
             all_marker_indexes.append(index)

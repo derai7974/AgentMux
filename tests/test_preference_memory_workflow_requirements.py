@@ -80,24 +80,32 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def _write_execution_plan(files, *, name: str = "implementation") -> None:
+def _write_yaml(path: Path, payload: dict[str, object]) -> None:
+    import yaml
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.dump(payload, default_flow_style=False), encoding="utf-8")
+
+
+def _write_execution_plan(
+    files, *, name: str = "implementation", **meta: object
+) -> None:
     files.planning_dir.mkdir(parents=True, exist_ok=True)
     (files.planning_dir / "plan_1.md").write_text(
         f"## Sub-plan 1: {name}\n", encoding="utf-8"
     )
-    _write_json(
-        files.execution_plan,
-        {
-            "version": 1,
-            "groups": [
-                {
-                    "group_id": "g1",
-                    "mode": "serial",
-                    "plans": [{"file": "plan_1.md", "name": name}],
-                }
-            ],
-        },
-    )
+    data: dict[str, object] = {
+        "version": 1,
+        "groups": [
+            {
+                "group_id": "g1",
+                "mode": "serial",
+                "plans": [{"file": "plan_1.md", "name": name}],
+            }
+        ],
+    }
+    data.update(meta)
+    _write_yaml(files.execution_plan, data)
 
 
 class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
@@ -173,10 +181,7 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             state = load_state(state_path)
             state["phase"] = "planning"
             write_state(state_path, state)
-            _write_execution_plan(ctx.files)
-            _write_json(
-                ctx.files.planning_dir / "plan_meta.json", {"needs_design": False}
-            )
+            _write_execution_plan(ctx.files, needs_design=False)
             # Write required files for plan completion
             (ctx.files.planning_dir / "plan.md").write_text(
                 "# Plan\n", encoding="utf-8"
@@ -200,7 +205,7 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             handler = PlanningHandler()
             event = WorkflowEvent(
                 kind="plan_written",
-                path="02_planning/plan_meta.json",
+                path="02_planning/execution_plan.yaml",
                 payload={},
             )
             updates, next_phase = handler.handle_event(
@@ -229,15 +234,12 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             state = load_state(state_path)
             state["phase"] = "planning"
             write_state(state_path, state)
-            _write_execution_plan(ctx.files)
-            _write_json(
-                ctx.files.planning_dir / "plan_meta.json", {"needs_design": False}
-            )
+            _write_execution_plan(ctx.files, needs_design=False)
 
             handler = PlanningHandler()
             event = WorkflowEvent(
                 kind="plan_written",
-                path="02_planning/plan_meta.json",
+                path="02_planning/execution_plan.yaml",
                 payload={},
             )
             updates, next_phase = handler.handle_event(

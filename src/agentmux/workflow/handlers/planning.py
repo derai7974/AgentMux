@@ -33,12 +33,8 @@ if TYPE_CHECKING:
 
 
 def _plan_written_ready(path: str, ctx: PipelineContext, state: dict) -> bool:
-    """All three planning artefacts must exist for the plan to be complete."""
-    return (
-        ctx.files.plan.exists()
-        and ctx.files.execution_plan.exists()
-        and (ctx.files.planning_dir / "plan_meta.json").exists()
-    )
+    """Both planning artefacts must exist for the plan to be complete."""
+    return ctx.files.plan.exists() and ctx.files.execution_plan.exists()
 
 
 def _file_exists(path: str, ctx: PipelineContext, state: dict) -> bool:
@@ -50,8 +46,7 @@ _SPECS = (
         name="plan_written",
         watch_paths=(
             "02_planning/plan.md",
-            "02_planning/execution_plan.json",
-            "02_planning/plan_meta.json",
+            "02_planning/execution_plan.yaml",
         ),
         is_ready=_plan_written_ready,
     ),
@@ -152,7 +147,7 @@ class PlanningHandler:
     ) -> tuple[dict, str | None]:
         """Handle plan written event.
 
-        All three files (plan.md, execution_plan.json, plan_meta.json) must exist.
+        Both files (plan.md, execution_plan.yaml) must exist.
         """
         # Apply approved preferences from planner
         apply_role_preferences(ctx, "planner")

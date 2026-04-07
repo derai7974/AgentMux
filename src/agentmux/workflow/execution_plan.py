@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
+
+import yaml
 
 _PLAN_FILE_RE = re.compile(r"^plan_\d+\.md$")
 _GROUP_MODES = {"serial", "parallel"}
@@ -33,17 +34,17 @@ def _error(path: Path, message: str) -> RuntimeError:
 
 
 def load_execution_plan(planning_dir: Path) -> ExecutionPlan:
-    path = planning_dir / "execution_plan.json"
+    path = planning_dir / "execution_plan.yaml"
     if not path.is_file():
         raise _error(path, "is required.")
 
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise _error(path, "must contain valid JSON.") from exc
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise _error(path, "must contain valid YAML.") from exc
 
     if not isinstance(payload, dict):
-        raise _error(path, "must be a JSON object.")
+        raise _error(path, "must be a YAML mapping.")
 
     version = payload.get("version")
     if version != 1:

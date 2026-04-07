@@ -93,7 +93,7 @@ class PhaseDirectoryRequirementsTests(unittest.TestCase):
             self.assertEqual(feature_dir / "02_planning" / "plan.md", files.plan)
             self.assertEqual(feature_dir / "02_planning" / "tasks.md", files.tasks)
             self.assertEqual(
-                feature_dir / "02_planning" / "execution_plan.json",
+                feature_dir / "02_planning" / "execution_plan.yaml",
                 files.execution_plan,
             )
             self.assertEqual(feature_dir / "04_design" / "design.md", files.design)
@@ -153,8 +153,11 @@ class PhaseDirectoryRequirementsTests(unittest.TestCase):
             feature_dir = Path(td)
             planning_dir = feature_dir / "02_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
-            (planning_dir / "plan_meta.json").write_text(
-                '{"needs_design": true}', encoding="utf-8"
+            import yaml
+
+            (planning_dir / "execution_plan.yaml").write_text(
+                yaml.dump({"needs_design": True}, default_flow_style=False),
+                encoding="utf-8",
             )
 
             meta = load_plan_meta(planning_dir)
@@ -169,10 +172,21 @@ class PhaseDirectoryRequirementsTests(unittest.TestCase):
             (planning_dir / "plan_1.md").write_text(
                 "## Sub-plan 1: API wiring\n", encoding="utf-8"
             )
-            (planning_dir / "execution_plan.json").write_text(
-                (
-                    '{"version": 1, "groups": [{"group_id": "g1", "mode": "serial", '
-                    '"plans": [{"file": "plan_1.md", "name": "API wiring"}]}]}'
+            import yaml
+
+            (planning_dir / "execution_plan.yaml").write_text(
+                yaml.dump(
+                    {
+                        "version": 1,
+                        "groups": [
+                            {
+                                "group_id": "g1",
+                                "mode": "serial",
+                                "plans": [{"file": "plan_1.md", "name": "API wiring"}],
+                            }
+                        ],
+                    },
+                    default_flow_style=False,
                 ),
                 encoding="utf-8",
             )

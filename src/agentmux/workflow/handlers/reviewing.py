@@ -48,11 +48,34 @@ def _review_has_verdict(review_path: Path) -> bool:
         return False
 
 
+def _review_yaml_has_verdict(review_dir: Path) -> bool:
+    """Return True when review.yaml exists with a valid verdict."""
+    yaml_path = review_dir / "review.yaml"
+    if not yaml_path.exists():
+        return False
+    try:
+        import yaml
+
+        data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+        return isinstance(data, dict) and data.get("verdict") in (
+            "pass",
+            "fail",
+        )
+    except Exception:
+        return False
+
+
 def _review_ready(path: str, ctx: PipelineContext, state: dict) -> bool:
     return (
         not state.get("awaiting_summary")
         and ctx.files.review.exists()
         and _review_has_verdict(ctx.files.review)
+    )
+
+
+def _review_yaml_ready(path: str, ctx: PipelineContext, state: dict) -> bool:
+    return not state.get("awaiting_summary") and _review_yaml_has_verdict(
+        ctx.files.review_dir
     )
 
 
@@ -63,8 +86,16 @@ def _summary_ready(path: str, ctx: PipelineContext, state: dict) -> bool:
 _SPECS = (
     EventSpec(
         name="review_ready",
-        watch_paths=("06_review/review.md",),
+        watch_paths=(
+            "06_review/review.md",
+            "06_review/review.yaml",
+        ),
         is_ready=_review_ready,
+    ),
+    EventSpec(
+        name="review_yaml_ready",
+        watch_paths=("06_review/review.yaml",),
+        is_ready=_review_yaml_ready,
     ),
     EventSpec(
         name="summary_ready",
@@ -149,7 +180,7 @@ class ReviewingHandler:
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle events for reviewing phase."""
-        if event.kind == "review_ready":
+        if event.kind in ("review_ready", "review_yaml_ready"):
             return self._handle_review_written(state, ctx)
         if event.kind == "summary_ready":
             return self._handle_summary_written(ctx)

@@ -12,7 +12,7 @@ class StagedPlanningDocsRequirementsTests(unittest.TestCase):
 
     def test_prompts_doc_covers_staged_planning_contract(self) -> None:
         text = self._read_doc("docs/prompts.md")
-        self.assertIn("02_planning/execution_plan.json", text)
+        self.assertIn("02_planning/execution_plan.yaml", text)
         self.assertIn("plan_<N>.md", text)
         self.assertIn("Scope", text)
         self.assertIn("Owned files/modules", text)
@@ -59,7 +59,7 @@ class StagedPlanningDocsRequirementsTests(unittest.TestCase):
         self,
     ) -> None:
         text = self._read_doc("docs/file-protocol.md")
-        self.assertIn("execution_plan.json", text)
+        self.assertIn("execution_plan.yaml", text)
         self.assertIn("execution groups", text.lower())
         self.assertIn("serial", text.lower())
         self.assertIn("parallel", text.lower())

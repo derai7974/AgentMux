@@ -1,11 +1,12 @@
 # Prompt Templates and Rendering
 
-> Related source files: `agentmux/workflow/prompts.py`, `agentmux/runtime/tmux_control.py`, `agentmux/prompts/agents/`, `agentmux/prompts/commands/`
+> Related source files: `agentmux/workflow/prompts.py`, `agentmux/runtime/tmux_control.py`, `agentmux/prompts/agents/`, `agentmux/prompts/commands/`, `agentmux/prompts/shared/`
 
 ## Template directories
 
 - `agentmux/prompts/agents/` — role-level prompts (define what each agent is): `architect.md`, `planner.md`, `product-manager.md`, `reviewer.md`, `coder.md`, `code-researcher.md`, `web-researcher.md`, `designer.md`
 - `agentmux/prompts/commands/` — phase-specific command prompts (what to do at each step): `review.md`, `review_logic.md`, `review_quality.md`, `review_expert.md`, `fix.md`, `summary.md`, `change.md`
+- `agentmux/prompts/shared/` — reusable prompt fragments inlined via `[[shared:fragment-name]]`: `handoff-contract-architecture.md`, `handoff-contract-plan.md`, `handoff-contract-review.md`, `coder-discipline.md`, `preference-memory.md`
 
 ## Placeholder syntax
 
@@ -92,6 +93,16 @@ Prompt files are built lazily by handlers just before injection, not pre-generat
 
 Startup and resume now use explicit phase bootstrap: the orchestrator re-enters the active phase before steady-state event sources start, and that phase entry is what causes the handler to build and send the current prompt. Prompt injection therefore does not depend on the first seeded `file.created` event.
 
+## Handoff contract fragments
+
+Three shared prompt fragments provide agents with MCP submission tool instructions and YAML fallback examples for non-MCP providers. They are inlined at template-load time via `[[shared:fragment-name]]`:
+
+- `handoff-contract-architecture.md` — used by `architect.md`; documents `agentmux_submit_architecture` parameters and fallback `architecture.yaml` schema
+- `handoff-contract-plan.md` — used by `planner.md` and `change.md`; documents `agentmux_submit_subplan` and `agentmux_submit_execution_plan` parameters and fallback YAML schemas
+- `handoff-contract-review.md` — used by `review_logic.md`, `review_quality.md`, `review_expert.md`; documents `agentmux_submit_review` parameters and fallback `review.yaml` schema
+
+See `docs/handoff-contracts.md` for full contract details.
+
 ## Coder research handoff
 
 Coder prompt rendering injects a `Research handoff` block into `agentmux/prompts/agents/coder.md` via `[[placeholder:research_handoff]]`.
@@ -126,10 +137,9 @@ Planner (and replanning via `build_change_prompt()`) output contract:
 
 - `02_planning/plan.md` is the human-readable overview
 - `02_planning/plan_<N>.md` files are executable implementation units
-- `02_planning/execution_plan.json` is the scheduling source of truth (ordered execution groups, each marked as `serial` or `parallel`, with explicit named plan references)
+- `02_planning/execution_plan.yaml` is the scheduling source of truth (ordered execution groups, each marked as `serial` or `parallel`, with explicit named plan references) and also contains planner workflow-intent metadata (`needs_design`, `needs_docs`, `doc_files`, `review_strategy`)
 - `02_planning/tasks_<N>.md` are per-plan implementation checklists mapped to the same work; each coder receives only their assigned plan's tasks
 - `02_planning/tasks.md` is an optional human-readable overview summarizing all tasks (not used by scheduler)
-- `02_planning/plan_meta.json` is planner workflow-intent metadata (`needs_design`, `needs_docs`, `doc_files`, `review_strategy`)
 - Documentation updates must be represented in planning artifacts (`plan.md`, `plan_<N>.md`, and corresponding `tasks_<N>.md`) rather than a dedicated post-review docs phase.
 
 Planner output requirements for execution plans include:
@@ -149,10 +159,9 @@ Current prompt builders:
 - planning/replanning prompt contracts require:
   - `02_planning/plan.md` as the human-readable overview
   - `02_planning/plan_<N>.md` executable sub-plan files
-  - `02_planning/execution_plan.json` as machine-readable schedule metadata (`version`, ordered `groups`, `group_id`, `mode`, `plans`)
-  - new plans must write `groups[].plans[]` entries as `{ "file": "plan_<N>.md", "name": "<sub-plan title>" }`
-  - `02_planning/plan_meta.json` with `needs_design`, `needs_docs`, and `doc_files` (empty list when `needs_docs` is `false`)
-  - `execution_plan.json` is required before implementation scheduling starts
+  - `02_planning/execution_plan.yaml` as machine-readable schedule and metadata (`version`, ordered `groups`, `group_id`, `mode`, `plans`, plus `needs_design`, `needs_docs`, `doc_files`, `review_strategy`)
+  - new plans must write `groups[].plans[]` entries as `{ file: plan_<N>.md, name: "<sub-plan title>" }`
+  - `execution_plan.yaml` is required before implementation scheduling starts
 - `build_product_manager_prompt()` renders the PM analysis prompt
 - `build_coder_subplan_prompt()` renders implementing prompts for numbered `coder_prompt_<N>.txt` dispatch, including completion marker instructions and optional research handoff references
 - `build_coder_whole_plan_prompt()` renders a single combined prompt for single-coder mode, embedding all plan and tasks content inline. When the coder provider is `copilot` with `single_coder: true`, the dispatch sends a `/fleet` prefix command as keystrokes before the prompt file reference, so Copilot CLI decomposes the plan into parallel sub-agent tasks. The prompt instructs copilot to create `done_N` completion markers as each plan finishes.

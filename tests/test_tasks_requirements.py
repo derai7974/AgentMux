@@ -124,7 +124,7 @@ class TasksRequirementsTests(unittest.TestCase):
             )
             self.assertNotIn("also write per-plan task files", architect_prompt)
             self.assertNotIn(
-                "also write `02_planning/execution_plan.json`", architect_prompt
+                "also write `02_planning/execution_plan.yaml`", architect_prompt
             )
             self.assertNotIn("write `02_planning/plan_meta.json`", architect_prompt)
             self.assertNotIn("Phase 1: Foundation & Interfaces", architect_prompt)
@@ -151,8 +151,8 @@ class TasksRequirementsTests(unittest.TestCase):
             self.assertIn("Dependencies", planner_prompt)
             self.assertIn("Isolation", planner_prompt)
             self.assertIn("Final Artifact Generation", planner_prompt)
-            self.assertIn("execution_plan.json", planner_prompt)
-            self.assertIn("plan_meta.json", planner_prompt)
+            self.assertIn("execution_plan.yaml", planner_prompt)
+            self.assertNotIn("plan_meta.json", planner_prompt)
 
             self.assertIn("05_implementation/done_1", coder_prompt)
             self.assertIn("Do not update state.json", coder_prompt)
@@ -232,8 +232,7 @@ class TasksRequirementsTests(unittest.TestCase):
             )
 
             self.assertIn(
-                "Treat planned documentation updates as required implementation "
-                "scope during review; do not defer them to a separate phase or agent.",
+                "Treat planned documentation updates as required implementation scope",
                 reviewer_agent_prompt,
             )
             self.assertIn(
@@ -264,8 +263,8 @@ class TasksRequirementsTests(unittest.TestCase):
             self.assertIn('<file path="02_planning/plan.md">', prompt)
             self.assertIn('<file path="02_planning/tasks.md">', prompt)
             self.assertIn('<file path="08_completion/changes.md">', prompt)
-            self.assertIn("02_planning/execution_plan.json", prompt)
-            self.assertIn("02_planning/plan_meta.json", prompt)
+            self.assertIn("02_planning/execution_plan.yaml", prompt)
+            self.assertNotIn("02_planning/plan_meta.json", prompt)
             self.assertIn(
                 "Documentation updates must be captured as explicit plan "
                 "and task items in `02_planning/plan.md`, "

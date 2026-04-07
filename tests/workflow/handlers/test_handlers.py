@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
 from agentmux.workflow.event_catalog import (
     EVENT_CHANGES_REQUESTED,
@@ -309,10 +310,10 @@ class TestPlanningHandler:
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
         mock_ctx.files.plan.write_text("plan")
         mock_ctx.files.tasks.write_text("tasks")
-        (mock_ctx.files.planning_dir / "plan_meta.json").write_text(
-            '{"needs_design": false}'
+
+        (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
+            yaml.dump({"needs_design": False}, default_flow_style=False)
         )
-        (mock_ctx.files.planning_dir / "execution_plan.json").write_text("{}")
 
         with (
             patch("agentmux.workflow.handlers.planning.load_execution_plan"),
@@ -340,10 +341,10 @@ class TestPlanningHandler:
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
         mock_ctx.files.plan.write_text("plan")
         mock_ctx.files.tasks.write_text("tasks")
-        (mock_ctx.files.planning_dir / "plan_meta.json").write_text(
-            '{"needs_design": true}'
+
+        (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
+            yaml.dump({"needs_design": True}, default_flow_style=False)
         )
-        (mock_ctx.files.planning_dir / "execution_plan.json").write_text("{}")
 
         # Add designer to agents
         mock_ctx.agents = {"designer": MagicMock()}
@@ -370,8 +371,10 @@ class TestPlanningHandler:
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
         mock_ctx.files.plan.write_text("plan")
         mock_ctx.files.tasks.write_text("tasks")
-        (mock_ctx.files.planning_dir / "plan_meta.json").write_text("{}")
-        (mock_ctx.files.planning_dir / "execution_plan.json").write_text("{}")
+
+        (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
+            yaml.dump({}, default_flow_style=False)
+        )
         mock_ctx.files.changes.write_text("changes")
 
         with (
@@ -448,8 +451,8 @@ class TestImplementingHandler:
 
         # Create execution plan
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        (mock_ctx.files.planning_dir / "execution_plan.json").write_text(
-            json.dumps(
+        (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
+            yaml.dump(
                 {
                     "version": 1,
                     "groups": [
@@ -459,7 +462,8 @@ class TestImplementingHandler:
                             "plans": [{"file": "plan_1.md", "name": "First Plan"}],
                         }
                     ],
-                }
+                },
+                default_flow_style=False,
             )
         )
         (mock_ctx.files.planning_dir / "plan_1.md").write_text("plan 1")
@@ -504,8 +508,8 @@ class TestImplementingHandler:
 
         # Create execution plan
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        (mock_ctx.files.planning_dir / "execution_plan.json").write_text(
-            json.dumps(
+        (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
+            yaml.dump(
                 {
                     "version": 1,
                     "groups": [
@@ -518,7 +522,8 @@ class TestImplementingHandler:
                             ],
                         }
                     ],
-                }
+                },
+                default_flow_style=False,
             )
         )
         (mock_ctx.files.planning_dir / "plan_1.md").write_text("plan 1")
@@ -545,8 +550,8 @@ class TestImplementingHandler:
 
         # Create execution plan and done marker
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        (mock_ctx.files.planning_dir / "execution_plan.json").write_text(
-            json.dumps(
+        (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
+            yaml.dump(
                 {
                     "version": 1,
                     "groups": [
@@ -556,7 +561,8 @@ class TestImplementingHandler:
                             "plans": [{"file": "plan_1.md", "name": "Plan 1"}],
                         }
                     ],
-                }
+                },
+                default_flow_style=False,
             )
         )
         (mock_ctx.files.planning_dir / "plan_1.md").write_text("plan 1")
@@ -591,8 +597,8 @@ class TestImplementingHandler:
 
         # Create execution plan
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        (mock_ctx.files.planning_dir / "execution_plan.json").write_text(
-            json.dumps(
+        (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
+            yaml.dump(
                 {
                     "version": 1,
                     "groups": [
@@ -602,7 +608,8 @@ class TestImplementingHandler:
                             "plans": [{"file": "plan_1.md", "name": "Plan 1"}],
                         }
                     ],
-                }
+                },
+                default_flow_style=False,
             )
         )
         (mock_ctx.files.planning_dir / "plan_1.md").write_text("plan 1")
@@ -649,8 +656,8 @@ class TestImplementingHandler:
 
         # Create execution plan
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        (mock_ctx.files.planning_dir / "execution_plan.json").write_text(
-            json.dumps(
+        (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
+            yaml.dump(
                 {
                     "version": 1,
                     "groups": [
@@ -660,7 +667,8 @@ class TestImplementingHandler:
                             "plans": [{"file": "plan_1.md", "name": "Plan 1"}],
                         }
                     ],
-                }
+                },
+                default_flow_style=False,
             )
         )
         (mock_ctx.files.planning_dir / "plan_1.md").write_text("plan 1")

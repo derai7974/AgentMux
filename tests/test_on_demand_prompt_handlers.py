@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -129,8 +128,10 @@ def _write_execution_plan(
             f"# Tasks for plan {index}\n\n- [ ] execute sub-plan {index}\n",
             encoding="utf-8",
         )
-    (planning_dir / "execution_plan.json").write_text(
-        json.dumps(
+    import yaml
+
+    (planning_dir / "execution_plan.yaml").write_text(
+        yaml.dump(
             {
                 "version": 1,
                 "groups": [
@@ -143,7 +144,8 @@ def _write_execution_plan(
                         ],
                     }
                 ],
-            }
+            },
+            default_flow_style=False,
         ),
         encoding="utf-8",
     )

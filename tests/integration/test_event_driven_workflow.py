@@ -110,8 +110,10 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
         )
         return ctx, files.state
 
-    def _write_execution_plan(self, ctx: PipelineContext) -> None:
+    def _write_execution_plan(self, ctx: PipelineContext, **meta: object) -> None:
         """Write a simple execution plan."""
+        import yaml
+
         planning_dir = ctx.files.planning_dir
         planning_dir.mkdir(parents=True, exist_ok=True)
         (planning_dir / "plan_1.md").write_text(
@@ -120,19 +122,20 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
         (planning_dir / "tasks_1.md").write_text(
             "# Tasks for plan 1\n\n- [ ] task\n", encoding="utf-8"
         )
-        (planning_dir / "execution_plan.json").write_text(
-            json.dumps(
+
+        data: dict[str, object] = {
+            "version": 1,
+            "groups": [
                 {
-                    "version": 1,
-                    "groups": [
-                        {
-                            "group_id": "g1",
-                            "mode": "serial",
-                            "plans": [{"file": "plan_1.md", "name": "implementation"}],
-                        }
-                    ],
+                    "group_id": "g1",
+                    "mode": "serial",
+                    "plans": [{"file": "plan_1.md", "name": "implementation"}],
                 }
-            ),
+            ],
+        }
+        data.update(meta)
+        (planning_dir / "execution_plan.yaml").write_text(
+            yaml.dump(data, default_flow_style=False),
             encoding="utf-8",
         )
 
@@ -182,10 +185,7 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
             # 3. Create plan files to trigger transition to implementing
             ctx.files.plan.write_text("# Test Plan\n", encoding="utf-8")
             ctx.files.tasks.write_text("# Tasks\n- [ ] task\n", encoding="utf-8")
-            (ctx.files.planning_dir / "plan_meta.json").write_text(
-                json.dumps({"needs_design": False}), encoding="utf-8"
-            )
-            self._write_execution_plan(ctx)
+            self._write_execution_plan(ctx, needs_design=False)
 
             # Handle plan creation
             event = WorkflowEvent(kind="file.created", path="02_planning/plan.md")
@@ -195,7 +195,7 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
             router.handle(event, load_state(state_path), ctx)
 
             event = WorkflowEvent(
-                kind="file.created", path="02_planning/plan_meta.json"
+                kind="file.created", path="02_planning/execution_plan.yaml"
             )
             updates, next_phase = router.handle(event, load_state(state_path), ctx)
 

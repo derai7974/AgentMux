@@ -30,6 +30,8 @@ Your job:
 
 [[placeholder:project_instructions]]
 
+[[shared:handoff-contract-review]]
+
 Constraints:
 - Communicate only through the files in the shared feature directory.
 - Do not rewrite the plan during review.

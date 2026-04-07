@@ -6,6 +6,8 @@ from pathlib import Path
 from subprocess import CompletedProcess
 from unittest.mock import patch
 
+import yaml
+
 from agentmux import monitor
 from agentmux.agent_labels import role_display_label
 from agentmux.monitor.state_reader import (
@@ -36,7 +38,7 @@ def _make_test_files(feature_dir: Path) -> RuntimeFiles:
         tasks=feature_dir / SESSION_DIR_NAMES["planning"] / "tasks.md",
         execution_plan=feature_dir
         / SESSION_DIR_NAMES["planning"]
-        / "execution_plan.json",
+        / "execution_plan.yaml",
         design=feature_dir / SESSION_DIR_NAMES["design"] / "design.md",
         review=feature_dir / SESSION_DIR_NAMES["review"] / "review.md",
         fix_request=feature_dir / SESSION_DIR_NAMES["review"] / "fix_request.md",
@@ -466,10 +468,19 @@ class MonitorTests(unittest.TestCase):
             (planning_dir / "plan_2.md").write_text(
                 "## Sub-plan 2: API wiring\n", encoding="utf-8"
             )
-            (planning_dir / "execution_plan.json").write_text(
-                (
-                    '{"version": 1, "groups": [{"group_id": "g1", "mode": "parallel", '
-                    '"plans": [{"file": "plan_2.md", "name": "API wiring"}]}]}'
+            (planning_dir / "execution_plan.yaml").write_text(
+                yaml.dump(
+                    {
+                        "version": 1,
+                        "groups": [
+                            {
+                                "group_id": "g1",
+                                "mode": "parallel",
+                                "plans": [{"file": "plan_2.md", "name": "API wiring"}],
+                            }
+                        ],
+                    },
+                    default_flow_style=False,
                 ),
                 encoding="utf-8",
             )

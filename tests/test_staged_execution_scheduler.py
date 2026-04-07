@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -123,9 +122,11 @@ def _write_execution_plan(ctx: PipelineContext, groups: list[dict]) -> None:
     planning_dir.mkdir(parents=True, exist_ok=True)
     (planning_dir / "architecture.md").write_text("# Architecture\n", encoding="utf-8")
     (planning_dir / "plan.md").write_text("# Plan\n", encoding="utf-8")
+    import yaml
+
     payload = {"version": 1, "groups": groups}
-    (planning_dir / "execution_plan.json").write_text(
-        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+    (planning_dir / "execution_plan.yaml").write_text(
+        yaml.dump(payload, default_flow_style=False), encoding="utf-8"
     )
     for group in groups:
         for plan_file in group["plans"]:

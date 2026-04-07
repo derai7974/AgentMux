@@ -119,7 +119,7 @@ Role routing in these phases:
 - `product-manager`: product management phase only
 - `architect`: architecting phase only — creates technical architecture document (the "What" and "With what")
 - `planner`: planning/replanning only — creates execution plans from architecture (the "How" and "When")
-- `reviewer`: reviewing and final confirmation/completion prompts (dynamically routed to specialized reviewers based on `plan_meta.review_strategy`):
+- `reviewer`: reviewing and final confirmation/completion prompts (dynamically routed to specialized reviewers based on `execution_plan.yaml` `review_strategy`):
   - `reviewer_logic`: Logic & Alignment reviewer (functional correctness vs plan)
   - `reviewer_quality`: Quality & Style reviewer (clean code, naming, standards)  
   - `reviewer_expert`: Deep-Dive Expert reviewer (security, performance, edge cases)
@@ -156,6 +156,7 @@ src/agentmux/workflow/handlers.py       — phase helpers and state writes
 src/agentmux/workflow/transitions.py    — PipelineContext and transition helpers
 src/agentmux/workflow/interruptions.py  — interruption catalog and reporting
 src/agentmux/workflow/plan_parser.py    — execution-plan-backed subplan labels
+src/agentmux/workflow/handoff_contracts.py — contract definitions, validation, prompt rendering for structured agent handoffs
 
 src/agentmux/monitor/__init__.py        — monitor command entrypoint
 src/agentmux/monitor/state_reader.py    — monitor state/log aggregation
@@ -166,7 +167,7 @@ src/agentmux/terminal_ui/layout.py      — shared terminal layout constants
 
 src/agentmux/integrations/github.py     — GitHub issue bootstrap and PR creation
 src/agentmux/integrations/mcp.py        — provider-native MCP setup plus runtime env wiring
-src/agentmux/integrations/mcp_research_server.py — shared MCP research server
+src/agentmux/integrations/mcp_research_server.py — shared MCP research server (research dispatch + structured submission tools)
 src/agentmux/integrations/completion.py — completion-time commit / PR / cleanup side effects
 src/agentmux/integrations/compression.py — headroom proxy lifecycle and agent env injection
 
@@ -180,6 +181,12 @@ src/agentmux/prompts/agents/            — role-level prompts (define what each
   coder.md                     —   implementation phase
   code-researcher.md           —   codebase analysis on architect request
   web-researcher.md            —   internet search on architect request
+src/agentmux/prompts/shared/            — reusable prompt fragments inlined via [[shared:...]]
+  handoff-contract-architecture.md —  MCP tool usage + YAML fallback for architecture submission
+  handoff-contract-plan.md     —   MCP tool usage + YAML fallback for execution plan/subplan submission
+  handoff-contract-review.md   —   MCP tool usage + YAML fallback for review submission
+  coder-discipline.md          —   coder workflow discipline rules
+  preference-memory.md         —   preference memory instructions
 src/agentmux/prompts/commands/          — phase-specific command prompts (what to do at each step)
   review.md                    —   code review (legacy)
   review_logic.md              —   logic alignment review
@@ -212,6 +219,7 @@ Rules:
 - **Completion/commit flow**: Update `docs/completing-phase.md`
 - **Monitor constants or sections**: Update `docs/monitor.md`
 - **Prompt templates or rendering**: Update `docs/prompts.md`
+- **Handoff contracts or MCP submit tools**: Update `docs/handoff-contracts.md`
 - **Resume logic**: Update `docs/session-resumption.md`
 - **Architectural changes** (new phases, new agents, state machine transitions): Update this file (CLAUDE.md)
 - Do **not** document implementation details that are obvious from reading the code — docs describe contracts, flows, and schemas
@@ -227,4 +235,5 @@ Deeper context on specific subsystems:
 - `docs/completing-phase.md` — Approval flow, commit selection, cleanup
 - `docs/monitor.md` — Control pane display sections, constants, rendering
 - `docs/prompts.md` — Prompt templates, placeholders, rendering pipeline, and coder research handoff injection
+- `docs/handoff-contracts.md` — Structured handoff contracts, MCP submission tools, validation, dual-file output
 - `docs/session-resumption.md` — Resume flag, phase inference, runtime rehydration

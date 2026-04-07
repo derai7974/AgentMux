@@ -37,7 +37,10 @@ def _file_exists(path: str, ctx: PipelineContext, state: dict) -> bool:
 _SPECS = (
     EventSpec(
         name="architecture_written",
-        watch_paths=("02_planning/architecture.md",),
+        watch_paths=(
+            "02_planning/architecture.md",
+            "02_planning/architecture.yaml",
+        ),
         is_ready=_file_exists,
     ),
     EventSpec(

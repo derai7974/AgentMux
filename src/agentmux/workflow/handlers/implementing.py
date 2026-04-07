@@ -46,7 +46,7 @@ def _plan_index_from_name(plan_name: str) -> int:
 
 
 def _build_implementation_schedule(*, planning_dir: Path) -> list[dict[str, object]]:
-    """Build implementation schedule from execution_plan.json."""
+    """Build implementation schedule from execution_plan.yaml."""
     execution_plan = load_execution_plan(planning_dir)
 
     schedule: list[dict[str, object]] = []
@@ -71,7 +71,7 @@ def _build_implementation_schedule(*, planning_dir: Path) -> list[dict[str, obje
 
     if len(all_indexes) != len(set(all_indexes)):
         raise RuntimeError(
-            "execution_plan.json must not reuse plan files across groups."
+            "execution_plan.yaml must not reuse plan files across groups."
         )
     if all_indexes:
         max_index = max(all_indexes)
@@ -79,7 +79,7 @@ def _build_implementation_schedule(*, planning_dir: Path) -> list[dict[str, obje
         if missing_indexes:
             missing_csv = ", ".join(str(index) for index in missing_indexes)
             raise RuntimeError(
-                f"execution_plan.json plan indexes must be contiguous "
+                f"execution_plan.yaml plan indexes must be contiguous "
                 f"from 1..{max_index}; missing: {missing_csv}."
             )
     return schedule

@@ -119,7 +119,7 @@ def _make_runtime_files(project_dir: Path, feature_dir: Path) -> RuntimeFiles:
         plan=planning_dir / "plan.md",
         architecture=planning_dir / "architecture.md",
         tasks=planning_dir / "tasks.md",
-        execution_plan=planning_dir / "execution_plan.json",
+        execution_plan=planning_dir / "execution_plan.yaml",
         design=design_dir / "design.md",
         review=review_dir / "review.md",
         fix_request=review_dir / "fix_request.md",

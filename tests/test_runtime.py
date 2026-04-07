@@ -599,10 +599,21 @@ class RuntimeTests(unittest.TestCase):
             (planning_dir / "plan_2.md").write_text(
                 "## Sub-plan 2: UI polish\n", encoding="utf-8"
             )
-            (planning_dir / "execution_plan.json").write_text(
-                (
-                    '{"version": 1, "groups": [{"group_id": "g1", "mode": "parallel", '
-                    '"plans": [{"file": "plan_2.md", "name": "UI polish"}]}]}'
+            import yaml
+
+            (planning_dir / "execution_plan.yaml").write_text(
+                yaml.dump(
+                    {
+                        "version": 1,
+                        "groups": [
+                            {
+                                "group_id": "g1",
+                                "mode": "parallel",
+                                "plans": [{"file": "plan_2.md", "name": "UI polish"}],
+                            }
+                        ],
+                    },
+                    default_flow_style=False,
                 ),
                 encoding="utf-8",
             )

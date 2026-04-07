@@ -360,10 +360,15 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             with self.subTest(template=str(template_path)):
                 template = template_path.read_text(encoding="utf-8")
                 self.assertIn("[[placeholder:project_instructions]]", template)
-                self.assertIn("Constraints:", template)
+                # Agent templates use "## Constraints", commands use "Constraints:"
+                if "## Constraints" in template:
+                    constraints_str = "## Constraints"
+                else:
+                    constraints_str = "Constraints:"
+                self.assertIn(constraints_str, template)
                 self.assertLess(
                     template.index("[[placeholder:project_instructions]]"),
-                    template.index("Constraints:"),
+                    template.index(constraints_str),
                 )
 
     def test_builders_inject_project_prompt_extensions_before_constraints(self) -> None:
@@ -456,8 +461,13 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
                 with self.subTest(marker=marker):
                     prompt = builder(files)
                     self.assertIn(marker, prompt)
-                    self.assertIn("Constraints:", prompt)
-                    self.assertLess(prompt.index(marker), prompt.index("Constraints:"))
+                    # Agent prompts use "## Constraints", commands use "Constraints:"
+                    if "## Constraints" in prompt:
+                        constraints_str = "## Constraints"
+                    else:
+                        constraints_str = "Constraints:"
+                    self.assertIn(constraints_str, prompt)
+                    self.assertLess(prompt.index(marker), prompt.index(constraints_str))
 
     def test_project_prompts_with_curly_braces_do_not_break_template_rendering(
         self,

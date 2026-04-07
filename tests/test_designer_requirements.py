@@ -108,7 +108,9 @@ def _make_ctx(
     return ctx, files.state
 
 
-def _write_execution_plan(feature_dir: Path, *, name: str = "implementation") -> None:
+def _write_execution_plan(
+    feature_dir: Path, *, name: str = "implementation", **meta: object
+) -> None:
     planning_dir = feature_dir / PLANNING_DIR
     planning_dir.mkdir(parents=True, exist_ok=True)
     (planning_dir / "plan_1.md").write_text(
@@ -117,19 +119,21 @@ def _write_execution_plan(feature_dir: Path, *, name: str = "implementation") ->
     (planning_dir / "tasks_1.md").write_text(
         "# Tasks for plan 1\n\n- [ ] task\n", encoding="utf-8"
     )
-    (planning_dir / "execution_plan.json").write_text(
-        json.dumps(
+    import yaml
+
+    data: dict[str, object] = {
+        "version": 1,
+        "groups": [
             {
-                "version": 1,
-                "groups": [
-                    {
-                        "group_id": "g1",
-                        "mode": "serial",
-                        "plans": [{"file": "plan_1.md", "name": name}],
-                    }
-                ],
+                "group_id": "g1",
+                "mode": "serial",
+                "plans": [{"file": "plan_1.md", "name": name}],
             }
-        ),
+        ],
+    }
+    data.update(meta)
+    (planning_dir / "execution_plan.yaml").write_text(
+        yaml.dump(data, default_flow_style=False),
         encoding="utf-8",
     )
 
@@ -252,7 +256,7 @@ class DesignerRequirementsTests(unittest.TestCase):
             state = load_state(state_path)
             state["phase"] = "planning"
             write_state(state_path, state)
-            _write_execution_plan(feature_dir, name="implementation")
+            _write_execution_plan(feature_dir, name="implementation", needs_design=True)
             (feature_dir / PLANNING_DIR).mkdir(parents=True, exist_ok=True)
             # Write all three required files for plan completion
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
@@ -261,14 +265,11 @@ class DesignerRequirementsTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR / "tasks.md").write_text(
                 "# Tasks\n\n- [ ] task\n", encoding="utf-8"
             )
-            (feature_dir / PLANNING_DIR / "plan_meta.json").write_text(
-                '{"needs_design": true}\n', encoding="utf-8"
-            )
 
             handler = PlanningHandler()
             event = WorkflowEvent(
                 kind="plan_written",
-                path="02_planning/plan_meta.json",
+                path="02_planning/execution_plan.yaml",
                 payload={},
             )
             updates, next_phase = handler.handle_event(

@@ -6,7 +6,9 @@ Research dispatch is now MCP-first. The architect and product-manager should cal
 
 ## MCP tools
 
-The `agentmux-research` MCP server exposes:
+The `agentmux-research` MCP server exposes research dispatch tools and structured submission tools.
+
+### Research dispatch
 
 - `agentmux_research_dispatch_code(topic, context, questions, feature_dir, scope_hints)`
 - `agentmux_research_dispatch_web(topic, context, questions, feature_dir, scope_hints)`
@@ -28,6 +30,17 @@ Typical flow:
 Research completion stays file-driven: the orchestrator detects `done`, updates task state, and sends a follow-up message pointing the owner agent to `summary.md`. `detail.md` remains available as a secondary artifact. AgentMux passes the active session directory explicitly as `feature_dir`, so the server does not rely on provider-specific environment propagation.
 
 Completed research topics are also used for coder handoff: coder prompts include references to `03_research/<type>-<topic>/summary.md` (and `detail.md` when present) for topics that have a `done` marker.
+
+### Structured submission tools
+
+The same MCP server also provides four submission tools for structured agent handoffs:
+
+- `agentmux_submit_architecture` — validates and writes `architecture.yaml` + `architecture.md`
+- `agentmux_submit_execution_plan` — validates and writes `execution_plan.yaml` + `plan.md`
+- `agentmux_submit_subplan` — validates and writes `plan_N.yaml` + `plan_N.md` + `tasks_N.md`
+- `agentmux_submit_review` — validates and writes `review.yaml` + `review.md`
+
+These tools validate input against handoff contracts defined in `agentmux/workflow/handoff_contracts.py`. See `docs/handoff-contracts.md` for full contract details.
 
 ## Provider setup strategy
 

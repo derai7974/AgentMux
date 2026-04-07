@@ -111,7 +111,7 @@ class ResumeCliAndSessionTests(unittest.TestCase):
 
 
 class InferResumePhaseTests(unittest.TestCase):
-    def _write_json(self, path: Path, text: str) -> None:
+    def _write_yaml(self, path: Path, text: str) -> None:
         path.write_text(text, encoding="utf-8")
 
     def test_non_failed_phase_returns_as_is(self) -> None:
@@ -146,8 +146,9 @@ class InferResumePhaseTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
                 "# Plan", encoding="utf-8"
             )
-            self._write_json(
-                feature_dir / PLANNING_DIR / "plan_meta.json", '{"needs_design": true}'
+            self._write_yaml(
+                feature_dir / PLANNING_DIR / "execution_plan.yaml",
+                "needs_design: true\n",
             )
             state = {"phase": "failed"}
             self.assertEqual("designing", infer_resume_phase(feature_dir, state))
@@ -241,12 +242,10 @@ class InferResumePhaseTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
                 "# Plan", encoding="utf-8"
             )
-            self._write_json(
-                feature_dir / PLANNING_DIR / "plan_meta.json",
-                (
-                    '{"needs_design": false, "needs_docs": true, '
-                    '"doc_files": ["docs/file-protocol.md"]}'
-                ),
+            self._write_yaml(
+                feature_dir / PLANNING_DIR / "execution_plan.yaml",
+                "needs_design: false\nneeds_docs: true\n"
+                "doc_files:\n- docs/file-protocol.md\n",
             )
             (feature_dir / IMPLEMENTATION_DIR / "done_1").write_text(
                 "", encoding="utf-8"
@@ -271,9 +270,9 @@ class InferResumePhaseTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
                 "# Plan", encoding="utf-8"
             )
-            self._write_json(
-                feature_dir / PLANNING_DIR / "plan_meta.json",
-                '{"needs_design": false, "needs_docs": false, "doc_files": []}',
+            self._write_yaml(
+                feature_dir / PLANNING_DIR / "execution_plan.yaml",
+                "needs_design: false\nneeds_docs: false\ndoc_files: []\n",
             )
             (feature_dir / IMPLEMENTATION_DIR / "done_1").write_text(
                 "", encoding="utf-8"
@@ -323,14 +322,17 @@ class ResumeStartupRoleTests(unittest.TestCase):
             feature_dir = Path(td)
             planning_dir = feature_dir / PLANNING_DIR
             planning_dir.mkdir(parents=True, exist_ok=True)
-            (planning_dir / "plan_meta.json").write_text(
-                json.dumps(
+            import yaml
+
+            (planning_dir / "execution_plan.yaml").write_text(
+                yaml.dump(
                     {
                         "review_strategy": {
                             "severity": "high",
                             "focus": ["security"],
                         }
-                    }
+                    },
+                    default_flow_style=False,
                 ),
                 encoding="utf-8",
             )

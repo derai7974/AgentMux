@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..sessions.state_store import now_iso, read_json_resilient, write_state
+from ..sessions.state_store import now_iso, write_state
 from .transitions import PipelineContext
 
 
@@ -56,7 +56,22 @@ def reset_markers(feature_dir: Path, pattern: str) -> None:
 
 
 def load_plan_meta(planning_dir: Path) -> dict[str, object]:
-    return read_json_resilient(planning_dir / "plan_meta.json", {})
+    import yaml
+
+    path = planning_dir / "execution_plan.yaml"
+    if not path.exists():
+        return {}
+    text = path.read_text(encoding="utf-8").strip()
+    if not text:
+        return {}
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    meta_keys = {"needs_design", "needs_docs", "doc_files", "review_strategy"}
+    return {k: v for k, v in data.items() if k in meta_keys}
 
 
 # =============================================================================
@@ -198,7 +213,7 @@ def select_reviewer_type(plan_meta: dict) -> str:
     """Select the appropriate reviewer type based on plan_meta review_strategy.
 
     Args:
-        plan_meta: The plan_meta dictionary from 02_planning/plan_meta.json
+        plan_meta: The plan_meta dictionary from 02_planning/execution_plan.yaml
 
     Returns:
         One of "logic" | "quality" | "expert"

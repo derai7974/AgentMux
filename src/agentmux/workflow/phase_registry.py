@@ -11,7 +11,6 @@ To add a new phase:
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -128,16 +127,16 @@ def _fixing_done(feature_dir: Path, state: dict[str, Any]) -> bool:
 
 def _designing_needed_and_done(feature_dir: Path, state: dict[str, Any]) -> bool:
     """True when the design artifact exists (or the phase is not needed)."""
-    plan_meta_path = feature_dir / "02_planning" / "plan_meta.json"
-    if not plan_meta_path.exists():
-        return True  # No plan_meta → designing not needed → treat as done
+    import yaml
+
+    ep_path = feature_dir / "02_planning" / "execution_plan.yaml"
+    if not ep_path.exists():
+        return True  # No execution plan → designing not needed → treat as done
     try:
-        plan_meta: dict[str, Any] = json.loads(
-            plan_meta_path.read_text(encoding="utf-8")
-        )
-    except json.JSONDecodeError:
+        data: dict[str, Any] = yaml.safe_load(ep_path.read_text(encoding="utf-8"))
+    except (yaml.YAMLError, OSError):
         return True
-    if not bool(plan_meta.get("needs_design")):
+    if not isinstance(data, dict) or not bool(data.get("needs_design")):
         return True  # Phase not required for this run
     return (feature_dir / "04_design" / "design.md").exists()
 
@@ -145,13 +144,15 @@ def _designing_needed_and_done(feature_dir: Path, state: dict[str, Any]) -> bool
 def _reviewing_startup_role(
     feature_dir: Path, state: dict[str, Any], agents: dict[str, Any]
 ) -> str | None:
+    import yaml
+
     _ = state
-    plan_meta_path = feature_dir / "02_planning" / "plan_meta.json"
+    ep_path = feature_dir / "02_planning" / "execution_plan.yaml"
     plan_meta: dict[str, Any] = {}
-    if plan_meta_path.exists():
+    if ep_path.exists():
         try:
-            loaded = json.loads(plan_meta_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+            loaded = yaml.safe_load(ep_path.read_text(encoding="utf-8"))
+        except (yaml.YAMLError, OSError):
             loaded = {}
         if isinstance(loaded, dict):
             plan_meta = loaded

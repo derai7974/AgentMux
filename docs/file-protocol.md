@@ -22,10 +22,12 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 
 - `architect_prompt.md` / `changes_prompt.txt` — architect prompts (for architecting phase)
 - `planner_prompt.md` — planner prompt for creating execution plans
-- `architecture.md` — technical architecture document created by architect (the "What" and "With what")
+- `architecture.yaml` — canonical structured architecture document (the "What" and "With what"); written by MCP `agentmux_submit_architecture` or directly by the architect
+- `architecture.md` — human-readable companion of `architecture.yaml`
 - `plan.md` — human-readable planning overview created by planner
 - `plan_<N>.md` — executable per-unit implementation plans referenced by scheduler metadata
-- `execution_plan.json` — machine-readable schedule of ordered execution groups
+- `plan_<N>.yaml` — canonical structured sub-plan data; written by MCP `agentmux_submit_subplan` or directly by the planner
+- `execution_plan.yaml` — merged machine-readable schedule and planner metadata
   - Each group has a unique `group_id` and an execution mode (`serial` or `parallel`)
   - `serial` groups execute plans one at a time in order (useful for sequential integration steps)
   - `parallel` groups execute all plans simultaneously
@@ -35,7 +37,8 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
   - Group ordering defines implementation wave order
 - `tasks_<N>.md` — per-plan implementation checklists; each coder receives only their assigned plan's tasks
 - `tasks.md` — optional human-readable overview summarizing all tasks (not used by scheduler)
-- `plan_meta.json` — planner workflow-intent metadata:
+
+The `execution_plan.yaml` file also contains planner workflow-intent metadata alongside the groups:
   - `needs_design` (`true`/`false`) — whether to run a dedicated design handoff
   - `needs_docs` (`true`/`false`) — informational signal that documentation updates are in scope
   - `doc_files` (`string[]`) — planned documentation targets when docs work is in scope
@@ -46,7 +49,7 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 
 Execution scheduling is strict:
 
-- `execution_plan.json` is required before implementation starts.
+- `execution_plan.yaml` is required before implementation starts.
 - `groups[].plans[]` entries must use `{ "file": "plan_<N>.md", "name": "Human title" }` objects.
 - Implementation dispatch uses numbered prompt files (`coder_prompt_<N>.txt`) only.
 
@@ -74,12 +77,13 @@ Execution scheduling is strict:
 ## Review (`06_review/`)
 
 - `review_prompt.md` / `review.md` — legacy review prompt (backward compatibility)
+- `review.yaml` — canonical structured review verdict and findings; written by MCP `agentmux_submit_review` or directly by the reviewer
 - `review_logic_prompt.md` — Logic & Alignment reviewer prompt (functional correctness vs plan)
 - `review_quality_prompt.md` — Quality & Style reviewer prompt (clean code, naming, standards)
 - `review_expert_prompt.md` — Deep-Dive Expert reviewer prompt (security, performance, edge cases)
 - `fix_prompt.txt` / `fix_request.md`
 
-**Reviewer Selection:** Which prompt is used depends on `plan_meta.review_strategy`:
+**Reviewer Selection:** Which prompt is used depends on `execution_plan.yaml` `review_strategy`:
 - Missing `review_strategy` → uses `review_logic_prompt.md` (backward compatible default)
 - `severity: low` → uses `review_quality_prompt.md`
 - `severity: medium/high` without security/performance focus → uses `review_logic_prompt.md`

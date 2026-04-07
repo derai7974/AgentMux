@@ -6,7 +6,7 @@ Session directory: [[placeholder:feature_dir]]
 [[include:state.json]]
 </file>
 
-Then inspect `02_planning/plan_meta.json` for the `review_strategy.focus` array and perform deep analysis on those specific areas.
+Then inspect `02_planning/execution_plan.yaml` for the `review_strategy.focus` array and perform deep analysis on those specific areas.
 
 ## Your Checklist
 
@@ -20,7 +20,7 @@ Then inspect `02_planning/plan_meta.json` for the `review_strategy.focus` array 
 **Constraint:** Deep analysis mode — investigate thoroughly. This is expert-level scrutiny; assume sophisticated threat models matter here.
 
 Your job:
-1. Review the implementation for security vulnerabilities and performance issues based on focus areas from `plan_meta.review_strategy.focus`.
+1. Review the implementation for security vulnerabilities and performance issues based on focus areas from `execution_plan.yaml`'s `review_strategy.focus`.
 2. Always write `06_review/review.md`.
 3. The first line of `06_review/review.md` must be exactly one of:
    - `verdict: pass`
@@ -31,6 +31,8 @@ Your job:
 7. FINAL STEP ONLY — once `06_review/review.md` is fully written and nothing else remains, stop. Do not update `state.json` or any workflow status from review.
 
 [[placeholder:project_instructions]]
+
+[[shared:handoff-contract-review]]
 
 Constraints:
 - Communicate only through the files in the shared feature directory.
