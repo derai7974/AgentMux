@@ -127,7 +127,7 @@ class TestProductManagementHandler:
     def test_handle_pm_completed(self, mock_ctx: MagicMock, empty_state: dict) -> None:
         """Test handling of pm_done marker."""
         handler = ProductManagementHandler()
-        event = WorkflowEvent(kind="pm_completed", path="01_product_management/done")
+        event = WorkflowEvent(kind="pm_done", payload={"payload": {}})
 
         with patch(
             "agentmux.workflow.handlers.product_management.apply_role_preferences"
@@ -145,13 +145,16 @@ class TestProductManagementHandler:
         """Test dispatching code-researcher task."""
         handler = ProductManagementHandler()
         event = WorkflowEvent(
-            kind="code_research_requested", path="03_research/code-auth/request.md"
+            kind="research_code_req",
+            payload={
+                "payload": {
+                    "topic": "auth",
+                    "context": "Need to understand auth flow",
+                    "questions": ["How does auth work?"],
+                    "scope_hints": ["src/auth/"],
+                }
+            },
         )
-
-        # Create the request file
-        research_dir = mock_ctx.files.research_dir / "code-auth"
-        research_dir.mkdir(parents=True, exist_ok=True)
-        (research_dir / "request.md").write_text("research auth")
 
         with (
             patch("agentmux.workflow.prompts.write_prompt_file") as mock_write,
@@ -164,6 +167,7 @@ class TestProductManagementHandler:
 
             updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
+            research_dir = mock_ctx.files.research_dir / "code-auth"
             mock_ctx.runtime.spawn_task.assert_called_once_with(
                 "code-researcher", "auth", research_dir
             )
@@ -177,13 +181,16 @@ class TestProductManagementHandler:
         """Test dispatching web-researcher task."""
         handler = ProductManagementHandler()
         event = WorkflowEvent(
-            kind="web_research_requested", path="03_research/web-api/request.md"
+            kind="research_web_req",
+            payload={
+                "payload": {
+                    "topic": "api",
+                    "context": "Need to understand API design",
+                    "questions": ["What are best practices?"],
+                    "scope_hints": [],
+                }
+            },
         )
-
-        # Create the request file
-        research_dir = mock_ctx.files.research_dir / "web-api"
-        research_dir.mkdir(parents=True, exist_ok=True)
-        (research_dir / "request.md").write_text("research api")
 
         with (
             patch("agentmux.workflow.prompts.write_prompt_file") as mock_write,
@@ -196,6 +203,7 @@ class TestProductManagementHandler:
 
             updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
+            research_dir = mock_ctx.files.research_dir / "web-api"
             mock_ctx.runtime.spawn_task.assert_called_once_with(
                 "web-researcher", "api", research_dir
             )
@@ -208,7 +216,8 @@ class TestProductManagementHandler:
         """Test handling code-research completion."""
         handler = ProductManagementHandler()
         event = WorkflowEvent(
-            kind="code_research_done", path="03_research/code-auth/done"
+            kind="research_done",
+            payload={"payload": {"topic": "auth", "role_type": "code"}},
         )
 
         # Setup state with dispatched task
@@ -226,7 +235,15 @@ class TestProductManagementHandler:
         """Test that already dispatched research is not re-dispatched."""
         handler = ProductManagementHandler()
         event = WorkflowEvent(
-            kind="code_research_requested", path="03_research/code-auth/request.md"
+            kind="research_code_req",
+            payload={
+                "payload": {
+                    "topic": "auth",
+                    "context": "Need to understand auth",
+                    "questions": ["How does auth work?"],
+                    "scope_hints": [],
+                }
+            },
         )
 
         # Setup state with already dispatched task
@@ -304,7 +321,7 @@ class TestPlanningHandler:
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
         handler = PlanningHandler()
-        event = WorkflowEvent(kind="plan_written", path="02_planning/plan.md")
+        event = WorkflowEvent(kind="execution_plan", payload={"payload": {}})
 
         # Create all required files
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
@@ -335,7 +352,7 @@ class TestPlanningHandler:
     ) -> None:
         """Test transition to designing when needs_design is true."""
         handler = PlanningHandler()
-        event = WorkflowEvent(kind="plan_written", path="02_planning/plan.md")
+        event = WorkflowEvent(kind="execution_plan", payload={"payload": {}})
 
         # Create all required files
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
@@ -363,9 +380,9 @@ class TestPlanningHandler:
     def test_deletes_changes_md_on_transition(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
-        """Test that changes.md is deleted on plan_written transition."""
+        """Test that changes.md is deleted on execution_plan submission."""
         handler = PlanningHandler()
-        event = WorkflowEvent(kind="plan_written", path="02_planning/plan.md")
+        event = WorkflowEvent(kind="execution_plan", payload={"payload": {}})
 
         # Create all required files including changes.md
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
@@ -493,9 +510,9 @@ class TestImplementingHandler:
     def test_handle_subplan_completed_parallel_mode(self, mock_ctx: MagicMock) -> None:
         """Test handling subplan completion in parallel mode."""
         handler = ImplementingHandler()
-        event = WorkflowEvent(kind="done_marker", path="05_implementation/done_1")
+        event = WorkflowEvent(kind="done", payload={"payload": {"subplan_index": 1}})
 
-        # Create the done marker so is_ready predicate passes
+        # Pre-create done_1 so group-completion check sees it as already done
         mock_ctx.files.implementation_dir.mkdir(parents=True, exist_ok=True)
         (mock_ctx.files.implementation_dir / "done_1").touch()
 
@@ -539,7 +556,7 @@ class TestImplementingHandler:
     def test_handle_implementation_completed(self, mock_ctx: MagicMock) -> None:
         """Test transition when all implementation is complete."""
         handler = ImplementingHandler()
-        event = WorkflowEvent(kind="done_marker", path="05_implementation/done_1")
+        event = WorkflowEvent(kind="done", payload={"payload": {"subplan_index": 1}})
 
         # Setup state with all markers complete
         state = {
@@ -727,11 +744,19 @@ class TestReviewingHandler:
     def test_handle_review_passed(self, mock_ctx: MagicMock, empty_state: dict) -> None:
         """Test that VERDICT:PASS stays in reviewing and requests summary."""
         handler = ReviewingHandler()
-        event = WorkflowEvent(kind="review_ready", path="06_review/review.md")
+        event = WorkflowEvent(
+            kind="review",
+            payload={
+                "payload": {
+                    "verdict": "pass",
+                    "summary": "Looks good!",
+                    "findings": [],
+                    "commit_message": "feat: all done",
+                }
+            },
+        )
 
-        # Create review.md with pass verdict
         mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
-        mock_ctx.files.review.write_text("verdict: pass\n\nLooks good!")
 
         updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
@@ -745,25 +770,28 @@ class TestReviewingHandler:
     def test_handle_review_yaml_pass_materializes_review_md(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
+        """Review tool event writes both review.yaml and review.md."""
         handler = ReviewingHandler()
-        event = WorkflowEvent(kind="review_ready", path="06_review/review.yaml")
-
-        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
-        (mock_ctx.files.review_dir / "review.yaml").write_text(
-            yaml.dump(
-                {
+        event = WorkflowEvent(
+            kind="review",
+            payload={
+                "payload": {
                     "verdict": "pass",
                     "summary": "Looks good!",
-                },
-                sort_keys=False,
-            ),
-            encoding="utf-8",
+                    "findings": [],
+                    "commit_message": "feat: done",
+                }
+            },
         )
+
+        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
 
         updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
         assert next_phase is None
         assert updates.get("awaiting_summary") is True
+        yaml_path = mock_ctx.files.review_dir / "review.yaml"
+        assert yaml_path.exists()
         assert mock_ctx.files.review.exists()
         assert mock_ctx.files.review.read_text(encoding="utf-8").startswith(
             "verdict: pass"
@@ -774,11 +802,26 @@ class TestReviewingHandler:
     ) -> None:
         """Test transition to fixing when under max iterations."""
         handler = ReviewingHandler()
-        event = WorkflowEvent(kind="review_ready", path="06_review/review.md")
+        event = WorkflowEvent(
+            kind="review",
+            payload={
+                "payload": {
+                    "verdict": "fail",
+                    "summary": "Needs fixes",
+                    "findings": [
+                        {
+                            "location": "src/example.py:10",
+                            "issue": "Missing validation",
+                            "severity": "high",
+                            "recommendation": "Add check",
+                        }
+                    ],
+                    "commit_message": "",
+                }
+            },
+        )
 
-        # Create review.md with fail verdict
         mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
-        mock_ctx.files.review.write_text("verdict: fail\n\nNeeds fixes")
 
         updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
@@ -789,13 +832,12 @@ class TestReviewingHandler:
     def test_handle_review_yaml_fail_creates_fix_request(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
+        """Review tool event with fail verdict creates fix_request.txt."""
         handler = ReviewingHandler()
-        event = WorkflowEvent(kind="review_ready", path="06_review/review.yaml")
-
-        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
-        (mock_ctx.files.review_dir / "review.yaml").write_text(
-            yaml.dump(
-                {
+        event = WorkflowEvent(
+            kind="review",
+            payload={
+                "payload": {
                     "verdict": "fail",
                     "summary": "Needs fixes",
                     "findings": [
@@ -806,11 +848,12 @@ class TestReviewingHandler:
                             "recommendation": "Add the missing check.",
                         }
                     ],
-                },
-                sort_keys=False,
-            ),
-            encoding="utf-8",
+                    "commit_message": "",
+                }
+            },
         )
+
+        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
 
         updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
@@ -826,11 +869,26 @@ class TestReviewingHandler:
     ) -> None:
         """Test transition to completing when max iterations reached."""
         handler = ReviewingHandler()
-        event = WorkflowEvent(kind="review_ready", path="06_review/review.md")
+        event = WorkflowEvent(
+            kind="review",
+            payload={
+                "payload": {
+                    "verdict": "fail",
+                    "summary": "Still failing",
+                    "findings": [
+                        {
+                            "location": "src/example.py:10",
+                            "issue": "Persistent issue",
+                            "severity": "high",
+                            "recommendation": "Fix it",
+                        }
+                    ],
+                    "commit_message": "",
+                }
+            },
+        )
 
-        # Create review.md with fail verdict
         mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
-        mock_ctx.files.review.write_text("verdict: fail\n\nStill failing")
 
         # Set state at max iterations
         state = {"review_iteration": 3}
@@ -1085,13 +1143,16 @@ class TestHandlerEdgeCases:
         """Test that handlers preserve existing state fields."""
         handler = ProductManagementHandler()
         event = WorkflowEvent(
-            kind="code_research_requested", path="03_research/code-auth/request.md"
+            kind="research_code_req",
+            payload={
+                "payload": {
+                    "topic": "auth",
+                    "context": "Need to understand auth",
+                    "questions": ["How does auth work?"],
+                    "scope_hints": [],
+                }
+            },
         )
-
-        # Create the request file
-        research_dir = mock_ctx.files.research_dir / "code-auth"
-        research_dir.mkdir(parents=True, exist_ok=True)
-        (research_dir / "request.md").write_text("research auth")
 
         # State with existing fields
         state = {

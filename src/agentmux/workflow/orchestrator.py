@@ -11,6 +11,7 @@ from ..runtime.interruption_sources import (
     INTERRUPTION_EVENT_PANE_EXITED,
     InterruptionEventSource,
 )
+from ..runtime.tool_events import ToolCallEventSource
 from ..sessions.state_store import cleanup_feature_dir, load_state
 from ..shared.models import BATCH_AGENT_ROLES, GitHubConfig, WorkflowSettings
 from .event_router import WorkflowEvent, WorkflowEventRouter
@@ -55,10 +56,11 @@ class PipelineOrchestrator:
         )
 
     def build_event_bus(self, files, runtime, wake_event: threading.Event) -> EventBus:
-        """Build the event bus with file and interruption sources."""
+        """Build the event bus with file, tool-call, and interruption sources."""
         bus = EventBus(
             sources=[
                 FileEventSource(files.feature_dir),
+                ToolCallEventSource(files.feature_dir),
                 InterruptionEventSource(runtime),
             ]
         )

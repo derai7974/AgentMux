@@ -8,7 +8,7 @@ Handoff contracts define the structured interface between workflow phases. Each 
 
 Agents submit phase outputs through either:
 
-1. **MCP submission tools** (preferred) — the `agentmux-research` MCP server exposes four `agentmux_submit_*` tools that accept structured parameters, validate them against the contract, and write both `.yaml` and `.md` files.
+1. **MCP submission tools** (preferred) — the `agentmux-research` MCP server exposes `submit_*` tools that accept structured parameters, validate them against the contract, append an event to `tool_events.jsonl`, and return a confirmation string. The tools are **pure**: they do not write workflow artifacts directly. The orchestrator observes the event and drives artifact creation as a side-effect. Agents no longer need to create any files manually.
 2. **Direct YAML write** (fallback) — agents that cannot call MCP tools write the canonical `.yaml` file directly. Shared prompt fragments (`[[shared:handoff-contract-*]]`) embedded in agent prompts provide the YAML schema and examples.
 
 Completion semantics are phase-specific:
@@ -21,7 +21,7 @@ Completion semantics are phase-specific:
 
 ### Architecture
 
-- **MCP tool:** `agentmux_submit_architecture`
+- **MCP tool:** `submit_architecture`
 - **Canonical file:** `02_planning/architecture.yaml`
 - **Companion file:** `02_planning/architecture.md`
 - **Required fields:** `solution_overview`, `components` (list of `{name, responsibility, interfaces}`), `interfaces_and_contracts`, `data_models`, `cross_cutting_concerns`, `technology_choices`, `risks_and_mitigations`
@@ -29,7 +29,7 @@ Completion semantics are phase-specific:
 
 ### Execution plan
 
-- **MCP tool:** `agentmux_submit_execution_plan`
+- **MCP tool:** `submit_execution_plan`
 - **Canonical file:** `02_planning/execution_plan.yaml`
 - **Companion file:** `02_planning/plan.md`
 - **Required fields:** `groups` (list of `{group_id, mode, plans: [{file, name}]}`), `review_strategy` (`{severity, focus}`), `needs_design`, `needs_docs`, `doc_files`, `plan_overview`
@@ -38,7 +38,7 @@ The YAML file merges the former `execution_plan.json` scheduling data and `plan_
 
 ### Subplan
 
-- **MCP tool:** `agentmux_submit_subplan`
+- **MCP tool:** `submit_subplan`
 - **Canonical file:** `02_planning/plan_N.yaml`
 - **Companion files:** `02_planning/plan_N.md`, `02_planning/tasks_N.md`
 - **Required fields:** `index`, `title`, `scope`, `owned_files`, `dependencies`, `implementation_approach`, `acceptance_criteria`, `tasks`
@@ -48,7 +48,7 @@ Subplans are submitted individually before the execution plan. The `index` value
 
 ### Review
 
-- **MCP tool:** `agentmux_submit_review`
+- **MCP tool:** `submit_review`
 - **Canonical file:** `06_review/review.yaml`
 - **Companion file:** `06_review/review.md`
 - **Required fields:** `verdict` (`"pass"` or `"fail"`), `summary`

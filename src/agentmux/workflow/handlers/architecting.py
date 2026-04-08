@@ -7,14 +7,16 @@ separation between "What/With what" (architect) and "How/When" (planner).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from agentmux.workflow.event_catalog import EVENT_ARCHITECTURE_WRITTEN
 from agentmux.workflow.event_router import (
     EventSpec,
+    ToolSpec,
     WorkflowEvent,
-    extract_research_topic,
 )
+from agentmux.workflow.handoff_artifacts import submit_architecture
 from agentmux.workflow.phase_helpers import (
     apply_role_preferences,
     dispatch_research_task,
@@ -30,42 +32,6 @@ if TYPE_CHECKING:
     from agentmux.workflow.transitions import PipelineContext
 
 
-def _file_exists(path: str, ctx: PipelineContext, state: dict) -> bool:
-    return (ctx.files.feature_dir / path).exists()
-
-
-_SPECS = (
-    EventSpec(
-        name="architecture_written",
-        watch_paths=(
-            "02_planning/architecture.md",
-            "02_planning/architecture.yaml",
-        ),
-        is_ready=_file_exists,
-    ),
-    EventSpec(
-        name="code_research_requested",
-        watch_paths=("03_research/code-*/request.md",),
-        is_ready=_file_exists,
-    ),
-    EventSpec(
-        name="web_research_requested",
-        watch_paths=("03_research/web-*/request.md",),
-        is_ready=_file_exists,
-    ),
-    EventSpec(
-        name="code_research_done",
-        watch_paths=("03_research/code-*/done",),
-        is_ready=_file_exists,
-    ),
-    EventSpec(
-        name="web_research_done",
-        watch_paths=("03_research/web-*/done",),
-        is_ready=_file_exists,
-    ),
-)
-
-
 class ArchitectingHandler:
     """Event-driven handler for architecting phase.
 
@@ -74,8 +40,25 @@ class ArchitectingHandler:
     When architecture.md is written, the phase transitions to 'planning'.
     """
 
-    def get_event_specs(self) -> tuple[EventSpec, ...]:
-        return _SPECS
+    def get_event_specs(self) -> Sequence[EventSpec]:
+        return ()
+
+    def get_tool_specs(self) -> Sequence[ToolSpec]:
+        return (
+            ToolSpec(name="architecture", tool_names=("submit_architecture",)),
+            ToolSpec(
+                name="research_code_req",
+                tool_names=("research_dispatch_code",),
+            ),
+            ToolSpec(
+                name="research_web_req",
+                tool_names=("research_dispatch_web",),
+            ),
+            ToolSpec(
+                name="research_done",
+                tool_names=("submit_research_done",),
+            ),
+        )
 
     def enter(self, state: dict, ctx: PipelineContext) -> dict:
         """Called when entering architecting phase."""
@@ -94,48 +77,31 @@ class ArchitectingHandler:
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle events for architecting phase."""
-        if event.kind == "architecture_written":
-            return self._handle_architecture_written(state, ctx)
+        match event.kind:
+            case "architecture":
+                return self._handle_architecture(event, state, ctx)
+            case "research_code_req":
+                return self._handle_research_code_req(event, state, ctx)
+            case "research_web_req":
+                return self._handle_research_web_req(event, state, ctx)
+            case "research_done":
+                return self._handle_research_done(event, state, ctx)
+            case _:
+                return {}, None
 
-        if event.kind == "code_research_requested":
-            topic = extract_research_topic(event.path or "", "code-")
-            if topic:
-                return dispatch_research_task("code-researcher", topic, state, ctx)
-
-        if event.kind == "web_research_requested":
-            topic = extract_research_topic(event.path or "", "web-")
-            if topic:
-                return dispatch_research_task("web-researcher", topic, state, ctx)
-
-        if event.kind == "code_research_done":
-            topic = extract_research_topic(event.path or "", "code-")
-            if topic:
-                return notify_research_complete(
-                    "code-researcher", topic, state, ctx, "architect"
-                )
-
-        if event.kind == "web_research_done":
-            topic = extract_research_topic(event.path or "", "web-")
-            if topic:
-                return notify_research_complete(
-                    "web-researcher", topic, state, ctx, "architect"
-                )
-
-        return {}, None
-
-    def _handle_architecture_written(
+    def _handle_architecture(
         self,
+        event: WorkflowEvent,
         state: dict,
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
-        """Handle architecture written event.
+        """Handle architecture submission via tool event."""
+        payload = event.payload.get("payload", {})
 
-        When architecture.md is written, transition to planning phase
-        where the planner will create execution plans.
-        """
-        # Check if architecture file exists
-        if not ctx.files.architecture.exists():
-            return {}, None
+        # Write architecture artifacts (idempotent — guard by existence)
+        yaml_path = ctx.files.planning_dir / "architecture.yaml"
+        if not yaml_path.exists():
+            submit_architecture(ctx.files.feature_dir, payload)
 
         # Apply approved preferences from architect
         apply_role_preferences(ctx, "architect")
@@ -150,3 +116,87 @@ class ArchitectingHandler:
 
         # Transition to planning phase (planner takes over)
         return {"last_event": EVENT_ARCHITECTURE_WRITTEN}, "planning"
+
+    def _handle_research_code_req(
+        self,
+        event: WorkflowEvent,
+        state: dict,
+        ctx: PipelineContext,
+    ) -> tuple[dict, str | None]:
+        """Handle code research request via tool event."""
+        payload = event.payload.get("payload", {})
+        topic = payload.get("topic", "")
+        if not topic:
+            return {}, None
+
+        # Write request.md before dispatching (side-effect ordering requirement)
+        req_dir = ctx.files.research_dir / f"code-{topic}"
+        req_dir.mkdir(parents=True, exist_ok=True)
+        req_path = req_dir / "request.md"
+        if not req_path.exists():
+            questions = payload.get("questions", [])
+            scope_hints = payload.get("scope_hints", [])
+            content = (
+                f"# Research Request: {topic}\n\n"
+                f"## Context\n{payload.get('context', '')}\n\n"
+                f"## Questions\n"
+                + "\n".join(f"- {q}" for q in questions)
+                + (
+                    "\n\n## Scope Hints\n" + "\n".join(f"- {h}" for h in scope_hints)
+                    if scope_hints
+                    else ""
+                )
+            )
+            req_path.write_text(content, encoding="utf-8")
+
+        return dispatch_research_task("code-researcher", topic, state, ctx)
+
+    def _handle_research_web_req(
+        self,
+        event: WorkflowEvent,
+        state: dict,
+        ctx: PipelineContext,
+    ) -> tuple[dict, str | None]:
+        """Handle web research request via tool event."""
+        payload = event.payload.get("payload", {})
+        topic = payload.get("topic", "")
+        if not topic:
+            return {}, None
+
+        # Write request.md before dispatching (side-effect ordering requirement)
+        req_dir = ctx.files.research_dir / f"web-{topic}"
+        req_dir.mkdir(parents=True, exist_ok=True)
+        req_path = req_dir / "request.md"
+        if not req_path.exists():
+            questions = payload.get("questions", [])
+            scope_hints = payload.get("scope_hints", [])
+            content = (
+                f"# Research Request: {topic}\n\n"
+                f"## Context\n{payload.get('context', '')}\n\n"
+                f"## Questions\n"
+                + "\n".join(f"- {q}" for q in questions)
+                + (
+                    "\n\n## Scope Hints\n" + "\n".join(f"- {h}" for h in scope_hints)
+                    if scope_hints
+                    else ""
+                )
+            )
+            req_path.write_text(content, encoding="utf-8")
+
+        return dispatch_research_task("web-researcher", topic, state, ctx)
+
+    def _handle_research_done(
+        self,
+        event: WorkflowEvent,
+        state: dict,
+        ctx: PipelineContext,
+    ) -> tuple[dict, str | None]:
+        """Handle research completion via tool event."""
+        payload = event.payload.get("payload", {})
+        topic = payload.get("topic", "")
+        role_type = payload.get("role_type", "")
+        if not topic or not role_type:
+            return {}, None
+
+        role = "code-researcher" if role_type == "code" else "web-researcher"
+        return notify_research_complete(role, topic, state, ctx, "architect")

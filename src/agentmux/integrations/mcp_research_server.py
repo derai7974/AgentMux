@@ -5,19 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from ..shared.models import SESSION_DIR_NAMES
-from ..workflow.handoff_artifacts import (
-    submit_architecture as write_architecture_submission,
-)
-from ..workflow.handoff_artifacts import (
-    submit_execution_plan as write_execution_plan_submission,
-)
-from ..workflow.handoff_artifacts import (
-    submit_review as write_review_submission,
-)
-from ..workflow.handoff_artifacts import (
-    submit_subplan as write_subplan_submission,
-)
+from ..runtime.tool_events import append_tool_event
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -50,6 +38,10 @@ def _feature_dir(feature_dir: str | None = None) -> Path:
     return path
 
 
+def _log_path(feature_dir: str | None = None) -> Path:
+    return _feature_dir(feature_dir) / "tool_events.jsonl"
+
+
 def _validate_topic(topic: str) -> str:
     normalized = topic.strip()
     if not normalized or not TOPIC_PATTERN.fullmatch(normalized):
@@ -78,93 +70,79 @@ def _normalize_scope_hints(scope_hints: str | list[str] | None) -> list[str] | N
     return cleaned or None
 
 
-def _research_dir(
-    topic: str, research_type: str, feature_dir: str | None = None
-) -> Path:
-    return (
-        _feature_dir(feature_dir)
-        / SESSION_DIR_NAMES["research"]
-        / f"{research_type}-{topic}"
-    )
+def _validate_or_raise(contract_name: str, data: dict[str, Any]) -> None:
+    """Validate data against the contract for the given name.
+
+    Raises ValueError with details if validation fails.
+    """
+    from ..workflow.handoff_contracts import ValidationError, validate_submission
+
+    try:
+        errors = validate_submission(contract_name, data)
+    except ValidationError as exc:
+        raise ValueError(str(exc)) from exc
+    if errors:
+        raise ValueError("; ".join(errors))
 
 
-def _request_content(
-    context: str, questions: list[str], scope_hints: list[str] | None
-) -> str:
-    lines = [
-        "## Context",
-        context.strip(),
-        "",
-        "## Questions",
-    ]
-    for index, question in enumerate(questions, start=1):
-        lines.append(f"{index}. {question}")
-
-    lines.extend(["", "## Scope hints"])
-    if scope_hints:
-        lines.extend(f"- {hint}" for hint in scope_hints)
-    else:
-        lines.append("- (none provided)")
-
-    return "\n".join(lines).rstrip() + "\n"
+# ---------------------------------------------------------------------------
+# Research dispatch tools
+# ---------------------------------------------------------------------------
 
 
-def _dispatch(
-    research_type: str,
+@_tool()
+def research_dispatch_code(
     topic: str,
     context: str,
     questions: list[str],
-    scope_hints: str | list[str] | None,
     feature_dir: str | None = None,
+    scope_hints: str | list[str] | None = None,
 ) -> str:
+    """Dispatch a code-research task."""
     normalized_topic = _validate_topic(topic)
     normalized_questions = _validate_questions(questions)
     normalized_scope_hints = _normalize_scope_hints(scope_hints)
-    directory = _research_dir(normalized_topic, research_type, feature_dir)
-    directory.mkdir(parents=True, exist_ok=True)
-
-    request_path = directory / "request.md"
-    request_path.write_text(
-        _request_content(context, normalized_questions, normalized_scope_hints),
-        encoding="utf-8",
-    )
-
-    label = "Code research" if research_type == "code" else "Web research"
-    return f"{label} on '{normalized_topic}' dispatched."
-
-
-def _result_content(topic: str, directory: Path, detail: bool) -> str:
-    filename = "detail.md" if detail else "summary.md"
-    target = directory / filename
-    if not target.exists():
-        return f"Research on '{topic}' completed but {filename} is missing."
-    return target.read_text(encoding="utf-8")
+    payload = {
+        "topic": normalized_topic,
+        "context": context.strip(),
+        "questions": normalized_questions,
+        "scope_hints": normalized_scope_hints,
+        "research_type": "code",
+    }
+    append_tool_event(_log_path(feature_dir), "research_dispatch_code", payload)
+    return f"Code research on '{normalized_topic}' dispatched."
 
 
 @_tool()
-def agentmux_research_dispatch_code(
+def research_dispatch_web(
     topic: str,
     context: str,
     questions: list[str],
     feature_dir: str | None = None,
     scope_hints: str | list[str] | None = None,
 ) -> str:
-    return _dispatch("code", topic, context, questions, scope_hints, feature_dir)
+    """Dispatch a web-research task."""
+    normalized_topic = _validate_topic(topic)
+    normalized_questions = _validate_questions(questions)
+    normalized_scope_hints = _normalize_scope_hints(scope_hints)
+    payload = {
+        "topic": normalized_topic,
+        "context": context.strip(),
+        "questions": normalized_questions,
+        "scope_hints": normalized_scope_hints,
+        "research_type": "web",
+    }
+    append_tool_event(_log_path(feature_dir), "research_dispatch_web", payload)
+    return f"Web research on '{normalized_topic}' dispatched."
+
+
+# ---------------------------------------------------------------------------
+# Submission tools
+# ---------------------------------------------------------------------------
 
 
 @_tool()
-def agentmux_research_dispatch_web(
-    topic: str,
-    context: str,
-    questions: list[str],
-    feature_dir: str | None = None,
-    scope_hints: str | list[str] | None = None,
-) -> str:
-    return _dispatch("web", topic, context, questions, scope_hints, feature_dir)
-
-
-@_tool()
-def agentmux_submit_architecture(
+def submit_architecture(
     solution_overview: str,
     components: list[dict[str, Any]],
     interfaces_and_contracts: str,
@@ -177,7 +155,7 @@ def agentmux_submit_architecture(
 ) -> str:
     """Submit architecture document.
 
-    Validates input, writes architecture.yaml + architecture.md.
+    Validates input and appends to tool_events.jsonl.
     """
     data: dict[str, Any] = {
         "solution_overview": solution_overview,
@@ -191,11 +169,13 @@ def agentmux_submit_architecture(
     if design_handoff is not None:
         data["design_handoff"] = design_handoff
 
-    return write_architecture_submission(_feature_dir(feature_dir), data)
+    _validate_or_raise("architecture", data)
+    append_tool_event(_log_path(feature_dir), "submit_architecture", data)
+    return "Architecture submitted."
 
 
 @_tool()
-def agentmux_submit_execution_plan(
+def submit_execution_plan(
     groups: list[dict[str, Any]],
     review_strategy: dict[str, Any],
     needs_design: bool,
@@ -204,7 +184,7 @@ def agentmux_submit_execution_plan(
     plan_overview: str,
     feature_dir: str | None = None,
 ) -> str:
-    """Submit the execution plan. Validates and writes execution_plan.yaml + plan.md."""
+    """Submit the execution plan. Validates and appends to tool_events.jsonl."""
     data: dict[str, Any] = {
         "groups": groups,
         "review_strategy": review_strategy,
@@ -214,11 +194,13 @@ def agentmux_submit_execution_plan(
         "plan_overview": plan_overview,
     }
 
-    return write_execution_plan_submission(_feature_dir(feature_dir), data)
+    _validate_or_raise("execution_plan", data)
+    append_tool_event(_log_path(feature_dir), "submit_execution_plan", data)
+    return "Execution plan submitted."
 
 
 @_tool()
-def agentmux_submit_subplan(
+def submit_subplan(
     index: int,
     title: str,
     scope: str,
@@ -230,10 +212,7 @@ def agentmux_submit_subplan(
     feature_dir: str | None = None,
     isolation_rationale: str | None = None,
 ) -> str:
-    """Submit a sub-plan.
-
-    Validates and writes plan_N.yaml, plan_N.md, tasks_N.md.
-    """
+    """Submit a sub-plan. Validates and appends to tool_events.jsonl."""
     data: dict[str, Any] = {
         "index": index,
         "title": title,
@@ -247,18 +226,20 @@ def agentmux_submit_subplan(
     if isolation_rationale is not None:
         data["isolation_rationale"] = isolation_rationale
 
-    return write_subplan_submission(_feature_dir(feature_dir), data)
+    _validate_or_raise("subplan", data)
+    append_tool_event(_log_path(feature_dir), "submit_subplan", data)
+    return f"Sub-plan {index} submitted."
 
 
 @_tool()
-def agentmux_submit_review(
+def submit_review(
     verdict: str,
     summary: str,
     feature_dir: str | None = None,
     findings: list[dict[str, Any]] | None = None,
     commit_message: str | None = None,
 ) -> str:
-    """Submit a code review. Validates and writes review.yaml + review.md."""
+    """Submit a code review. Validates and appends to tool_events.jsonl."""
     data: dict[str, Any] = {
         "verdict": verdict,
         "summary": summary,
@@ -268,7 +249,55 @@ def agentmux_submit_review(
     if commit_message is not None:
         data["commit_message"] = commit_message
 
-    return write_review_submission(_feature_dir(feature_dir), data)
+    _validate_or_raise("review", data)
+    append_tool_event(_log_path(feature_dir), "submit_review", data)
+    return f"Review submitted (verdict: {verdict})."
+
+
+# ---------------------------------------------------------------------------
+# Completion-signal tools
+# ---------------------------------------------------------------------------
+
+
+@_tool()
+def submit_done(
+    subplan_index: int,
+    feature_dir: str | None = None,
+) -> str:
+    """Mark a sub-plan as done."""
+    if not isinstance(subplan_index, int) or subplan_index < 1:
+        raise ValueError("subplan_index must be an integer >= 1.")
+    append_tool_event(
+        _log_path(feature_dir), "submit_done", {"subplan_index": subplan_index}
+    )
+    return f"Sub-plan {subplan_index} marked done."
+
+
+@_tool()
+def submit_research_done(
+    topic: str,
+    type: str,
+    feature_dir: str | None = None,
+) -> str:
+    """Mark a research task as done."""
+    normalized = _validate_topic(topic)
+    if type not in ("code", "web"):
+        raise ValueError("type must be 'code' or 'web'.")
+    append_tool_event(
+        _log_path(feature_dir),
+        "submit_research_done",
+        {"topic": normalized, "type": type},
+    )
+    return f"Research on '{normalized}' ({type}) marked done."
+
+
+@_tool()
+def submit_pm_done(
+    feature_dir: str | None = None,
+) -> str:
+    """Mark the product management phase as done."""
+    append_tool_event(_log_path(feature_dir), "submit_pm_done", {})
+    return "Product management phase done."
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 - `context.md` — auto-generated rules/session info injected into prompts
 - `runtime_state.json` / `orchestrator.log` — runtime tracking and orchestrator logs
 - `created_files.log` — append-only created-file history written by the orchestrator as `YYYY-MM-DD HH:MM:SS  relative/path`; records files only (not directories), deduplicated by relative path, and seeded once at startup to include pre-existing session files
+- `tool_events.jsonl` — append-only MCP tool-call event log; each entry is a JSON object `{"tool": "<name>", "timestamp": "<ISO-8601>", "payload": {...}}`; written by MCP server tools and tailed by `ToolCallEventSource`
 
 ## Product Management (`01_product_management/`)
 
@@ -22,11 +23,11 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 
 - `architect_prompt.md` / `changes_prompt.txt` — architect prompts (for architecting phase)
 - `planner_prompt.md` — planner prompt for creating execution plans
-- `architecture.yaml` — canonical structured architecture document (the "What" and "With what"); written by MCP `agentmux_submit_architecture` or directly by the architect
+- `architecture.yaml` — canonical structured architecture document (the "What" and "With what"); written by MCP `submit_architecture` or directly by the architect
 - `architecture.md` — human-readable companion of `architecture.yaml`; consumed by the planner prompt, so it remains required alongside the canonical YAML
 - `plan.md` — human-readable planning overview created by planner; required alongside `execution_plan.yaml` for planning completion and later prompts
 - `plan_<N>.md` — executable per-unit implementation plans referenced by scheduler metadata and consumed by coder prompts
-- `plan_<N>.yaml` — canonical structured sub-plan data; written by MCP `agentmux_submit_subplan` or directly by the planner
+- `plan_<N>.yaml` — canonical structured sub-plan data; written by MCP `submit_subplan` or directly by the planner
 - `execution_plan.yaml` — merged machine-readable schedule and planner metadata
   - Each group has a unique `group_id` and an execution mode (`serial` or `parallel`)
   - `serial` groups execute plans one at a time in order (useful for sequential integration steps)
@@ -77,7 +78,7 @@ Execution scheduling is strict:
 ## Review (`06_review/`)
 
 - `review_prompt.md` — legacy review prompt (backward compatibility)
-- `review.yaml` — canonical structured review verdict and findings; written by MCP `agentmux_submit_review` or directly by the reviewer
+- `review.yaml` — canonical structured review verdict and findings; written by MCP `submit_review` or directly by the reviewer
 - `review.md` — human-readable review companion used by summary generation, monitor output, and PR assembly; generated automatically from `review.yaml` when missing
 - `review_logic_prompt.md` — Logic & Alignment reviewer prompt (functional correctness vs plan)
 - `review_quality_prompt.md` — Quality & Style reviewer prompt (clean code, naming, standards)
@@ -103,10 +104,25 @@ Execution scheduling is strict:
 - `EventBus` in `agentmux/runtime/event_bus.py` — generic dispatcher plus start/stop lifecycle for dedicated event sources
 - `FileEventSource` / `FeatureEventHandler` in `agentmux/runtime/file_events.py` — normalize watchdog activity under the feature directory and publish `file.*` events
 - `CreatedFilesLogListener` / `seed_existing_files()` in `agentmux/runtime/file_events.py` — enforce created-file logging semantics (`created_files.log`, first-seen only, bootstrap coverage)
+- `ToolCallEventSource` in `agentmux/runtime/tool_events.py` — tail `tool_events.jsonl` and publish `tool.<name>` events into the EventBus; seeded at startup, then watched via watchdog
 - `InterruptionEventSource` in `agentmux/runtime/interruption_sources.py` — publish interruption events when registered tmux panes disappear
 - `WorkflowEventRouter.enter_current_phase()` in `agentmux/workflow/event_router.py` — explicitly bootstraps the active phase before steady-state event processing starts
 - `build_*_prompt()` in `agentmux/workflow/prompts.py` — loads and renders the markdown template for each phase; called lazily by handlers
 - Handler functions in `agentmux/workflow/handlers.py` — each builds and writes its prompt file just before sending to agent
+
+## MCP Tool Event Protocol
+
+When agents call MCP tools (`submit_architecture`, `submit_execution_plan`, `submit_subplan`, `submit_review`, `submit_done`, `submit_research_done`, `submit_pm_done`), the tool validates the inputs, appends an entry to `tool_events.jsonl`, and returns a confirmation string. The tools are **pure**: they do not write any workflow artifacts directly.
+
+Each entry has this shape:
+
+```json
+{"tool": "<tool_name>", "timestamp": "<ISO-8601>", "payload": {...}}
+```
+
+`ToolCallEventSource` tails `tool_events.jsonl` and emits `SessionEvent(kind="tool.<name>")` events into the `EventBus`. The `WorkflowEventRouter` routes these via `ToolSpec` to the appropriate phase handler, which writes the canonical artifacts (`.yaml` + `.md`) as side-effects and drives state transitions.
+
+Agents no longer need to create workflow artifact files manually. The orchestrator handles all artifact creation in response to tool-call events.
 
 ## Workflow Events
 

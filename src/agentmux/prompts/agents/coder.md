@@ -27,6 +27,7 @@ Your job:
 When your assigned task checklist includes documentation tasks, complete them as part of implementation in this coder step.
 Do not defer documentation to a separate docs agent or post-review docs phase.
 [[shared:coder-discipline]]
+12. When your sub-plan implementation is complete, call `submit_done(subplan_index=N)` to signal completion to the orchestrator.
 13. If implementation reveals that requirements or the plan need adjustment (e.g. a requirement turns out to be infeasible as written, or a task needs to be split or reordered), update `requirements.md` and `[[placeholder:plan_file]]` / `[[placeholder:tasks_file]]` accordingly so they stay in sync with reality.
 14. [[placeholder:completion_instruction]]
 

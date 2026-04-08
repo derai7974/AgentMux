@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from agentmux.agent_labels import role_display_label
@@ -11,10 +11,11 @@ from agentmux.workflow.event_catalog import (
     EVENT_REVIEW_FAILED,
     EVENT_REVIEW_PASSED,
 )
-from agentmux.workflow.event_router import EventSpec, WorkflowEvent
+from agentmux.workflow.event_router import EventSpec, ToolSpec, WorkflowEvent
 from agentmux.workflow.handoff_artifacts import (
     load_review_text,
     review_yaml_has_verdict,
+    submit_review,
 )
 from agentmux.workflow.phase_helpers import (
     load_plan_meta,
@@ -40,38 +41,11 @@ _REVIEWER_ROLE_MAP = {
 }
 
 
-def _review_has_verdict(review_path: Path) -> bool:
-    """Return True when review.md contains a final verdict on its first line."""
-    try:
-        lines = review_path.read_text(encoding="utf-8").splitlines()
-        return bool(lines) and lines[0].strip().lower() in (
-            "verdict: pass",
-            "verdict: fail",
-        )
-    except OSError:
-        return False
-
-
-def _review_ready(path: str, ctx: PipelineContext, state: dict) -> bool:
-    return not state.get("awaiting_summary") and (
-        (ctx.files.review.exists() and _review_has_verdict(ctx.files.review))
-        or review_yaml_has_verdict(ctx.files.review_dir)
-    )
-
-
 def _summary_ready(path: str, ctx: PipelineContext, state: dict) -> bool:
     return bool(state.get("awaiting_summary")) and ctx.files.summary.exists()
 
 
 _SPECS = (
-    EventSpec(
-        name="review_ready",
-        watch_paths=(
-            "06_review/review.md",
-            "06_review/review.yaml",
-        ),
-        is_ready=_review_ready,
-    ),
     EventSpec(
         name="summary_ready",
         watch_paths=("08_completion/summary.md",),
@@ -83,8 +57,11 @@ _SPECS = (
 class ReviewingHandler:
     """Event-driven handler for reviewing phase."""
 
-    def get_event_specs(self) -> tuple[EventSpec, ...]:
+    def get_event_specs(self) -> Sequence[EventSpec]:
         return _SPECS
+
+    def get_tool_specs(self) -> Sequence[ToolSpec]:
+        return (ToolSpec(name="review", tool_names=("submit_review",)),)
 
     def enter(self, state: dict, ctx: PipelineContext) -> dict:
         """Called when entering reviewing phase.
@@ -160,49 +137,50 @@ class ReviewingHandler:
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle events for reviewing phase."""
-        if event.kind == "review_ready":
-            return self._handle_review_written(state, ctx)
-        if event.kind == "summary_ready":
-            return self._handle_summary_written(ctx)
-        return {}, None
+        match event.kind:
+            case "review":
+                return self._handle_review(event, state, ctx)
+            case "summary_ready":
+                return self._handle_summary_written(ctx)
+            case _:
+                return {}, None
 
-    def _handle_review_written(
+    def _handle_review(
         self,
+        event: WorkflowEvent,
         state: dict,
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
-        """Handle review written event."""
+        """Handle review submission via tool event."""
+        payload = event.payload.get("payload", {})
+
+        # Write review artifacts (idempotent — guard by existence)
+        yaml_path = ctx.files.review_dir / "review.yaml"
+        if not yaml_path.exists():
+            submit_review(ctx.files.feature_dir, payload)
+
+        verdict = payload.get("verdict", "").lower()
+        review_iteration = int(state.get("review_iteration", 0))
+
+        # Archive this review for history (review_0.md, review_1.md, …).
+        archive_path = ctx.files.review_dir / f"review_{review_iteration}.md"
         review_text = load_review_text(
             ctx.files.review_dir,
             materialize_markdown=True,
         )
-        if review_text is None:
-            return {}, None
+        if review_text is not None:
+            archive_path.write_text(review_text, encoding="utf-8")
 
-        first_line = (
-            review_text.splitlines()[0].strip().lower()
-            if review_text.splitlines()
-            else ""
-        )
-
-        review_iteration = int(state.get("review_iteration", 0))
-
-        # Archive this review for history (review_0.md, review_1.md, …).
-        # review.md itself is kept so the summary prompt and monitor can still
-        # reference it by the canonical name.
-        archive_path = ctx.files.review_dir / f"review_{review_iteration}.md"
-        archive_path.write_text(review_text, encoding="utf-8")
-
-        if first_line == "verdict: pass":
+        if verdict == "pass":
             ctx.runtime.finish_many("coder")
             ctx.runtime.kill_primary("coder")
             return self._request_summary(state, ctx)
 
-        if first_line == "verdict: fail":
+        if verdict == "fail":
             if review_iteration >= ctx.max_review_iterations:
                 return {"last_event": EVENT_REVIEW_FAILED}, "completing"
 
-            ctx.files.fix_request.write_text(review_text, encoding="utf-8")
+            ctx.files.fix_request.write_text(review_text or "", encoding="utf-8")
             return {
                 "last_event": EVENT_REVIEW_FAILED,
                 "review_iteration": review_iteration + 1,

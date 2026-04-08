@@ -175,9 +175,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
 
             _touch(ctx.files.implementation_dir / "done_1")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_1",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 1}},
             )
             state = load_state(state_path)
             updates, next_phase = handler.handle_event(event, state, ctx)
@@ -216,9 +215,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
 
             _touch(ctx.files.implementation_dir / "done_1")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_1",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 1}},
             )
             state = load_state(state_path)
             updates, next_phase = handler.handle_event(event, state, ctx)
@@ -228,9 +226,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
 
             _touch(ctx.files.implementation_dir / "done_2")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_2",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 2}},
             )
             updates, next_phase = handler.handle_event(event, state, ctx)
             state.update(updates)
@@ -280,9 +277,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
 
             _touch(ctx.files.implementation_dir / "done_1")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_1",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 1}},
             )
             state = load_state(state_path)
             updates, next_phase = handler.handle_event(event, state, ctx)
@@ -303,9 +299,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
 
             _touch(ctx.files.implementation_dir / "done_2")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_2",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 2}},
             )
             state = load_state(state_path)
             updates, next_phase = handler.handle_event(event, state, ctx)
@@ -315,9 +310,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
 
             _touch(ctx.files.implementation_dir / "done_3")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_3",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 3}},
             )
             state = load_state(state_path)
             updates, next_phase = handler.handle_event(event, state, ctx)
@@ -331,9 +325,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
 
             _touch(ctx.files.implementation_dir / "done_4")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_4",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 4}},
             )
             updates, next_phase = handler.handle_event(event, state, ctx)
             state.update(updates)
@@ -377,9 +370,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
 
             _touch(ctx.files.implementation_dir / "done_1")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_1",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 1}},
             )
             state = load_state(state_path)
             updates, next_phase = handler.handle_event(event, state, ctx)
@@ -388,9 +380,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
 
             _touch(ctx.files.implementation_dir / "done_2")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_2",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 2}},
             )
             state = load_state(state_path)
             updates, next_phase = handler.handle_event(event, state, ctx)
@@ -433,9 +424,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
 
             _touch(ctx.files.implementation_dir / "done_3")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_3",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 3}},
             )
             state = load_state(state_path)
             updates, next_phase = resumed_handler.handle_event(
@@ -451,9 +441,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
 
             _touch(ctx.files.implementation_dir / "done_4")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_4",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 4}},
             )
             updates, next_phase = resumed_handler.handle_event(
                 event, state, resumed_ctx
@@ -507,9 +496,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
             # Complete first plan
             _touch(ctx.files.implementation_dir / "done_1")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_1",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 1}},
             )
             state = load_state(state_path)
             updates, next_phase = handler.handle_event(event, state, ctx)
@@ -533,9 +521,8 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
             # Complete second plan
             _touch(ctx.files.implementation_dir / "done_2")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_2",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 2}},
             )
             state = load_state(state_path)
             updates, next_phase = handler.handle_event(event, state, ctx)

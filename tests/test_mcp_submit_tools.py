@@ -1,13 +1,17 @@
-"""Tests for MCP submission tools (architecture, execution_plan, subplan, review)."""
+"""Tests for MCP submission tools (architecture, execution_plan, subplan, review).
+
+After Sub-plan 2 refactoring, all tools are pure: they validate inputs,
+append to tool_events.jsonl, and return a confirmation string. They write
+NO files other than the log.
+"""
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
-
-import yaml
 
 
 class SubmitToolTestBase(unittest.TestCase):
@@ -16,21 +20,22 @@ class SubmitToolTestBase(unittest.TestCase):
     def setUp(self):
         self._tmpdir = tempfile.TemporaryDirectory()
         self.feature_dir = Path(self._tmpdir.name)
-        self.planning_dir = self.feature_dir / "02_planning"
-        self.review_dir = self.feature_dir / "06_review"
-        # Set FEATURE_DIR so _feature_dir() can resolve it
         os.environ["FEATURE_DIR"] = str(self.feature_dir)
 
     def tearDown(self):
         os.environ.pop("FEATURE_DIR", None)
         self._tmpdir.cleanup()
 
+    def _read_log_entries(self):
+        log_path = self.feature_dir / "tool_events.jsonl"
+        if not log_path.exists():
+            return []
+        return [json.loads(line) for line in log_path.read_text().strip().splitlines()]
+
 
 class TestSubmitArchitecture(SubmitToolTestBase):
     def _submit(self, **overrides):
-        from agentmux.integrations.mcp_research_server import (
-            agentmux_submit_architecture,
-        )
+        from agentmux.integrations.mcp_research_server import submit_architecture
 
         defaults = {
             "solution_overview": "Plugin architecture",
@@ -49,42 +54,39 @@ class TestSubmitArchitecture(SubmitToolTestBase):
             "feature_dir": str(self.feature_dir),
         }
         defaults.update(overrides)
-        return agentmux_submit_architecture(**defaults)
+        return submit_architecture(**defaults)
 
-    def test_creates_yaml_and_md(self):
+    def test_appends_to_log(self):
         result = self._submit()
         self.assertIn("Architecture submitted", result)
-        self.assertTrue((self.planning_dir / "architecture.yaml").exists())
-        self.assertTrue((self.planning_dir / "architecture.md").exists())
+        entries = self._read_log_entries()
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["tool"], "submit_architecture")
+        self.assertEqual(
+            entries[0]["payload"]["solution_overview"], "Plugin architecture"
+        )
+        self.assertEqual(len(entries[0]["payload"]["components"]), 1)
+        self.assertEqual(entries[0]["payload"]["components"][0]["name"], "Core")
 
-    def test_yaml_content_valid(self):
+    def test_does_not_write_files(self):
         self._submit()
-        data = yaml.safe_load((self.planning_dir / "architecture.yaml").read_text())
-        self.assertEqual(data["solution_overview"], "Plugin architecture")
-        self.assertEqual(len(data["components"]), 1)
-        self.assertEqual(data["components"][0]["name"], "Core")
-
-    def test_md_has_sections(self):
-        self._submit()
-        md = (self.planning_dir / "architecture.md").read_text()
-        self.assertIn("# Architecture", md)
-        self.assertIn("## Solution Overview", md)
-        self.assertIn("## Components", md)
-        self.assertIn("### Core", md)
-
-    def test_optional_design_handoff(self):
-        self._submit(design_handoff="UI mockups needed")
-        md = (self.planning_dir / "architecture.md").read_text()
-        self.assertIn("## Design Handoff", md)
-        self.assertIn("UI mockups needed", md)
-
-    def test_validation_error_missing_field(self):
-        from agentmux.integrations.mcp_research_server import (
-            agentmux_submit_architecture,
+        self.assertFalse(
+            (self.feature_dir / "02_planning" / "architecture.yaml").exists()
+        )
+        self.assertFalse(
+            (self.feature_dir / "02_planning" / "architecture.md").exists()
         )
 
+    def test_optional_design_handoff_in_payload(self):
+        self._submit(design_handoff="UI mockups needed")
+        entries = self._read_log_entries()
+        self.assertEqual(entries[0]["payload"]["design_handoff"], "UI mockups needed")
+
+    def test_validation_error_missing_field(self):
+        from agentmux.integrations.mcp_research_server import submit_architecture
+
         with self.assertRaises(ValueError) as ctx:
-            agentmux_submit_architecture(
+            submit_architecture(
                 solution_overview="",  # empty = invalid
                 components=[],
                 interfaces_and_contracts="x",
@@ -99,9 +101,7 @@ class TestSubmitArchitecture(SubmitToolTestBase):
 
 class TestSubmitExecutionPlan(SubmitToolTestBase):
     def _submit(self, **overrides):
-        from agentmux.integrations.mcp_research_server import (
-            agentmux_submit_execution_plan,
-        )
+        from agentmux.integrations.mcp_research_server import submit_execution_plan
 
         defaults = {
             "groups": [
@@ -119,35 +119,31 @@ class TestSubmitExecutionPlan(SubmitToolTestBase):
             "feature_dir": str(self.feature_dir),
         }
         defaults.update(overrides)
-        return agentmux_submit_execution_plan(**defaults)
+        return submit_execution_plan(**defaults)
 
-    def test_creates_yaml_and_plan_md(self):
+    def test_appends_to_log(self):
         result = self._submit()
         self.assertIn("Execution plan submitted", result)
-        self.assertTrue((self.planning_dir / "execution_plan.yaml").exists())
-        self.assertTrue((self.planning_dir / "plan.md").exists())
+        entries = self._read_log_entries()
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["tool"], "submit_execution_plan")
+        self.assertFalse(entries[0]["payload"]["needs_design"])
+        self.assertTrue(entries[0]["payload"]["needs_docs"])
+        self.assertEqual(entries[0]["payload"]["review_strategy"]["severity"], "medium")
+        self.assertEqual(len(entries[0]["payload"]["groups"]), 1)
 
-    def test_yaml_has_version_and_merged_fields(self):
+    def test_does_not_write_files(self):
         self._submit()
-        data = yaml.safe_load((self.planning_dir / "execution_plan.yaml").read_text())
-        self.assertEqual(data["version"], 1)
-        self.assertFalse(data["needs_design"])
-        self.assertTrue(data["needs_docs"])
-        self.assertEqual(data["review_strategy"]["severity"], "medium")
-        self.assertEqual(len(data["groups"]), 1)
-
-    def test_plan_md_content(self):
-        self._submit()
-        md = (self.planning_dir / "plan.md").read_text()
-        self.assertIn("Setup core modules", md)
+        self.assertFalse(
+            (self.feature_dir / "02_planning" / "execution_plan.yaml").exists()
+        )
+        self.assertFalse((self.feature_dir / "02_planning" / "plan.md").exists())
 
     def test_validation_error_invalid_mode(self):
-        from agentmux.integrations.mcp_research_server import (
-            agentmux_submit_execution_plan,
-        )
+        from agentmux.integrations.mcp_research_server import submit_execution_plan
 
         with self.assertRaises(ValueError) as ctx:
-            agentmux_submit_execution_plan(
+            submit_execution_plan(
                 groups=[
                     {
                         "group_id": "g1",
@@ -167,9 +163,7 @@ class TestSubmitExecutionPlan(SubmitToolTestBase):
 
 class TestSubmitSubplan(SubmitToolTestBase):
     def _submit(self, **overrides):
-        from agentmux.integrations.mcp_research_server import (
-            agentmux_submit_subplan,
-        )
+        from agentmux.integrations.mcp_research_server import submit_subplan
 
         defaults = {
             "index": 1,
@@ -183,48 +177,38 @@ class TestSubmitSubplan(SubmitToolTestBase):
             "feature_dir": str(self.feature_dir),
         }
         defaults.update(overrides)
-        return agentmux_submit_subplan(**defaults)
+        return submit_subplan(**defaults)
 
-    def test_creates_three_files(self):
+    def test_appends_to_log(self):
         result = self._submit()
         self.assertIn("Sub-plan 1 submitted", result)
-        self.assertTrue((self.planning_dir / "plan_1.yaml").exists())
-        self.assertTrue((self.planning_dir / "plan_1.md").exists())
-        self.assertTrue((self.planning_dir / "tasks_1.md").exists())
-
-    def test_yaml_content(self):
-        self._submit()
-        data = yaml.safe_load((self.planning_dir / "plan_1.yaml").read_text())
-        self.assertEqual(data["index"], 1)
-        self.assertEqual(data["title"], "Auth module")
-        self.assertEqual(data["tasks"], ["Create module", "Write tests"])
-
-    def test_md_has_sections(self):
-        self._submit()
-        md = (self.planning_dir / "plan_1.md").read_text()
-        self.assertIn("# Auth module", md)
-        self.assertIn("## Scope", md)
-        self.assertIn("## Owned Files", md)
-        self.assertIn("`src/auth.py`", md)
-
-    def test_tasks_md_has_checklist(self):
-        self._submit()
-        tasks = (self.planning_dir / "tasks_1.md").read_text()
-        self.assertIn("- [ ] Create module", tasks)
-        self.assertIn("- [ ] Write tests", tasks)
-
-    def test_optional_isolation_rationale(self):
-        self._submit(isolation_rationale="No shared state")
-        md = (self.planning_dir / "plan_1.md").read_text()
-        self.assertIn("## Isolation Rationale", md)
-
-    def test_validation_error_index_zero(self):
-        from agentmux.integrations.mcp_research_server import (
-            agentmux_submit_subplan,
+        entries = self._read_log_entries()
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["tool"], "submit_subplan")
+        self.assertEqual(entries[0]["payload"]["index"], 1)
+        self.assertEqual(entries[0]["payload"]["title"], "Auth module")
+        self.assertEqual(
+            entries[0]["payload"]["tasks"], ["Create module", "Write tests"]
         )
 
+    def test_does_not_write_files(self):
+        self._submit()
+        self.assertFalse((self.feature_dir / "02_planning" / "plan_1.yaml").exists())
+        self.assertFalse((self.feature_dir / "02_planning" / "plan_1.md").exists())
+        self.assertFalse((self.feature_dir / "02_planning" / "tasks_1.md").exists())
+
+    def test_optional_isolation_rationale_in_payload(self):
+        self._submit(isolation_rationale="No shared state")
+        entries = self._read_log_entries()
+        self.assertEqual(
+            entries[0]["payload"]["isolation_rationale"], "No shared state"
+        )
+
+    def test_validation_error_index_zero(self):
+        from agentmux.integrations.mcp_research_server import submit_subplan
+
         with self.assertRaises(ValueError):
-            agentmux_submit_subplan(
+            submit_subplan(
                 index=0,
                 title="Bad",
                 scope="x",
@@ -238,16 +222,13 @@ class TestSubmitSubplan(SubmitToolTestBase):
 
     def test_different_index(self):
         self._submit(index=3, title="Third plan")
-        self.assertTrue((self.planning_dir / "plan_3.yaml").exists())
-        self.assertTrue((self.planning_dir / "plan_3.md").exists())
-        self.assertTrue((self.planning_dir / "tasks_3.md").exists())
+        entries = self._read_log_entries()
+        self.assertEqual(entries[0]["payload"]["index"], 3)
 
 
 class TestSubmitReview(SubmitToolTestBase):
     def _submit(self, **overrides):
-        from agentmux.integrations.mcp_research_server import (
-            agentmux_submit_review,
-        )
+        from agentmux.integrations.mcp_research_server import submit_review
 
         defaults = {
             "verdict": "pass",
@@ -255,28 +236,22 @@ class TestSubmitReview(SubmitToolTestBase):
             "feature_dir": str(self.feature_dir),
         }
         defaults.update(overrides)
-        return agentmux_submit_review(**defaults)
+        return submit_review(**defaults)
 
-    def test_pass_creates_files(self):
+    def test_pass_appends_to_log(self):
         result = self._submit()
         self.assertIn("verdict: pass", result)
-        self.assertTrue((self.review_dir / "review.yaml").exists())
-        self.assertTrue((self.review_dir / "review.md").exists())
-
-    def test_pass_md_first_line_verdict(self):
-        self._submit()
-        md = (self.review_dir / "review.md").read_text()
-        first_line = md.splitlines()[0]
-        self.assertEqual(first_line, "verdict: pass")
+        entries = self._read_log_entries()
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["tool"], "submit_review")
+        self.assertEqual(entries[0]["payload"]["verdict"], "pass")
 
     def test_pass_with_commit_message(self):
         self._submit(commit_message="feat: add auth")
-        md = (self.review_dir / "review.md").read_text()
-        self.assertIn("feat: add auth", md)
-        data = yaml.safe_load((self.review_dir / "review.yaml").read_text())
-        self.assertEqual(data["commit_message"], "feat: add auth")
+        entries = self._read_log_entries()
+        self.assertEqual(entries[0]["payload"]["commit_message"], "feat: add auth")
 
-    def test_fail_creates_files(self):
+    def test_fail_appends_with_findings(self):
         result = self._submit(
             verdict="fail",
             summary="Issues found",
@@ -290,33 +265,20 @@ class TestSubmitReview(SubmitToolTestBase):
             ],
         )
         self.assertIn("verdict: fail", result)
+        entries = self._read_log_entries()
+        self.assertEqual(entries[0]["payload"]["verdict"], "fail")
+        self.assertEqual(len(entries[0]["payload"]["findings"]), 1)
 
-    def test_fail_md_has_findings(self):
-        self._submit(
-            verdict="fail",
-            summary="Issues found",
-            findings=[
-                {
-                    "location": "src/x.py:10",
-                    "issue": "Missing validation",
-                    "severity": "high",
-                    "recommendation": "Add check",
-                }
-            ],
-        )
-        md = (self.review_dir / "review.md").read_text()
-        self.assertEqual(md.splitlines()[0], "verdict: fail")
-        self.assertIn("## Findings", md)
-        self.assertIn("Missing validation", md)
-        self.assertIn("`src/x.py:10`", md)
+    def test_does_not_write_files(self):
+        self._submit()
+        self.assertFalse((self.feature_dir / "06_review" / "review.yaml").exists())
+        self.assertFalse((self.feature_dir / "06_review" / "review.md").exists())
 
     def test_fail_without_findings_raises(self):
-        from agentmux.integrations.mcp_research_server import (
-            agentmux_submit_review,
-        )
+        from agentmux.integrations.mcp_research_server import submit_review
 
         with self.assertRaises(ValueError) as ctx:
-            agentmux_submit_review(
+            submit_review(
                 verdict="fail",
                 summary="Bad",
                 feature_dir=str(self.feature_dir),
@@ -324,12 +286,10 @@ class TestSubmitReview(SubmitToolTestBase):
         self.assertIn("findings", str(ctx.exception))
 
     def test_invalid_verdict_raises(self):
-        from agentmux.integrations.mcp_research_server import (
-            agentmux_submit_review,
-        )
+        from agentmux.integrations.mcp_research_server import submit_review
 
         with self.assertRaises(ValueError):
-            agentmux_submit_review(
+            submit_review(
                 verdict="maybe",
                 summary="Unsure",
                 feature_dir=str(self.feature_dir),

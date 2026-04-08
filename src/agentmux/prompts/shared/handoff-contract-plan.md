@@ -4,7 +4,9 @@ Use the MCP tools to submit your execution plan. This ensures structured, valida
 
 ### Step 1: Submit sub-plans
 
-For each sub-plan, call `agentmux_submit_subplan` with:
+For each sub-plan, call `submit_subplan` with:
+
+> When you call this tool, the orchestrator observes the event and advances the workflow. No manual file creation is required.
 - `index` (required) — Sub-plan number (1, 2, 3, ...)
 - `title` (required) — Short descriptive title
 - `scope` (required) — What this sub-plan covers
@@ -17,7 +19,9 @@ For each sub-plan, call `agentmux_submit_subplan` with:
 
 ### Step 2: Submit the execution plan
 
-Call `agentmux_submit_execution_plan` with:
+Call `submit_execution_plan` with:
+
+> When you call this tool, the orchestrator observes the event and advances the workflow. No manual file creation is required.
 - `groups` (required) — Execution groups: `[{group_id, mode: "serial"|"parallel", plans: [{file, name}]}]`
 - `review_strategy` (required) — `{severity: "low"|"medium"|"high", focus: [...]}`
 - `needs_design` (required) — Whether a design phase is required

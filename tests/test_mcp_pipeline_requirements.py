@@ -386,8 +386,8 @@ class McpPipelineRequirementsTests(unittest.TestCase):
             product_prompt = build_product_manager_prompt(files)
 
             for prompt in (architect_prompt, product_prompt):
-                self.assertIn("agentmux_research_dispatch_code", prompt)
-                self.assertIn("agentmux_research_dispatch_web", prompt)
+                self.assertIn("research_dispatch_code", prompt)
+                self.assertIn("research_dispatch_web", prompt)
                 self.assertNotIn("agentmux_research_await", prompt)
                 self.assertIn(f'feature_dir="{feature_dir}"', prompt)
                 self.assertIn("scope_hints=[", prompt)

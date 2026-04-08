@@ -131,9 +131,8 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
 
             handler = ProductManagementHandler()
             event = WorkflowEvent(
-                kind="pm_completed",
-                path="01_product_management/done",
-                payload={},
+                kind="pm_done",
+                payload={"payload": {}},
             )
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
@@ -162,9 +161,8 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
 
             handler = ProductManagementHandler()
             event = WorkflowEvent(
-                kind="pm_completed",
-                path="01_product_management/done",
-                payload={},
+                kind="pm_done",
+                payload={"payload": {}},
             )
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
@@ -204,9 +202,25 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
 
             handler = PlanningHandler()
             event = WorkflowEvent(
-                kind="plan_written",
-                path="02_planning/execution_plan.yaml",
-                payload={},
+                kind="execution_plan",
+                payload={
+                    "payload": {
+                        "plan_overview": "Implementation plan",
+                        "groups": [
+                            {
+                                "group_id": "g1",
+                                "mode": "serial",
+                                "plans": [
+                                    {"file": "plan_1.md", "name": "implementation"}
+                                ],
+                            }
+                        ],
+                        "review_strategy": {"severity": "medium", "focus": []},
+                        "needs_design": False,
+                        "needs_docs": False,
+                        "doc_files": [],
+                    }
+                },
             )
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
@@ -238,9 +252,25 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
 
             handler = PlanningHandler()
             event = WorkflowEvent(
-                kind="plan_written",
-                path="02_planning/execution_plan.yaml",
-                payload={},
+                kind="execution_plan",
+                payload={
+                    "payload": {
+                        "plan_overview": "Implementation plan",
+                        "groups": [
+                            {
+                                "group_id": "g1",
+                                "mode": "serial",
+                                "plans": [
+                                    {"file": "plan_1.md", "name": "implementation"}
+                                ],
+                            }
+                        ],
+                        "review_strategy": {"severity": "medium", "focus": []},
+                        "needs_design": False,
+                        "needs_docs": False,
+                        "doc_files": [],
+                    }
+                },
             )
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
@@ -499,9 +529,8 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
 
             handler = ProductManagementHandler()
             event = WorkflowEvent(
-                kind="pm_completed",
-                path="01_product_management/done",
-                payload={},
+                kind="pm_done",
+                payload={"payload": {}},
             )
             handler.handle_event(event, load_state(state_path), ctx)
             prompt = build_architect_prompt(ctx.files)
@@ -528,9 +557,8 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
 
             handler = ProductManagementHandler()
             event = WorkflowEvent(
-                kind="pm_completed",
-                path="01_product_management/done",
-                payload={},
+                kind="pm_done",
+                payload={"payload": {}},
             )
             handler.handle_event(event, load_state(state_path), ctx)
 

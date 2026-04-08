@@ -1,18 +1,18 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
 import agentmux.integrations.mcp_research_server as mcp_research_server
-from agentmux.shared.models import SESSION_DIR_NAMES
 
 
 class McpResearchServerRequirementsTests(unittest.TestCase):
-    def test_dispatch_code_creates_request_with_expected_sections(self) -> None:
+    def test_dispatch_code_appends_to_log_with_expected_payload(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            result = mcp_research_server.agentmux_research_dispatch_code(
+            result = mcp_research_server.research_dispatch_code(
                 topic="auth-module",
                 context="Planning auth changes",
                 questions=[
@@ -23,27 +23,25 @@ class McpResearchServerRequirementsTests(unittest.TestCase):
                 scope_hints=["agentmux/", "tests/"],
             )
 
-            request_path = (
-                feature_dir
-                / SESSION_DIR_NAMES["research"]
-                / "code-auth-module"
-                / "request.md"
-            )
-            request = request_path.read_text(encoding="utf-8")
+            log_path = feature_dir / "tool_events.jsonl"
+            self.assertTrue(log_path.exists())
+            entries = [
+                json.loads(line) for line in log_path.read_text().strip().splitlines()
+            ]
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0]["tool"], "research_dispatch_code")
+            payload = entries[0]["payload"]
+            self.assertEqual(payload["topic"], "auth-module")
+            self.assertEqual(payload["research_type"], "code")
+            self.assertEqual(payload["context"], "Planning auth changes")
+            self.assertIn("Where is auth middleware defined?", payload["questions"])
+            self.assertEqual(payload["scope_hints"], ["agentmux/", "tests/"])
             self.assertEqual("Code research on 'auth-module' dispatched.", result)
-            self.assertIn("## Context", request)
-            self.assertIn("Planning auth changes", request)
-            self.assertIn("## Questions", request)
-            self.assertIn("1. Where is auth middleware defined?", request)
-            self.assertIn("2. What services call it?", request)
-            self.assertIn("## Scope hints", request)
-            self.assertIn("- agentmux/", request)
-            self.assertIn("- tests/", request)
 
-    def test_dispatch_web_creates_request_and_handles_empty_scope_hints(self) -> None:
+    def test_dispatch_web_appends_and_handles_empty_scope_hints(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            result = mcp_research_server.agentmux_research_dispatch_web(
+            result = mcp_research_server.research_dispatch_web(
                 topic="sdk-compat",
                 context="Need latest SDK compatibility matrix",
                 questions=["Which SDK versions support MCP?"],
@@ -51,21 +49,19 @@ class McpResearchServerRequirementsTests(unittest.TestCase):
                 scope_hints=None,
             )
 
-            request_path = (
-                feature_dir
-                / SESSION_DIR_NAMES["research"]
-                / "web-sdk-compat"
-                / "request.md"
-            )
-            request = request_path.read_text(encoding="utf-8")
+            log_path = feature_dir / "tool_events.jsonl"
+            entries = [
+                json.loads(line) for line in log_path.read_text().strip().splitlines()
+            ]
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0]["payload"]["research_type"], "web")
+            self.assertIsNone(entries[0]["payload"]["scope_hints"])
             self.assertEqual("Web research on 'sdk-compat' dispatched.", result)
-            self.assertIn("## Scope hints", request)
-            self.assertIn("- (none provided)", request)
 
     def test_dispatch_code_accepts_scope_hints_as_single_string(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            mcp_research_server.agentmux_research_dispatch_code(
+            mcp_research_server.research_dispatch_code(
                 topic="planning-conventions",
                 context="Understand planning conventions",
                 questions=["Which tests constrain planning artifacts?"],
@@ -73,18 +69,19 @@ class McpResearchServerRequirementsTests(unittest.TestCase):
                 scope_hints="Start with prompts and planning tests.",
             )
 
-            request = (
-                feature_dir
-                / SESSION_DIR_NAMES["research"]
-                / "code-planning-conventions"
-                / "request.md"
-            ).read_text(encoding="utf-8")
-            self.assertIn("- Start with prompts and planning tests.", request)
+            log_path = feature_dir / "tool_events.jsonl"
+            entries = [
+                json.loads(line) for line in log_path.read_text().strip().splitlines()
+            ]
+            self.assertEqual(
+                entries[0]["payload"]["scope_hints"],
+                ["Start with prompts and planning tests."],
+            )
 
     def test_dispatch_code_treats_blank_scope_hints_string_as_none(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            mcp_research_server.agentmux_research_dispatch_code(
+            mcp_research_server.research_dispatch_code(
                 topic="feature-surface",
                 context="Survey likely feature surfaces",
                 questions=["What are the likely extension points?"],
@@ -92,19 +89,17 @@ class McpResearchServerRequirementsTests(unittest.TestCase):
                 scope_hints="   ",
             )
 
-            request = (
-                feature_dir
-                / SESSION_DIR_NAMES["research"]
-                / "code-feature-surface"
-                / "request.md"
-            ).read_text(encoding="utf-8")
-            self.assertIn("- (none provided)", request)
+            log_path = feature_dir / "tool_events.jsonl"
+            entries = [
+                json.loads(line) for line in log_path.read_text().strip().splitlines()
+            ]
+            self.assertIsNone(entries[0]["payload"]["scope_hints"])
 
     def test_dispatch_rejects_invalid_topic_slug(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
             with self.assertRaises(ValueError):
-                mcp_research_server.agentmux_research_dispatch_code(
+                mcp_research_server.research_dispatch_code(
                     topic="Auth_Module",
                     context="x",
                     questions=["q"],
@@ -114,16 +109,30 @@ class McpResearchServerRequirementsTests(unittest.TestCase):
 
     def test_module_no_longer_exposes_blocking_await_tool(self) -> None:
         self.assertFalse(hasattr(mcp_research_server, "agentmux_research_await"))
+        self.assertFalse(hasattr(mcp_research_server, "research_await"))
 
     def test_dispatch_rejects_missing_feature_dir(self) -> None:
         with self.assertRaises(RuntimeError):
-            mcp_research_server.agentmux_research_dispatch_code(
+            mcp_research_server.research_dispatch_code(
                 topic="runtime",
                 context="Planning runtime changes",
                 questions=["Where is runtime created?"],
                 feature_dir=None,
                 scope_hints=None,
             )
+
+    def test_dispatch_does_not_write_request_md(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td)
+            mcp_research_server.research_dispatch_code(
+                topic="test-topic",
+                context="x",
+                questions=["q"],
+                feature_dir=str(feature_dir),
+            )
+            # No request.md should exist anywhere
+            for p in feature_dir.rglob("request.md"):
+                self.fail(f"request.md should not exist: {p}")
 
 
 if __name__ == "__main__":

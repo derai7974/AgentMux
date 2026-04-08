@@ -6,15 +6,20 @@ the architecture document produced by the architect in the architecting phase.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from agentmux.workflow.event_catalog import EVENT_CHANGES_REQUESTED, EVENT_PLAN_WRITTEN
 from agentmux.workflow.event_router import (
     EventSpec,
+    ToolSpec,
     WorkflowEvent,
-    extract_research_topic,
 )
 from agentmux.workflow.execution_plan import load_execution_plan
+from agentmux.workflow.handoff_artifacts import (
+    submit_execution_plan,
+    submit_subplan,
+)
 from agentmux.workflow.phase_helpers import (
     apply_role_preferences,
     dispatch_research_task,
@@ -32,55 +37,32 @@ if TYPE_CHECKING:
     from agentmux.workflow.transitions import PipelineContext
 
 
-def _plan_written_ready(path: str, ctx: PipelineContext, state: dict) -> bool:
-    """Both planning artefacts must exist for the plan to be complete."""
-    return ctx.files.plan.exists() and ctx.files.execution_plan.exists()
-
-
-def _file_exists(path: str, ctx: PipelineContext, state: dict) -> bool:
-    return (ctx.files.feature_dir / path).exists()
-
-
-_SPECS = (
-    EventSpec(
-        name="plan_written",
-        watch_paths=(
-            "02_planning/plan.md",
-            "02_planning/execution_plan.yaml",
-        ),
-        is_ready=_plan_written_ready,
-    ),
-    EventSpec(
-        name="code_research_requested",
-        watch_paths=("03_research/code-*/request.md",),
-        is_ready=_file_exists,
-    ),
-    EventSpec(
-        name="web_research_requested",
-        watch_paths=("03_research/web-*/request.md",),
-        is_ready=_file_exists,
-    ),
-    EventSpec(
-        name="code_research_done",
-        watch_paths=("03_research/code-*/done",),
-        is_ready=_file_exists,
-    ),
-    EventSpec(
-        name="web_research_done",
-        watch_paths=("03_research/web-*/done",),
-        is_ready=_file_exists,
-    ),
-)
-
-
 class PlanningHandler:
     """Event-driven handler for planning phase.
 
     The planner receives the architecture document and creates execution plans.
     """
 
-    def get_event_specs(self) -> tuple[EventSpec, ...]:
-        return _SPECS
+    def get_event_specs(self) -> Sequence[EventSpec]:
+        return ()
+
+    def get_tool_specs(self) -> Sequence[ToolSpec]:
+        return (
+            ToolSpec(name="execution_plan", tool_names=("submit_execution_plan",)),
+            ToolSpec(name="subplan", tool_names=("submit_subplan",)),
+            ToolSpec(
+                name="research_code_req",
+                tool_names=("research_dispatch_code",),
+            ),
+            ToolSpec(
+                name="research_web_req",
+                tool_names=("research_dispatch_web",),
+            ),
+            ToolSpec(
+                name="research_done",
+                tool_names=("submit_research_done",),
+            ),
+        )
 
     def enter(self, state: dict, ctx: PipelineContext) -> dict:
         """Called when entering planning phase.
@@ -111,49 +93,41 @@ class PlanningHandler:
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle events for planning phase."""
-        if event.kind == "plan_written":
-            return self._handle_plan_written(state, ctx)
+        match event.kind:
+            case "execution_plan":
+                return self._handle_execution_plan(event, state, ctx)
+            case "subplan":
+                return self._handle_subplan(event, state, ctx)
+            case "research_code_req":
+                return self._handle_research_code_req(event, state, ctx)
+            case "research_web_req":
+                return self._handle_research_web_req(event, state, ctx)
+            case "research_done":
+                return self._handle_research_done(event, state, ctx)
+            case _:
+                return {}, None
 
-        if event.kind == "code_research_requested":
-            topic = extract_research_topic(event.path or "", "code-")
-            if topic:
-                return dispatch_research_task("code-researcher", topic, state, ctx)
-
-        if event.kind == "web_research_requested":
-            topic = extract_research_topic(event.path or "", "web-")
-            if topic:
-                return dispatch_research_task("web-researcher", topic, state, ctx)
-
-        if event.kind == "code_research_done":
-            topic = extract_research_topic(event.path or "", "code-")
-            if topic:
-                return notify_research_complete(
-                    "code-researcher", topic, state, ctx, "planner"
-                )
-
-        if event.kind == "web_research_done":
-            topic = extract_research_topic(event.path or "", "web-")
-            if topic:
-                return notify_research_complete(
-                    "web-researcher", topic, state, ctx, "planner"
-                )
-
-        return {}, None
-
-    def _handle_plan_written(
+    def _handle_execution_plan(
         self,
+        event: WorkflowEvent,
         state: dict,
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
-        """Handle plan written event.
+        """Handle execution plan submission via tool event."""
+        payload = event.payload.get("payload", {})
 
-        Both files (plan.md, execution_plan.yaml) must exist.
-        """
+        # Write execution plan artifacts (idempotent — guard by existence)
+        yaml_path = ctx.files.planning_dir / "execution_plan.yaml"
+        wrote_plan = not yaml_path.exists()
+        if wrote_plan:
+            submit_execution_plan(ctx.files.feature_dir, payload)
+
         # Apply approved preferences from planner
         apply_role_preferences(ctx, "planner")
 
-        # Load execution plan and meta
-        load_execution_plan(ctx.files.planning_dir)
+        # Validate only what we just wrote — skip on replay (existing file may differ)
+        if wrote_plan and yaml_path.exists():
+            load_execution_plan(ctx.files.planning_dir)
         meta = load_plan_meta(ctx.files.planning_dir)
         needs_design = bool(meta.get("needs_design")) and "designer" in ctx.agents
 
@@ -168,3 +142,106 @@ class PlanningHandler:
         # Determine next phase
         next_phase = "designing" if needs_design else "implementing"
         return {"last_event": EVENT_PLAN_WRITTEN}, next_phase
+
+    def _handle_subplan(
+        self,
+        event: WorkflowEvent,
+        state: dict,
+        ctx: PipelineContext,
+    ) -> tuple[dict, str | None]:
+        """Handle subplan submission via tool event."""
+        payload = event.payload.get("payload", {})
+        index = payload.get("index")
+        if index is None:
+            return {"error": "missing subplan index"}, None
+
+        # Write subplan artifacts (idempotent — guard by existence)
+        yaml_path = ctx.files.planning_dir / f"plan_{index}.yaml"
+        if not yaml_path.exists():
+            submit_subplan(ctx.files.feature_dir, payload)
+
+        return {}, None
+
+    def _handle_research_code_req(
+        self,
+        event: WorkflowEvent,
+        state: dict,
+        ctx: PipelineContext,
+    ) -> tuple[dict, str | None]:
+        """Handle code research request via tool event."""
+        payload = event.payload.get("payload", {})
+        topic = payload.get("topic", "")
+        if not topic:
+            return {}, None
+
+        # Write request.md before dispatching (side-effect ordering requirement)
+        req_dir = ctx.files.research_dir / f"code-{topic}"
+        req_dir.mkdir(parents=True, exist_ok=True)
+        req_path = req_dir / "request.md"
+        if not req_path.exists():
+            questions = payload.get("questions", [])
+            scope_hints = payload.get("scope_hints", [])
+            content = (
+                f"# Research Request: {topic}\n\n"
+                f"## Context\n{payload.get('context', '')}\n\n"
+                f"## Questions\n"
+                + "\n".join(f"- {q}" for q in questions)
+                + (
+                    "\n\n## Scope Hints\n" + "\n".join(f"- {h}" for h in scope_hints)
+                    if scope_hints
+                    else ""
+                )
+            )
+            req_path.write_text(content, encoding="utf-8")
+
+        return dispatch_research_task("code-researcher", topic, state, ctx)
+
+    def _handle_research_web_req(
+        self,
+        event: WorkflowEvent,
+        state: dict,
+        ctx: PipelineContext,
+    ) -> tuple[dict, str | None]:
+        """Handle web research request via tool event."""
+        payload = event.payload.get("payload", {})
+        topic = payload.get("topic", "")
+        if not topic:
+            return {}, None
+
+        # Write request.md before dispatching (side-effect ordering requirement)
+        req_dir = ctx.files.research_dir / f"web-{topic}"
+        req_dir.mkdir(parents=True, exist_ok=True)
+        req_path = req_dir / "request.md"
+        if not req_path.exists():
+            questions = payload.get("questions", [])
+            scope_hints = payload.get("scope_hints", [])
+            content = (
+                f"# Research Request: {topic}\n\n"
+                f"## Context\n{payload.get('context', '')}\n\n"
+                f"## Questions\n"
+                + "\n".join(f"- {q}" for q in questions)
+                + (
+                    "\n\n## Scope Hints\n" + "\n".join(f"- {h}" for h in scope_hints)
+                    if scope_hints
+                    else ""
+                )
+            )
+            req_path.write_text(content, encoding="utf-8")
+
+        return dispatch_research_task("web-researcher", topic, state, ctx)
+
+    def _handle_research_done(
+        self,
+        event: WorkflowEvent,
+        state: dict,
+        ctx: PipelineContext,
+    ) -> tuple[dict, str | None]:
+        """Handle research completion via tool event."""
+        payload = event.payload.get("payload", {})
+        topic = payload.get("topic", "")
+        role_type = payload.get("role_type", "")  # "code" or "web"
+        if not topic or not role_type:
+            return {}, None
+
+        role = "code-researcher" if role_type == "code" else "web-researcher"
+        return notify_research_complete(role, topic, state, ctx, "planner")

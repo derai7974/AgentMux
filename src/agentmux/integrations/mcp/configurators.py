@@ -30,6 +30,21 @@ def _persistent_local_server(server: McpServerSpec) -> dict[str, object]:
     }
 
 
+def _copilot_local_server(server: McpServerSpec) -> dict[str, object]:
+    """Build a Copilot CLI-compatible local MCP server entry.
+
+    Copilot CLI uses 'command' as a string and 'args' as a separate array,
+    unlike OpenCode which uses 'command' as a list.
+    See: https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers
+    """
+    return {
+        "type": "local",
+        "command": _python_command(),
+        "args": ["-m", server.module],
+        "enabled": True,
+    }
+
+
 def _toml_quote(value: str) -> str:
     escaped = value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
     return f'"{escaped}"'
@@ -259,9 +274,57 @@ class CodexConfigurator(PersistentMcpConfigurator):
         return f"Configured codex MCP research tools at {path}."
 
 
+class CopilotConfigurator(JsonMcpConfigurator):
+    """Installs agentmux-research MCP server into GitHub Copilot CLI config.
+
+    Config path: ~/.copilot/mcp-config.json
+    Source: https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers
+    """
+
+    provider = "copilot"
+
+    def config_path(self, project_dir: Path) -> Path:
+        _ = project_dir
+        return Path.home() / ".copilot" / "mcp-config.json"
+
+    def has_server(self, server: McpServerSpec, project_dir: Path) -> bool:
+        data = self._load_json(project_dir)
+        servers = data.get("mcpServers", {})
+        return isinstance(servers, dict) and server.name in servers
+
+    def install(self, server: McpServerSpec, project_dir: Path) -> None:
+        data = self._load_json(project_dir)
+        servers = data.get("mcpServers")
+        if not isinstance(servers, dict):
+            servers = {}
+        servers[server.name] = _copilot_local_server(server)
+        data["mcpServers"] = servers
+        self._write_json(data, project_dir)
+
+    def uninstall(self, server: McpServerSpec, project_dir: Path) -> None:
+        path = self.config_path(project_dir)
+        if not path.exists():
+            return
+        data = self._load_json(project_dir)
+        servers = data.get("mcpServers")
+        if isinstance(servers, dict):
+            servers.pop(server.name, None)
+        self._write_json(data, project_dir)
+
+    def prompt_message(
+        self, server: McpServerSpec, project_dir: Path, roles_label: str
+    ) -> str:
+        path = self.config_path(project_dir)
+        return (
+            f"Configure project MCP research tools for copilot ({roles_label}) "
+            f"at {path}?"
+        )
+
+
 CONFIGURATORS: dict[str, PersistentMcpConfigurator] = {
     "claude": ClaudeConfigurator(),
     "codex": CodexConfigurator(),
+    "copilot": CopilotConfigurator(),
     "gemini": GeminiConfigurator(),
     "opencode": OpenCodeConfigurator(),
 }
@@ -334,7 +397,10 @@ def _server_entry_matches(
         return False
 
     # Compare to what would be generated
-    expected_entry = _persistent_stdio_server(server)
+    if isinstance(configurator, CopilotConfigurator):
+        expected_entry = _copilot_local_server(server)
+    else:
+        expected_entry = _persistent_stdio_server(server)
 
     # Compare relevant fields (type, command, args)
     if existing_entry.get("type") != expected_entry.get("type"):

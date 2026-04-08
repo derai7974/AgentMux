@@ -268,9 +268,25 @@ class DesignerRequirementsTests(unittest.TestCase):
 
             handler = PlanningHandler()
             event = WorkflowEvent(
-                kind="plan_written",
-                path="02_planning/execution_plan.yaml",
-                payload={},
+                kind="execution_plan",
+                payload={
+                    "payload": {
+                        "plan_overview": "Implementation plan",
+                        "groups": [
+                            {
+                                "group_id": "g1",
+                                "mode": "serial",
+                                "plans": [
+                                    {"file": "plan_1.md", "name": "implementation"}
+                                ],
+                            }
+                        ],
+                        "review_strategy": {"severity": "medium", "focus": []},
+                        "needs_design": True,
+                        "needs_docs": False,
+                        "doc_files": [],
+                    }
+                },
             )
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx

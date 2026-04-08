@@ -1,6 +1,8 @@
 ## Submitting Your Architecture
 
-Use the `agentmux_submit_architecture` MCP tool to submit your architecture document. This ensures structured, validated output.
+Use the `submit_architecture` MCP tool to submit your architecture document. This ensures structured, validated output.
+
+> When you call this tool, the orchestrator observes the event and advances the workflow. No manual file creation is required.
 
 **Tool parameters:**
 - `solution_overview` (required) — High-level approach and rationale

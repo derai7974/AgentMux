@@ -16,13 +16,15 @@ Approved preference proposal artifact: [[placeholder:pm_preference_proposal_file
 
 Before finalizing recommendations, assess what you need to know about the codebase or external landscape.
 
-- Use `agentmux_research_dispatch_code` for codebase exploration requests, always pass `feature_dir="[[placeholder:feature_dir]]"`, and format `scope_hints` as `["...", "..."]`.
-- Use `agentmux_research_dispatch_web` for external research requests, always pass `feature_dir="[[placeholder:feature_dir]]"`, and format `scope_hints` as `["...", "..."]`.
+- Use `research_dispatch_code` for codebase exploration requests, always pass `feature_dir="[[placeholder:feature_dir]]"`, and format `scope_hints` as `["...", "..."]`.
+- Use `research_dispatch_web` for external research requests, always pass `feature_dir="[[placeholder:feature_dir]]"`, and format `scope_hints` as `["...", "..."]`.
 - After dispatching, stop and wait idle. Do not poll and do not call a blocking MCP wait tool.
 - AgentMux will send you a follow-up message when the result files are ready.
 - Read `summary.md` first, then `detail.md` when needed.
 
 You can dispatch multiple topics before going idle. Research tasks run in parallel.
+
+When your product management deliverable is ready, call `submit_pm_done` to signal completion to the orchestrator.
 
 Example:
 `scope_hints=["user-facing docs", "config tests", "ignore unrelated runtime internals"]`

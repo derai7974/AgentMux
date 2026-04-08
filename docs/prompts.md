@@ -97,9 +97,9 @@ Startup and resume now use explicit phase bootstrap: the orchestrator re-enters 
 
 Three shared prompt fragments provide agents with MCP submission tool instructions and YAML fallback examples for non-MCP providers. They are inlined at template-load time via `[[shared:fragment-name]]`:
 
-- `handoff-contract-architecture.md` — used by `architect.md`; documents `agentmux_submit_architecture` parameters and fallback `architecture.yaml` schema
-- `handoff-contract-plan.md` — used by `planner.md` and `change.md`; documents `agentmux_submit_subplan` and `agentmux_submit_execution_plan` parameters and fallback YAML schemas
-- `handoff-contract-review.md` — used by `review_logic.md`, `review_quality.md`, `review_expert.md`; documents `agentmux_submit_review` parameters and fallback `review.yaml` schema
+- `handoff-contract-architecture.md` — used by `architect.md`; documents `submit_architecture` parameters and fallback `architecture.yaml` schema
+- `handoff-contract-plan.md` — used by `planner.md` and `change.md`; documents `submit_subplan` and `submit_execution_plan` parameters and fallback YAML schemas
+- `handoff-contract-review.md` — used by `review_logic.md`, `review_quality.md`, `review_expert.md`; documents `submit_review` parameters and fallback `review.yaml` schema
 
 See `docs/handoff-contracts.md` for full contract details.
 

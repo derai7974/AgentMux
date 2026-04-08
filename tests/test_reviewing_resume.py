@@ -210,15 +210,33 @@ class TestResumeGuard(unittest.TestCase):
 
 
 class TestReviewArchive(unittest.TestCase):
+    _FAIL_PAYLOAD: dict = {
+        "verdict": "fail",
+        "summary": "Issues found in implementation.",
+        "findings": [
+            {
+                "location": "src/x.py:1",
+                "issue": "missing validation",
+                "severity": "high",
+                "recommendation": "Add input validation.",
+            }
+        ],
+    }
+    _PASS_PAYLOAD: dict = {
+        "verdict": "pass",
+        "summary": "All checks pass.",
+        "findings": [],
+        "commit_message": "feat: implementation complete",
+    }
+
     def _dispatch_review(
         self,
         ctx: PipelineContext,
         state_path: Path,
-        verdict_text: str,
+        payload: dict,
         iteration: int = 0,
     ) -> tuple[dict, str | None]:
-        ctx.files.review.parent.mkdir(parents=True, exist_ok=True)
-        ctx.files.review.write_text(verdict_text, encoding="utf-8")
+        ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
 
         state = load_state(state_path)
         state["phase"] = "reviewing"
@@ -226,17 +244,13 @@ class TestReviewArchive(unittest.TestCase):
         write_state(state_path, state)
 
         handler = ReviewingHandler()
-        event = WorkflowEvent(
-            kind="review_ready", path="06_review/review.md", payload={}
-        )
+        event = WorkflowEvent(kind="review", payload={"payload": payload})
         return handler.handle_event(event, load_state(state_path), ctx)
 
     def test_verdict_fail_creates_archive_and_keeps_review_md(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             ctx, state_path = _make_ctx(Path(td) / "feature")
-            self._dispatch_review(
-                ctx, state_path, "verdict: fail\n- finding\n", iteration=0
-            )
+            self._dispatch_review(ctx, state_path, self._FAIL_PAYLOAD, iteration=0)
 
             archive = ctx.files.review_dir / "review_0.md"
             self.assertTrue(archive.exists(), "review_0.md archive must be created")
@@ -246,9 +260,7 @@ class TestReviewArchive(unittest.TestCase):
     def test_verdict_fail_second_iteration_archives_correctly(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             ctx, state_path = _make_ctx(Path(td) / "feature")
-            self._dispatch_review(
-                ctx, state_path, "verdict: fail\n- finding 2\n", iteration=1
-            )
+            self._dispatch_review(ctx, state_path, self._FAIL_PAYLOAD, iteration=1)
 
             archive = ctx.files.review_dir / "review_1.md"
             self.assertTrue(archive.exists(), "review_1.md archive must be created")
@@ -256,7 +268,7 @@ class TestReviewArchive(unittest.TestCase):
     def test_verdict_pass_creates_archive_and_keeps_review_md(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             ctx, state_path = _make_ctx(Path(td) / "feature")
-            self._dispatch_review(ctx, state_path, "verdict: pass\n", iteration=0)
+            self._dispatch_review(ctx, state_path, self._PASS_PAYLOAD, iteration=0)
 
             archive = ctx.files.review_dir / "review_0.md"
             self.assertTrue(
@@ -269,11 +281,16 @@ class TestReviewArchive(unittest.TestCase):
     def test_archive_contains_same_content_as_review_md(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             ctx, state_path = _make_ctx(Path(td) / "feature")
-            content = "verdict: fail\n## Finding\nSomething is wrong.\n"
-            self._dispatch_review(ctx, state_path, content, iteration=2)
+            self._dispatch_review(ctx, state_path, self._FAIL_PAYLOAD, iteration=2)
 
             archive = ctx.files.review_dir / "review_2.md"
-            self.assertEqual(content, archive.read_text(encoding="utf-8"))
+            review_md = ctx.files.review_dir / "review.md"
+            self.assertTrue(archive.exists(), "archive must be created")
+            self.assertTrue(review_md.exists(), "review.md must be created")
+            self.assertEqual(
+                review_md.read_text(encoding="utf-8"),
+                archive.read_text(encoding="utf-8"),
+            )
 
 
 if __name__ == "__main__":

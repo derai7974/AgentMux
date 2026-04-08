@@ -278,37 +278,30 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             state["phase"] = "planning"
             write_state(state_path, state)
 
-            (feature_dir / RESEARCH_DIR / "code-auth-module").mkdir(
-                parents=True, exist_ok=True
-            )
-            (feature_dir / RESEARCH_DIR / "code-auth-module" / "request.md").write_text(
-                "investigate auth",
-                encoding="utf-8",
-            )
-            stale_done = feature_dir / RESEARCH_DIR / "code-auth-module" / "done"
-            stale_done.touch()
-
             handler = PlanningHandler()
             event = WorkflowEvent(
-                kind="code_research_requested",
-                path="03_research/code-auth-module/request.md",
-                payload={},
+                kind="research_code_req",
+                payload={
+                    "payload": {
+                        "topic": "auth-module",
+                        "context": "Investigate auth module",
+                        "questions": ["How does auth work?"],
+                        "scope_hints": ["src/auth/"],
+                    }
+                },
             )
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
             )
 
             self.assertIsNone(next_phase)
-            self.assertFalse(stale_done.exists())
-            # spawn_task now receives the research directory, not the prompt file
-            # The call stores the directory name: "code-auth-module"
+            # spawn_task receives the research directory
+            research_dir = feature_dir / RESEARCH_DIR / "code-auth-module"
             self.assertEqual(
                 ("spawn_task", "code-researcher", "auth-module", "code-auth-module"),
                 ctx.runtime.calls[-1],
             )
-            self.assertTrue(
-                (feature_dir / RESEARCH_DIR / "code-auth-module" / "prompt.md").exists()
-            )
+            self.assertTrue((research_dir / "request.md").exists())
             self.assertEqual(
                 "dispatched", updates.get("research_tasks", {}).get("auth-module")
             )
@@ -324,16 +317,10 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             state["phase"] = "planning"
             state["research_tasks"] = {"auth-module": "dispatched"}
             write_state(state_path, state)
-            (feature_dir / RESEARCH_DIR / "code-auth-module").mkdir(
-                parents=True, exist_ok=True
-            )
-            (feature_dir / RESEARCH_DIR / "code-auth-module" / "done").touch()
-
             handler = PlanningHandler()
             event = WorkflowEvent(
-                kind="code_research_done",
-                path="03_research/code-auth-module/done",
-                payload={},
+                kind="research_done",
+                payload={"payload": {"topic": "auth-module", "role_type": "code"}},
             )
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx

@@ -1,6 +1,8 @@
 ## Submitting Your Review
 
-Use the `agentmux_submit_review` MCP tool to submit your review. This ensures structured, validated output.
+Use the `submit_review` MCP tool to submit your review. This ensures structured, validated output.
+
+> When you call this tool, the orchestrator observes the event and advances the workflow. No manual file creation is required.
 
 **Tool parameters:**
 - `verdict` (required) — `"pass"` or `"fail"`

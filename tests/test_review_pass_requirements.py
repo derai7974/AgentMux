@@ -149,8 +149,7 @@ class ReviewPassRequirementsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             ctx, state_path = self._make_ctx(tmp_path / "feature")
-            ctx.files.review.parent.mkdir(parents=True, exist_ok=True)
-            ctx.files.review.write_text("verdict: pass\n", encoding="utf-8")
+            ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
 
             state = load_state(state_path)
             state["phase"] = "reviewing"
@@ -158,9 +157,15 @@ class ReviewPassRequirementsTests(unittest.TestCase):
 
             handler = ReviewingHandler()
             event = WorkflowEvent(
-                kind="review_ready",
-                path="06_review/review.md",
-                payload={},
+                kind="review",
+                payload={
+                    "payload": {
+                        "verdict": "pass",
+                        "summary": "LGTM, all checks pass.",
+                        "findings": [],
+                        "commit_message": "feat: implementation complete",
+                    }
+                },
             )
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
@@ -191,8 +196,7 @@ class ReviewPassRequirementsTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            ctx.files.review.parent.mkdir(parents=True, exist_ok=True)
-            ctx.files.review.write_text("verdict: pass\n", encoding="utf-8")
+            ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
 
             state = load_state(state_path)
             state["phase"] = "reviewing"
@@ -200,9 +204,15 @@ class ReviewPassRequirementsTests(unittest.TestCase):
 
             handler = ReviewingHandler()
             event = WorkflowEvent(
-                kind="review_ready",
-                path="06_review/review.md",
-                payload={},
+                kind="review",
+                payload={
+                    "payload": {
+                        "verdict": "pass",
+                        "summary": "LGTM, all checks pass.",
+                        "findings": [],
+                        "commit_message": "feat: implementation complete",
+                    }
+                },
             )
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
@@ -217,8 +227,7 @@ class ReviewPassRequirementsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             tmp_path = Path(td)
             ctx, state_path = self._make_ctx(tmp_path / "feature")
-            ctx.files.review.parent.mkdir(parents=True, exist_ok=True)
-            ctx.files.review.write_text("verdict: fail\n- finding\n", encoding="utf-8")
+            ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
 
             state = load_state(state_path)
             state["phase"] = "reviewing"
@@ -227,9 +236,21 @@ class ReviewPassRequirementsTests(unittest.TestCase):
 
             handler = ReviewingHandler()
             event = WorkflowEvent(
-                kind="review_ready",
-                path="06_review/review.md",
-                payload={},
+                kind="review",
+                payload={
+                    "payload": {
+                        "verdict": "fail",
+                        "summary": "Issues found.",
+                        "findings": [
+                            {
+                                "location": "src/x.py:1",
+                                "issue": "missing validation",
+                                "severity": "high",
+                                "recommendation": "Add input validation.",
+                            }
+                        ],
+                    }
+                },
             )
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx

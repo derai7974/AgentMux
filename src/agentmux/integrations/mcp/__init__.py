@@ -17,6 +17,7 @@ from .configurators import (
     CONFIGURATORS,
     ClaudeConfigurator,
     CodexConfigurator,
+    CopilotConfigurator,
     GeminiConfigurator,
     JsonMcpConfigurator,
     OpenCodeConfigurator,
@@ -57,6 +58,7 @@ __all__ = [
     # Configurators
     "ClaudeConfigurator",
     "CodexConfigurator",
+    "CopilotConfigurator",
     "CONFIGURATORS",
     "GeminiConfigurator",
     "JsonMcpConfigurator",

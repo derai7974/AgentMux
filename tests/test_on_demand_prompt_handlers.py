@@ -260,11 +260,9 @@ class OnDemandPromptHandlerTests(unittest.TestCase):
             self.assertEqual("parallel", state.get("implementation_group_mode"))
 
             ctx.files.implementation_dir.mkdir(parents=True, exist_ok=True)
-            (ctx.files.implementation_dir / "done_1").write_text("", encoding="utf-8")
             event = WorkflowEvent(
-                kind="done_marker",
-                path="05_implementation/done_1",
-                payload={},
+                kind="done",
+                payload={"payload": {"subplan_index": 1}},
             )
             updates, next_phase = handler.handle_event(event, state, ctx)
             state.update(updates)

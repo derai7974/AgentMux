@@ -12,7 +12,17 @@ class McpServerSpec:
     env: dict[str, str]
 
 
-DEFAULT_RESEARCH_ROLES = ("architect", "product-manager")
+DEFAULT_RESEARCH_ROLES = (
+    "architect",
+    "product-manager",
+    "planner",
+    "coder",
+    "code-researcher",
+    "web-researcher",
+    "reviewer_logic",
+    "reviewer_quality",
+    "reviewer_expert",
+)
 DEFAULT_RESEARCH_SERVERS = (
     McpServerSpec(
         name="agentmux-research",

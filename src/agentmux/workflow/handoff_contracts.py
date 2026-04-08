@@ -369,6 +369,10 @@ def validate_submission(contract_name: str, data: dict[str, Any]) -> list[str]:
 
         value = data[fld.name]
 
+        # Optional fields: treat empty string as "not provided" — skip type check
+        if not fld.required and isinstance(value, str) and not value.strip():
+            continue
+
         if not _check_type(value, fld.type):
             errors.append(
                 f"Field '{fld.name}' has invalid type "
