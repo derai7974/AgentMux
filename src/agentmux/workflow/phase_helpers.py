@@ -229,7 +229,7 @@ def select_reviewer_type(plan_meta: dict) -> str:
         One of "logic" | "quality" | "expert"
 
     Rules:
-        - Missing review_strategy -> "logic" (backward compat default)
+        - Missing review_strategy -> "logic" (default)
         - low severity -> "quality"
         - medium severity + no security/performance in focus -> "logic"
         - medium severity + security OR performance in focus -> "expert"

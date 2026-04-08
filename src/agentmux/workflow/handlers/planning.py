@@ -143,8 +143,8 @@ class PlanningHandler:
                 old.unlink(missing_ok=True)
                 (ctx.files.planning_dir / f"tasks_{n}.md").unlink(missing_ok=True)
 
-        # Materialize execution_plan.yaml (version 1) for backward compatibility,
-        # always regenerating so it stays in sync with the new plan.
+        # Materialize execution_plan.yaml, always regenerating so it stays in sync
+        # with the new plan.
         ep_path = ctx.files.planning_dir / "execution_plan.yaml"
         _write_yaml(ep_path, generate_execution_plan_yaml(data))
 

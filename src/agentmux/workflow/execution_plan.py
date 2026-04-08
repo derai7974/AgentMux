@@ -25,7 +25,6 @@ class ExecutionGroup:
 
 @dataclass(frozen=True)
 class ExecutionPlan:
-    version: int
     groups: list[ExecutionGroup]
 
 
@@ -45,10 +44,6 @@ def load_execution_plan(planning_dir: Path) -> ExecutionPlan:
 
     if not isinstance(payload, dict):
         raise _error(path, "must be a YAML mapping.")
-
-    version = payload.get("version")
-    if version != 1:
-        raise _error(path, "version must be 1.")
 
     groups_raw = payload.get("groups")
     if not isinstance(groups_raw, list) or not groups_raw:
@@ -128,4 +123,4 @@ def load_execution_plan(planning_dir: Path) -> ExecutionPlan:
 
         groups.append(ExecutionGroup(group_id=group_id, mode=mode_raw, plans=plans))
 
-    return ExecutionPlan(version=version, groups=groups)
+    return ExecutionPlan(groups=groups)

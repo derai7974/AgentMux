@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import yaml
 
-from agentmux.integrations.mcp import OpenCodeAgentConfigurator
+from agentmux.integrations.opencode_agents import OpenCodeAgentConfigurator
 from agentmux.pipeline.configure_command import ROLES, run_configure
 
 

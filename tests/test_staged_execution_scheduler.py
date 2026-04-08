@@ -124,7 +124,7 @@ def _write_execution_plan(ctx: PipelineContext, groups: list[dict]) -> None:
     (planning_dir / "plan.md").write_text("# Plan\n", encoding="utf-8")
     import yaml
 
-    payload = {"version": 1, "groups": groups}
+    payload = {"groups": groups}
     (planning_dir / "execution_plan.yaml").write_text(
         yaml.dump(payload, default_flow_style=False), encoding="utf-8"
     )

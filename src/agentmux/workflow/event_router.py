@@ -343,10 +343,6 @@ class WorkflowEventRouter:
         """Get current timestamp in ISO format."""
         return datetime.now().astimezone().isoformat(timespec="seconds")
 
-    # Keep static methods for backward compatibility within the class
-    path_matches = staticmethod(path_matches)
-    path_matches_any = staticmethod(path_matches_any)
-
 
 def extract_research_topic(path: str, prefix: str) -> str | None:
     """Extract topic from research directory path.

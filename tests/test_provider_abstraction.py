@@ -544,27 +544,6 @@ roles:
         )
 
     # New v2-specific tests
-    def test_v1_config_produces_migration_error(self) -> None:
-        """v1 config without version key produces helpful migration error."""
-        with tempfile.TemporaryDirectory() as td:
-            cfg_path = Path(td) / "config.json"
-            cfg = {
-                "defaults": {"provider": "claude"},
-                "roles": {"architect": {"profile": "max"}},  # v1 uses profile
-            }
-            cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
-
-            with self.assertRaises(ValueError) as exc:
-                load_explicit_config(cfg_path)
-
-            error_msg = str(exc.exception)
-            self.assertIn("Legacy config detected", error_msg)
-            self.assertIn("version: 2", error_msg)
-            self.assertIn("Rename 'launchers:' to 'providers:'", error_msg)
-            self.assertIn(
-                "Replace 'profile: <name>' with 'model: <model-name>'", error_msg
-            )
-
     def test_profile_key_in_v2_produces_error(self) -> None:
         """Using profile key in v2 config produces error."""
         with tempfile.TemporaryDirectory() as td:
@@ -579,7 +558,7 @@ roles:
             with self.assertRaises(ValueError) as exc:
                 load_explicit_config(cfg_path)
 
-            self.assertIn("Profiles are removed in v2", str(exc.exception))
+            self.assertIn("Profiles are not supported", str(exc.exception))
 
     def test_v2_config_parses_correctly(self) -> None:
         """v2 config with providers and model keys parses correctly."""

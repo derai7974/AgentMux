@@ -95,7 +95,6 @@ def _write_execution_plan(
         f"## Sub-plan 1: {name}\n", encoding="utf-8"
     )
     data: dict[str, object] = {
-        "version": 1,
         "groups": [
             {
                 "group_id": "g1",

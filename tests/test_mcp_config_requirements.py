@@ -10,15 +10,16 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agentmux.integrations.mcp import (
-    OPENCODE_AGENT_ROLES,
     McpServerSpec,
-    OpenCodeAgentConfigurator,
-    _create_runtime_mcp_config,
     cleanup_mcp,
     ensure_mcp_config,
     setup_mcp,
 )
-from agentmux.shared.models import AgentConfig
+from agentmux.integrations.mcp.runtime import (
+    create_runtime_mcp_config as _create_runtime_mcp_config,
+)
+from agentmux.integrations.opencode_agents import OpenCodeAgentConfigurator
+from agentmux.shared.models import OPENCODE_AGENT_ROLES, AgentConfig
 
 
 class McpConfigRequirementsTests(unittest.TestCase):

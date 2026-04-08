@@ -121,61 +121,19 @@ def _load_structured_file(path: Path) -> dict[str, Any]:
 
 
 def _normalize_config(raw: dict[str, Any]) -> dict[str, Any]:
-    legacy_top_level_keys = {
-        "session_name",
-        "provider",
-        "profile",
-        "max_review_iterations",
-        "skip_final_approval",
-        "require_final_approval",
-        *PROMPT_AGENT_ROLES,
-    }
-    found_legacy_keys = sorted(key for key in legacy_top_level_keys if key in raw)
-    if found_legacy_keys:
-        found_csv = ", ".join(found_legacy_keys)
-        raise ValueError(
-            "Legacy top-level config keys are no longer supported. "
-            f"Move them under `defaults`/`roles`: {found_csv}."
-        )
-
-    # Version detection (do this before profile check for better error messages)
-    version = int(raw.get("version", 1))
-    # Check if it's actually a v1 config (uses launchers/profiles)
-    if version == 1 and (
-        raw.get("launchers")
-        or raw.get("profiles")
-        or "profile" in str(raw.get("defaults", {}))
-        or any("profile" in str(role_cfg) for role_cfg in raw.get("roles", {}).values())
-    ):
-        raise ValueError(
-            "Legacy config detected (version: 1). Please migrate to version: 2.\n"
-            "- Rename 'launchers:' to 'providers:'\n"
-            "- Replace 'profile: <name>' with 'model: <model-name>'\n"
-            "- Remove 'profiles:' section\n"
-            "See docs/configuration.md for the new schema."
-        )
-
-    # Check for profile key usage (removed in v2)
+    # Check for profile key usage (not supported)
     if "profile" in raw.get("defaults", {}):
         raise ValueError(
-            "Profiles are removed in v2. Use 'model: <model-name>' directly."
+            "Profiles are not supported. Use 'model: <model-name>' directly."
         )
     for role in PROMPT_AGENT_ROLES:
         if role in raw.get("roles", {}) and "profile" in raw["roles"][role]:
             raise ValueError(
-                "Profiles are removed in v2. Use 'model: <model-name>' "
+                "Profiles are not supported. Use 'model: <model-name>' "
                 f"directly in roles.{role}."
             )
 
-    # Also support legacy 'launchers' key for v2 migration detection
-    if raw.get("launchers") and not raw.get("providers"):
-        raise ValueError(
-            "Legacy config uses 'launchers:' instead of 'providers:'. "
-            "Please update to version: 2 and rename 'launchers:' to 'providers:'."
-        )
-
     normalized: dict[str, Any] = {
-        "version": version,
         "defaults": _normalize_defaults(raw.get("defaults", {})),
         "github": _normalize_github(raw.get("github", {})),
         "providers": {},

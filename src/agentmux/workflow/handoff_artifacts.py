@@ -103,7 +103,7 @@ def generate_tasks_md(data: dict[str, Any]) -> str:
 
 
 def generate_execution_plan_yaml(data: dict[str, Any]) -> dict[str, Any]:
-    """Build a version-1 execution_plan.yaml dict from plan.yaml data.
+    """Build an execution_plan.yaml dict from plan.yaml data.
 
     Converts groups[].plans[].index references to plan_N.md file references
     so that load_execution_plan() can consume it unchanged.
@@ -122,7 +122,6 @@ def generate_execution_plan_yaml(data: dict[str, Any]) -> dict[str, Any]:
             }
         )
     return {
-        "version": 1,
         "groups": converted_groups,
         "review_strategy": data.get("review_strategy", {}),
         "needs_design": data.get("needs_design", False),

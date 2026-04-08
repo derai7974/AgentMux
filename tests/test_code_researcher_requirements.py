@@ -185,7 +185,6 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             (feature_dir / "runtime_state.json").write_text(
                 json.dumps(
                     {
-                        "version": 1,
                         "primary": {
                             "architect": "%1",
                             "coder": "%2",

@@ -918,21 +918,3 @@ class Monitor:
         while len(lines) < target_body:
             lines.append("")
         return "\n".join((lines[:target_body] + footer)[:height])
-
-
-def render(
-    session_name: str,
-    files: RuntimeFiles,
-    agents: dict[str, dict[str, str]],
-    width: int,
-    height: int,
-    start_time: float,
-    log_path: Path | None = None,
-) -> str:
-    """Legacy render function - creates Monitor instance and renders frame.
-
-    Kept for backwards compatibility. New code should use Monitor class directly.
-    """
-    monitor = Monitor(session_name, files, agents)
-    monitor._start_time = start_time  # Override start time for compatibility
-    return monitor.render(width, height)

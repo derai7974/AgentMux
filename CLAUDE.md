@@ -174,7 +174,7 @@ src/agentmux/integrations/compression.py — headroom proxy lifecycle and agent 
 src/agentmux/prompts/agents/            — role-level prompts (define what each agent is)
   product-manager.md           —   product management phase
   architect.md                 —   planning phase
-  reviewer.md                  —   review + confirmation phases (legacy, backward compat)
+  reviewer.md                  —   review + confirmation phases (fallback when no specialized reviewer is configured)
   reviewer_logic.md            —   Logic & Alignment reviewer (functional correctness vs plan)
   reviewer_quality.md          —   Quality & Style reviewer (clean code, naming, standards)
   reviewer_expert.md           —   Deep-Dive Expert reviewer (security, performance, edge cases)

@@ -29,7 +29,6 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
             (planning_dir / "execution_plan.yaml").write_text(
                 yaml.dump(
                     {
-                        "version": 1,
                         "groups": [
                             {
                                 "group_id": "foundation",
@@ -51,7 +50,6 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
             execution_plan = load_execution_plan(planning_dir)
 
             assert execution_plan is not None
-            self.assertEqual(1, execution_plan.version)
             self.assertEqual(2, len(execution_plan.groups))
             self.assertEqual("foundation", execution_plan.groups[0].group_id)
             self.assertEqual("serial", execution_plan.groups[0].mode)
@@ -66,7 +64,6 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
             (planning_dir / "execution_plan.yaml").write_text(
                 yaml.dump(
                     {
-                        "version": 1,
                         "groups": [
                             {"group_id": "g1", "mode": "serial", "plans": ["plan_1.md"]}
                         ],
@@ -86,7 +83,6 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
             (planning_dir / "execution_plan.yaml").write_text(
                 yaml.dump(
                     {
-                        "version": 1,
                         "groups": [
                             {
                                 "group_id": "g1",
@@ -108,7 +104,7 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
             planning_dir = Path(td) / "02_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "execution_plan.yaml").write_text(
-                yaml.dump({"version": 1, "groups": {}}, default_flow_style=False),
+                yaml.dump({"groups": {}}, default_flow_style=False),
                 encoding="utf-8",
             )
 
@@ -124,7 +120,6 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
             (planning_dir / "execution_plan.yaml").write_text(
                 yaml.dump(
                     {
-                        "version": 1,
                         "groups": [
                             {
                                 "group_id": "g1",
@@ -154,7 +149,6 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
             (planning_dir / "execution_plan.yaml").write_text(
                 yaml.dump(
                     {
-                        "version": 1,
                         "groups": [
                             {
                                 "group_id": "g1",

@@ -122,7 +122,6 @@ def _write_execution_plan(
     import yaml
 
     data: dict[str, object] = {
-        "version": 1,
         "groups": [
             {
                 "group_id": "g1",

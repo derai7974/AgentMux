@@ -543,7 +543,6 @@ class TestImplementingHandler:
         (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
             yaml.dump(
                 {
-                    "version": 1,
                     "groups": [
                         {
                             "group_id": "group1",
@@ -600,7 +599,6 @@ class TestImplementingHandler:
         (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
             yaml.dump(
                 {
-                    "version": 1,
                     "groups": [
                         {
                             "group_id": "group1",
@@ -642,7 +640,6 @@ class TestImplementingHandler:
         (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
             yaml.dump(
                 {
-                    "version": 1,
                     "groups": [
                         {
                             "group_id": "group1",
@@ -689,7 +686,6 @@ class TestImplementingHandler:
         (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
             yaml.dump(
                 {
-                    "version": 1,
                     "groups": [
                         {
                             "group_id": "group1",
@@ -748,7 +744,6 @@ class TestImplementingHandler:
         (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
             yaml.dump(
                 {
-                    "version": 1,
                     "groups": [
                         {
                             "group_id": "group1",

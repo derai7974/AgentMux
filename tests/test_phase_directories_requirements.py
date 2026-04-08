@@ -177,7 +177,6 @@ class PhaseDirectoryRequirementsTests(unittest.TestCase):
             (planning_dir / "execution_plan.yaml").write_text(
                 yaml.dump(
                     {
-                        "version": 1,
                         "groups": [
                             {
                                 "group_id": "g1",
