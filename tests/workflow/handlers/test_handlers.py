@@ -321,15 +321,39 @@ class TestPlanningHandler:
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
         handler = PlanningHandler()
-        event = WorkflowEvent(kind="execution_plan", payload={"payload": {}})
+        event = WorkflowEvent(kind="plan", payload={"payload": {}})
 
-        # Create all required files
+        # Write plan.yaml (version 2)
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        mock_ctx.files.plan.write_text("plan")
-        mock_ctx.files.tasks.write_text("tasks")
-
-        (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
-            yaml.dump({"needs_design": False}, default_flow_style=False)
+        plan_data = {
+            "version": 2,
+            "plan_overview": "# Plan\n\nTest.",
+            "groups": [
+                {
+                    "group_id": "g1",
+                    "mode": "serial",
+                    "plans": [{"index": 1, "name": "Setup"}],
+                }
+            ],
+            "subplans": [
+                {
+                    "index": 1,
+                    "title": "Setup",
+                    "scope": "Core setup",
+                    "owned_files": ["src/setup.py"],
+                    "dependencies": "None",
+                    "implementation_approach": "Setup",
+                    "acceptance_criteria": "Done",
+                    "tasks": ["Setup task"],
+                }
+            ],
+            "review_strategy": {"severity": "medium", "focus": []},
+            "needs_design": False,
+            "needs_docs": False,
+            "doc_files": [],
+        }
+        (mock_ctx.files.planning_dir / "plan.yaml").write_text(
+            yaml.dump(plan_data, default_flow_style=False)
         )
 
         with (
@@ -352,15 +376,39 @@ class TestPlanningHandler:
     ) -> None:
         """Test transition to designing when needs_design is true."""
         handler = PlanningHandler()
-        event = WorkflowEvent(kind="execution_plan", payload={"payload": {}})
+        event = WorkflowEvent(kind="plan", payload={"payload": {}})
 
-        # Create all required files
+        # Write plan.yaml (version 2)
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        mock_ctx.files.plan.write_text("plan")
-        mock_ctx.files.tasks.write_text("tasks")
-
-        (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
-            yaml.dump({"needs_design": True}, default_flow_style=False)
+        plan_data = {
+            "version": 2,
+            "plan_overview": "# Plan\n\nTest.",
+            "groups": [
+                {
+                    "group_id": "g1",
+                    "mode": "serial",
+                    "plans": [{"index": 1, "name": "Setup"}],
+                }
+            ],
+            "subplans": [
+                {
+                    "index": 1,
+                    "title": "Setup",
+                    "scope": "Core setup",
+                    "owned_files": ["src/setup.py"],
+                    "dependencies": "None",
+                    "implementation_approach": "Setup",
+                    "acceptance_criteria": "Done",
+                    "tasks": ["Setup task"],
+                }
+            ],
+            "review_strategy": {"severity": "medium", "focus": []},
+            "needs_design": True,
+            "needs_docs": False,
+            "doc_files": [],
+        }
+        (mock_ctx.files.planning_dir / "plan.yaml").write_text(
+            yaml.dump(plan_data, default_flow_style=False)
         )
 
         # Add designer to agents
@@ -380,17 +428,41 @@ class TestPlanningHandler:
     def test_deletes_changes_md_on_transition(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
-        """Test that changes.md is deleted on execution_plan submission."""
+        """Test that changes.md is deleted on plan submission."""
         handler = PlanningHandler()
-        event = WorkflowEvent(kind="execution_plan", payload={"payload": {}})
+        event = WorkflowEvent(kind="plan", payload={"payload": {}})
 
-        # Create all required files including changes.md
+        # Write plan.yaml (version 2) and changes.md
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        mock_ctx.files.plan.write_text("plan")
-        mock_ctx.files.tasks.write_text("tasks")
-
-        (mock_ctx.files.planning_dir / "execution_plan.yaml").write_text(
-            yaml.dump({}, default_flow_style=False)
+        plan_data = {
+            "version": 2,
+            "plan_overview": "# Plan\n\nTest.",
+            "groups": [
+                {
+                    "group_id": "g1",
+                    "mode": "serial",
+                    "plans": [{"index": 1, "name": "Setup"}],
+                }
+            ],
+            "subplans": [
+                {
+                    "index": 1,
+                    "title": "Setup",
+                    "scope": "Core setup",
+                    "owned_files": ["src/setup.py"],
+                    "dependencies": "None",
+                    "implementation_approach": "Setup",
+                    "acceptance_criteria": "Done",
+                    "tasks": ["Setup task"],
+                }
+            ],
+            "review_strategy": {"severity": "medium", "focus": []},
+            "needs_design": False,
+            "needs_docs": False,
+            "doc_files": [],
+        }
+        (mock_ctx.files.planning_dir / "plan.yaml").write_text(
+            yaml.dump(plan_data, default_flow_style=False)
         )
         mock_ctx.files.changes.write_text("changes")
 
@@ -744,19 +816,20 @@ class TestReviewingHandler:
     def test_handle_review_passed(self, mock_ctx: MagicMock, empty_state: dict) -> None:
         """Test that VERDICT:PASS stays in reviewing and requests summary."""
         handler = ReviewingHandler()
-        event = WorkflowEvent(
-            kind="review",
-            payload={
-                "payload": {
+
+        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.review_dir / "review.yaml").write_text(
+            yaml.dump(
+                {
                     "verdict": "pass",
                     "summary": "Looks good!",
                     "findings": [],
                     "commit_message": "feat: all done",
-                }
-            },
+                },
+                default_flow_style=False,
+            )
         )
-
-        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        event = WorkflowEvent(kind="review", payload={"payload": {}})
 
         updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
@@ -772,19 +845,20 @@ class TestReviewingHandler:
     ) -> None:
         """Review tool event writes both review.yaml and review.md."""
         handler = ReviewingHandler()
-        event = WorkflowEvent(
-            kind="review",
-            payload={
-                "payload": {
+
+        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.review_dir / "review.yaml").write_text(
+            yaml.dump(
+                {
                     "verdict": "pass",
                     "summary": "Looks good!",
                     "findings": [],
                     "commit_message": "feat: done",
-                }
-            },
+                },
+                default_flow_style=False,
+            )
         )
-
-        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        event = WorkflowEvent(kind="review", payload={"payload": {}})
 
         updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
@@ -802,10 +876,11 @@ class TestReviewingHandler:
     ) -> None:
         """Test transition to fixing when under max iterations."""
         handler = ReviewingHandler()
-        event = WorkflowEvent(
-            kind="review",
-            payload={
-                "payload": {
+
+        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.review_dir / "review.yaml").write_text(
+            yaml.dump(
+                {
                     "verdict": "fail",
                     "summary": "Needs fixes",
                     "findings": [
@@ -817,11 +892,11 @@ class TestReviewingHandler:
                         }
                     ],
                     "commit_message": "",
-                }
-            },
+                },
+                default_flow_style=False,
+            )
         )
-
-        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        event = WorkflowEvent(kind="review", payload={"payload": {}})
 
         updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
@@ -834,10 +909,11 @@ class TestReviewingHandler:
     ) -> None:
         """Review tool event with fail verdict creates fix_request.txt."""
         handler = ReviewingHandler()
-        event = WorkflowEvent(
-            kind="review",
-            payload={
-                "payload": {
+
+        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.review_dir / "review.yaml").write_text(
+            yaml.dump(
+                {
                     "verdict": "fail",
                     "summary": "Needs fixes",
                     "findings": [
@@ -849,11 +925,11 @@ class TestReviewingHandler:
                         }
                     ],
                     "commit_message": "",
-                }
-            },
+                },
+                default_flow_style=False,
+            )
         )
-
-        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        event = WorkflowEvent(kind="review", payload={"payload": {}})
 
         updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
@@ -869,10 +945,11 @@ class TestReviewingHandler:
     ) -> None:
         """Test transition to completing when max iterations reached."""
         handler = ReviewingHandler()
-        event = WorkflowEvent(
-            kind="review",
-            payload={
-                "payload": {
+
+        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.review_dir / "review.yaml").write_text(
+            yaml.dump(
+                {
                     "verdict": "fail",
                     "summary": "Still failing",
                     "findings": [
@@ -884,15 +961,14 @@ class TestReviewingHandler:
                         }
                     ],
                     "commit_message": "",
-                }
-            },
+                },
+                default_flow_style=False,
+            )
         )
-
-        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        event = WorkflowEvent(kind="review", payload={"payload": {}})
 
         # Set state at max iterations
         state = {"review_iteration": 3}
-
         updates, next_phase = handler.handle_event(event, state, mock_ctx)
 
         assert next_phase == "completing"

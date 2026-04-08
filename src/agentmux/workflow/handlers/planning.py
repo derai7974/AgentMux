@@ -20,6 +20,8 @@ from agentmux.workflow.event_router import (
 from agentmux.workflow.execution_plan import load_execution_plan
 from agentmux.workflow.handoff_artifacts import (
     _write_approved_preferences,
+    _write_yaml,
+    generate_execution_plan_yaml,
     generate_plan_md,
     generate_subplan_md,
     generate_tasks_md,
@@ -53,8 +55,7 @@ class PlanningHandler:
 
     def get_tool_specs(self) -> Sequence[ToolSpec]:
         return (
-            ToolSpec(name="execution_plan", tool_names=("submit_execution_plan",)),
-            ToolSpec(name="subplan", tool_names=("submit_subplan",)),
+            ToolSpec(name="plan", tool_names=("submit_plan",)),
             ToolSpec(
                 name="research_code_req",
                 tool_names=("research_dispatch_code",),
@@ -99,10 +100,8 @@ class PlanningHandler:
     ) -> tuple[dict, str | None]:
         """Handle events for planning phase."""
         match event.kind:
-            case "execution_plan":
-                return self._handle_execution_plan(event, state, ctx)
-            case "subplan":
-                return self._handle_subplan(event, state, ctx)
+            case "plan":
+                return self._handle_plan(event, state, ctx)
             case "research_code_req":
                 return self._handle_research_code_req(event, state, ctx)
             case "research_web_req":
@@ -112,79 +111,73 @@ class PlanningHandler:
             case _:
                 return {}, None
 
-    def _handle_execution_plan(
+    def _handle_plan(
         self,
         event: WorkflowEvent,
         state: dict,
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
-        """Handle execution plan submission via tool event."""
-        # YAML is agent-written and already validated by the MCP signal tool.
-        yaml_path = ctx.files.planning_dir / "execution_plan.yaml"
+        """Handle unified plan submission (plan.yaml version 2)."""
+        yaml_path = ctx.files.planning_dir / "plan.yaml"
         data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
 
-        # Materialize plan.md if the agent did not write it.
+        # Materialize plan_N.md and tasks_N.md for each sub-plan, always
+        # regenerating so replans don't leave stale derived artifacts.
+        new_indices: set[int] = set()
+        for sp in data.get("subplans", []):
+            idx = sp["index"]
+            new_indices.add(idx)
+            plan_md = ctx.files.planning_dir / f"plan_{idx}.md"
+            plan_md.parent.mkdir(parents=True, exist_ok=True)
+            plan_md.write_text(generate_subplan_md(sp), encoding="utf-8")
+            tasks_md = ctx.files.planning_dir / f"tasks_{idx}.md"
+            tasks_md.write_text(generate_tasks_md(sp), encoding="utf-8")
+
+        # Remove stale plan_N.md / tasks_N.md from a previous plan.
+        for old in ctx.files.planning_dir.glob("plan_*.md"):
+            try:
+                n = int(old.stem.split("_")[1])
+            except (IndexError, ValueError):
+                continue
+            if n not in new_indices:
+                old.unlink(missing_ok=True)
+                (ctx.files.planning_dir / f"tasks_{n}.md").unlink(missing_ok=True)
+
+        # Materialize execution_plan.yaml (version 1) for backward compatibility,
+        # always regenerating so it stays in sync with the new plan.
+        ep_path = ctx.files.planning_dir / "execution_plan.yaml"
+        _write_yaml(ep_path, generate_execution_plan_yaml(data))
+
+        # Materialize plan.md from plan_overview, always regenerating.
         plan_md_path = ctx.files.planning_dir / "plan.md"
-        if not plan_md_path.exists() and data.get("plan_overview"):
+        if data.get("plan_overview"):
             plan_md_path.parent.mkdir(parents=True, exist_ok=True)
             plan_md_path.write_text(generate_plan_md(data), encoding="utf-8")
 
-        # Write approved_preferences.json if included in the YAML.
+        # Write approved_preferences.json if included.
         _write_approved_preferences(
             ctx.files.feature_dir,
             data.get("approved_preferences"),
             expected_source_role="planner",
         )
 
-        # Apply approved preferences from planner
+        # Apply approved preferences from planner.
         apply_role_preferences(ctx, "planner")
 
         load_execution_plan(ctx.files.planning_dir)
         meta = load_plan_meta(ctx.files.planning_dir)
         needs_design = bool(meta.get("needs_design")) and "designer" in ctx.agents
 
-        # Delete changes.md if exists
+        # Delete changes.md if exists.
         if ctx.files.changes.exists():
             ctx.files.changes.unlink()
 
-        # Deactivate and kill planner - their work is done
+        # Deactivate and kill planner - their work is done.
         ctx.runtime.deactivate("planner")
         ctx.runtime.kill_primary("planner")
 
-        # Determine next phase
         next_phase = "designing" if needs_design else "implementing"
         return {"last_event": EVENT_PLAN_WRITTEN}, next_phase
-
-    def _handle_subplan(
-        self,
-        event: WorkflowEvent,
-        state: dict,
-        ctx: PipelineContext,
-    ) -> tuple[dict, str | None]:
-        """Handle subplan submission via tool event."""
-        payload = event.payload.get("payload", {})
-        index = payload.get("index")
-        if index is None:
-            return {"error": "missing subplan index"}, None
-
-        # YAML is agent-written and already validated by the MCP signal tool.
-        yaml_path = ctx.files.planning_dir / f"plan_{index}.yaml"
-        if not yaml_path.exists():
-            return {"error": f"plan_{index}.yaml not found"}, None
-        data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
-
-        # Materialize .md companions if the agent did not write them.
-        plan_md_path = ctx.files.planning_dir / f"plan_{index}.md"
-        if not plan_md_path.exists():
-            plan_md_path.parent.mkdir(parents=True, exist_ok=True)
-            plan_md_path.write_text(generate_subplan_md(data), encoding="utf-8")
-
-        tasks_md_path = ctx.files.planning_dir / f"tasks_{index}.md"
-        if not tasks_md_path.exists():
-            tasks_md_path.parent.mkdir(parents=True, exist_ok=True)
-            tasks_md_path.write_text(generate_tasks_md(data), encoding="utf-8")
-
-        return {}, None
 
     def _handle_research_code_req(
         self,

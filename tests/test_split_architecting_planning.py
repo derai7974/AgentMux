@@ -172,18 +172,18 @@ class TestPlannerPromptTemplates(unittest.TestCase):
             self.assertIn("[[include:02_planning/architecture.md]]", content)
 
     def test_planner_agent_includes_execution_plan_yaml(self) -> None:
-        """Planner agent prompt should mention execution_plan.yaml creation."""
+        """Planner agent prompt should mention plan.yaml (new unified format)."""
         planner_prompt = self.agents_dir / "planner.md"
         if planner_prompt.exists():
             content = planner_prompt.read_text(encoding="utf-8")
-            self.assertIn("execution_plan.yaml", content)
+            self.assertIn("plan.yaml", content)
 
     def test_planner_agent_includes_plan_markdown(self) -> None:
-        """Planner agent prompt should mention plan.md creation."""
+        """Planner agent prompt should reference plan.yaml output artifact."""
         planner_prompt = self.agents_dir / "planner.md"
         if planner_prompt.exists():
             content = planner_prompt.read_text(encoding="utf-8")
-            self.assertIn("plan.md", content)
+            self.assertIn("02_planning/plan.yaml", content)
 
     def test_planner_agent_includes_tasks_files(self) -> None:
         """Planner agent prompt should mention tasks file creation."""

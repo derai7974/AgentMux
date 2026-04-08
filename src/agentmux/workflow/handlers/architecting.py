@@ -10,17 +10,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-import yaml
-
 from agentmux.workflow.event_catalog import EVENT_ARCHITECTURE_WRITTEN
 from agentmux.workflow.event_router import (
     EventSpec,
     ToolSpec,
     WorkflowEvent,
-)
-from agentmux.workflow.handoff_artifacts import (
-    _write_approved_preferences,
-    generate_architecture_md,
 )
 from agentmux.workflow.phase_helpers import (
     apply_role_preferences,
@@ -102,24 +96,11 @@ class ArchitectingHandler:
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle architecture submission via tool event."""
-        # YAML is agent-written and already validated by the MCP signal tool.
-        yaml_path = ctx.files.planning_dir / "architecture.yaml"
-        data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
-
-        # Materialize architecture.md if the agent did not write it.
+        # architecture.md is agent-written and already validated by submit_architecture.
         md_path = ctx.files.planning_dir / "architecture.md"
-        if not md_path.exists():
-            md_path.parent.mkdir(parents=True, exist_ok=True)
-            md_path.write_text(generate_architecture_md(data), encoding="utf-8")
 
-        # Write approved_preferences.json if included in the YAML.
-        _write_approved_preferences(
-            ctx.files.feature_dir,
-            data.get("approved_preferences"),
-            expected_source_role="architect",
-        )
-
-        # Apply approved preferences from architect
+        # Apply approved preferences from architect (reads approved_preferences.json
+        # written directly by the architect agent per the architect prompt).
         apply_role_preferences(ctx, "architect")
 
         # Delete changes.md if exists (we're moving forward)
@@ -130,8 +111,92 @@ class ArchitectingHandler:
         ctx.runtime.deactivate("architect")
         ctx.runtime.kill_primary("architect")
 
+        _ = md_path  # used by the orchestrator directly; no transformation needed
         # Transition to planning phase (planner takes over)
         return {"last_event": EVENT_ARCHITECTURE_WRITTEN}, "planning"
+
+    def _handle_research_code_req(
+        self,
+        event: WorkflowEvent,
+        state: dict,
+        ctx: PipelineContext,
+    ) -> tuple[dict, str | None]:
+        """Handle code research request via tool event."""
+        payload = event.payload.get("payload", {})
+        topic = payload.get("topic", "")
+        if not topic:
+            return {}, None
+
+        # Write request.md before dispatching (side-effect ordering requirement)
+        req_dir = ctx.files.research_dir / f"code-{topic}"
+        req_dir.mkdir(parents=True, exist_ok=True)
+        req_path = req_dir / "request.md"
+        if not req_path.exists():
+            questions = payload.get("questions", [])
+            scope_hints = payload.get("scope_hints", [])
+            content = (
+                f"# Research Request: {topic}\n\n"
+                f"## Context\n{payload.get('context', '')}\n\n"
+                f"## Questions\n"
+                + "\n".join(f"- {q}" for q in questions)
+                + (
+                    "\n\n## Scope Hints\n" + "\n".join(f"- {h}" for h in scope_hints)
+                    if scope_hints
+                    else ""
+                )
+            )
+            req_path.write_text(content, encoding="utf-8")
+
+        return dispatch_research_task("code-researcher", topic, state, ctx)
+
+    def _handle_research_web_req(
+        self,
+        event: WorkflowEvent,
+        state: dict,
+        ctx: PipelineContext,
+    ) -> tuple[dict, str | None]:
+        """Handle web research request via tool event."""
+        payload = event.payload.get("payload", {})
+        topic = payload.get("topic", "")
+        if not topic:
+            return {}, None
+
+        # Write request.md before dispatching (side-effect ordering requirement)
+        req_dir = ctx.files.research_dir / f"web-{topic}"
+        req_dir.mkdir(parents=True, exist_ok=True)
+        req_path = req_dir / "request.md"
+        if not req_path.exists():
+            questions = payload.get("questions", [])
+            scope_hints = payload.get("scope_hints", [])
+            content = (
+                f"# Research Request: {topic}\n\n"
+                f"## Context\n{payload.get('context', '')}\n\n"
+                f"## Questions\n"
+                + "\n".join(f"- {q}" for q in questions)
+                + (
+                    "\n\n## Scope Hints\n" + "\n".join(f"- {h}" for h in scope_hints)
+                    if scope_hints
+                    else ""
+                )
+            )
+            req_path.write_text(content, encoding="utf-8")
+
+        return dispatch_research_task("web-researcher", topic, state, ctx)
+
+    def _handle_research_done(
+        self,
+        event: WorkflowEvent,
+        state: dict,
+        ctx: PipelineContext,
+    ) -> tuple[dict, str | None]:
+        """Handle research completion via tool event."""
+        payload = event.payload.get("payload", {})
+        topic = payload.get("topic", "")
+        role = research_role_from_payload(payload)
+        if not topic or role is None:
+            return {}, None
+
+        return notify_research_complete(role, topic, state, ctx, "architect")
 
     def _handle_research_code_req(
         self,

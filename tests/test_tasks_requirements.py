@@ -141,7 +141,7 @@ class TasksRequirementsTests(unittest.TestCase):
             self.assertIn("Interfaces", architect_prompt)
 
             # Planner owns execution planning — check streamlined content
-            self.assertIn("02_planning/plan.md", planner_prompt)
+            self.assertIn("02_planning/plan.yaml", planner_prompt)
             self.assertIn("02_planning/architecture.md", planner_prompt)
             self.assertIn("Phase 1 (Serial - Foundation)", planner_prompt)
             self.assertIn("Phase 2 (Parallel - Implementation)", planner_prompt)
@@ -261,48 +261,31 @@ class TasksRequirementsTests(unittest.TestCase):
 
             self.assertIn('<file path="requirements.md">', prompt)
             self.assertIn('<file path="02_planning/plan.md">', prompt)
-            self.assertIn('<file path="02_planning/tasks.md">', prompt)
-            self.assertIn('<file path="08_completion/changes.md">', prompt)
-            self.assertIn("02_planning/execution_plan.yaml", prompt)
+            self.assertNotIn('<file path="02_planning/tasks.md">', prompt)
+            self.assertIn('<file path="02_planning/changes.md">', prompt)
+            self.assertIn("execution_plan.yaml", prompt)
             self.assertNotIn("02_planning/plan_meta.json", prompt)
             self.assertIn(
-                "Documentation updates must be captured as explicit plan "
-                "and task items in `02_planning/plan.md`, "
-                "every `02_planning/plan_<N>.md`, and "
-                "every `02_planning/tasks_<N>.md`.",
+                "Documentation updates must be captured as explicit tasks "
+                "in the relevant sub-plan.",
                 prompt,
             )
             self.assertIn("needs_design", prompt)
             self.assertIn("needs_docs", prompt)
             self.assertIn("doc_files", prompt)
-            self.assertIn("empty list when `needs_docs` is `false`", prompt)
-            self.assertIn("Do not treat `needs_docs` as a workflow switch", prompt)
-            self.assertIn("Phase 1: Foundation & Interfaces", prompt)
-            self.assertIn("Phase 2: Parallel Implementation", prompt)
-            self.assertIn("Phase 3: Integration & Validation", prompt)
             self.assertIn("Scope", prompt)
-            self.assertIn("Owned files/modules", prompt)
-            self.assertIn("Dependencies", prompt)
-            self.assertIn("Isolation", prompt)
+            self.assertIn("owned_files", prompt)
+            self.assertIn("dependencies", prompt)
+            self.assertIn("isolation_rationale", prompt)
             self.assertIn("conflict mapping", prompt.lower())
             self.assertIn("owned files/modules must be disjoint", prompt)
             self.assertIn(
                 "merge that work into one sub-plan or move "
-                "the overlapping portion into a serial Phase 3 integration step",
+                "the overlapping portion into a serial group",
                 prompt,
             )
             self.assertIn("shared mutable artifacts", prompt)
-            self.assertIn("task ownership unambiguous", prompt)
-            self.assertIn(
-                "must belong only to that sub-plan's owned files/modules", prompt
-            )
             self.assertIn("technical debt", prompt.lower())
-            self.assertNotIn(
-                "should be treated as parallelizable unless a precise "
-                "technical conflict is documented",
-                prompt,
-            )
-            self.assertIn("1. Example task", prompt)
 
     def test_architect_prompt_no_longer_accepts_review_mode(
         self,

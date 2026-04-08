@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import unittest
 
-import yaml
-
 from agentmux.workflow.handoff_contracts import (
     ARCHITECTURE_CONTRACT,
     CONTRACTS,
-    EXECUTION_PLAN_CONTRACT,
+    PLAN_CONTRACT,
     REVIEW_CONTRACT,
-    SUBPLAN_CONTRACT,
     ValidationError,
     render_contract_prompt,
     validate_submission,
@@ -21,15 +18,14 @@ from agentmux.workflow.handoff_contracts import (
 class TestContractRegistry(unittest.TestCase):
     def test_all_contracts_registered(self):
         self.assertIn("architecture", CONTRACTS)
-        self.assertIn("execution_plan", CONTRACTS)
-        self.assertIn("subplan", CONTRACTS)
+        self.assertIn("plan", CONTRACTS)
         self.assertIn("review", CONTRACTS)
-        self.assertEqual(len(CONTRACTS), 4)
+        self.assertEqual(len(CONTRACTS), 3)
 
     def test_contract_field_names(self):
-        self.assertIn("solution_overview", ARCHITECTURE_CONTRACT.field_names())
-        self.assertIn("groups", EXECUTION_PLAN_CONTRACT.field_names())
-        self.assertIn("index", SUBPLAN_CONTRACT.field_names())
+        self.assertEqual(ARCHITECTURE_CONTRACT.field_names(), frozenset())
+        self.assertIn("groups", PLAN_CONTRACT.field_names())
+        self.assertIn("subplans", PLAN_CONTRACT.field_names())
         self.assertIn("verdict", REVIEW_CONTRACT.field_names())
 
     def test_required_fields_subset_of_all(self):
@@ -38,133 +34,134 @@ class TestContractRegistry(unittest.TestCase):
 
 
 class TestValidateArchitecture(unittest.TestCase):
+    def test_empty_data_passes(self):
+        # Architecture is free-form MD — contract has no required YAML fields.
+        errors = validate_submission("architecture", {})
+        self.assertEqual(errors, [])
+
+    def test_any_dict_passes(self):
+        errors = validate_submission("architecture", {"anything": "goes"})
+        self.assertEqual(errors, [])
+
+
+class TestValidatePlan(unittest.TestCase):
     def _valid_data(self):
         return {
-            "solution_overview": "High-level approach",
-            "components": [
-                {
-                    "name": "AuthService",
-                    "responsibility": "Auth",
-                    "interfaces": ["login()"],
-                }
-            ],
-            "interfaces_and_contracts": "REST API",
-            "data_models": "User, Session",
-            "cross_cutting_concerns": "Logging",
-            "technology_choices": "Python + FastAPI",
-            "risks_and_mitigations": "None identified",
-        }
-
-    def test_valid_submission(self):
-        errors = validate_submission("architecture", self._valid_data())
-        self.assertEqual(errors, [])
-
-    def test_missing_required_field(self):
-        data = self._valid_data()
-        del data["solution_overview"]
-        errors = validate_submission("architecture", data)
-        self.assertTrue(any("solution_overview" in e for e in errors))
-
-    def test_optional_field_omitted(self):
-        data = self._valid_data()
-        # design_handoff is optional
-        self.assertNotIn("design_handoff", data)
-        errors = validate_submission("architecture", data)
-        self.assertEqual(errors, [])
-
-    def test_component_missing_name(self):
-        data = self._valid_data()
-        data["components"] = [{"responsibility": "Auth", "interfaces": []}]
-        errors = validate_submission("architecture", data)
-        self.assertTrue(any("name" in e for e in errors))
-
-    def test_component_missing_responsibility(self):
-        data = self._valid_data()
-        data["components"] = [{"name": "Svc", "interfaces": []}]
-        errors = validate_submission("architecture", data)
-        self.assertTrue(any("responsibility" in e for e in errors))
-
-    def test_wrong_type_for_components(self):
-        data = self._valid_data()
-        data["components"] = "not a list"
-        errors = validate_submission("architecture", data)
-        self.assertTrue(any("invalid type" in e for e in errors))
-
-    def test_optional_approved_preferences_valid(self):
-        data = self._valid_data()
-        data["approved_preferences"] = {
-            "source_role": "architect",
-            "approved": [{"target_role": "coder", "bullet": "- Prefer typed helpers"}],
-        }
-        errors = validate_submission("architecture", data)
-        self.assertEqual(errors, [])
-
-    def test_optional_approved_preferences_wrong_source_role(self):
-        data = self._valid_data()
-        data["approved_preferences"] = {
-            "source_role": "planner",
-            "approved": [{"target_role": "coder", "bullet": "- Prefer typed helpers"}],
-        }
-        errors = validate_submission("architecture", data)
-        self.assertTrue(any("source_role" in e for e in errors))
-
-
-class TestValidateExecutionPlan(unittest.TestCase):
-    def _valid_data(self):
-        return {
-            "groups": [
-                {
-                    "group_id": "core",
-                    "mode": "serial",
-                    "plans": [{"file": "plan_1.md", "name": "Setup"}],
-                }
-            ],
+            "version": 2,
+            "plan_overview": "Two-phase rollout",
             "review_strategy": {"severity": "medium", "focus": ["security"]},
             "needs_design": False,
             "needs_docs": True,
             "doc_files": ["docs/api.md"],
-            "plan_overview": "This plan sets up core modules.",
+            "groups": [
+                {
+                    "group_id": "core",
+                    "mode": "serial",
+                    "plans": [{"index": 1, "name": "Setup"}],
+                }
+            ],
+            "subplans": [
+                {
+                    "index": 1,
+                    "title": "Auth module",
+                    "scope": "User auth",
+                    "owned_files": ["src/auth.py"],
+                    "dependencies": "None",
+                    "implementation_approach": "Step by step",
+                    "acceptance_criteria": "All tests pass",
+                    "tasks": ["Create module", "Write tests"],
+                }
+            ],
         }
 
     def test_valid_submission(self):
-        errors = validate_submission("execution_plan", self._valid_data())
+        errors = validate_submission("plan", self._valid_data())
         self.assertEqual(errors, [])
+
+    def test_empty_groups(self):
+        data = self._valid_data()
+        data["groups"] = []
+        errors = validate_submission("plan", data)
+        self.assertTrue(any("at least one" in e or "groups" in e for e in errors))
+
+    def test_empty_subplans(self):
+        data = self._valid_data()
+        data["subplans"] = []
+        errors = validate_submission("plan", data)
+        self.assertTrue(any("subplans" in e for e in errors))
+
+    def test_subplan_index_zero(self):
+        data = self._valid_data()
+        data["subplans"][0]["index"] = 0
+        errors = validate_submission("plan", data)
+        self.assertTrue(any("index" in e for e in errors))
+
+    def test_subplan_empty_tasks(self):
+        data = self._valid_data()
+        data["subplans"][0]["tasks"] = []
+        errors = validate_submission("plan", data)
+        self.assertTrue(any("tasks" in e for e in errors))
+
+    def test_subplan_empty_owned_files(self):
+        data = self._valid_data()
+        data["subplans"][0]["owned_files"] = []
+        errors = validate_submission("plan", data)
+        self.assertTrue(any("owned_files" in e for e in errors))
+
+    def test_duplicate_subplan_index(self):
+        data = self._valid_data()
+        dup = dict(data["subplans"][0])
+        data["subplans"].append(dup)
+        errors = validate_submission("plan", data)
+        self.assertTrue(any("duplicate" in e for e in errors))
 
     def test_duplicate_group_id(self):
         data = self._valid_data()
+        data["subplans"].append(
+            {
+                "index": 2,
+                "title": "Extra",
+                "scope": "Extra",
+                "owned_files": ["src/extra.py"],
+                "dependencies": "None",
+                "implementation_approach": "Do it",
+                "acceptance_criteria": "Works",
+                "tasks": ["Task A"],
+            }
+        )
         data["groups"].append(
             {
                 "group_id": "core",
                 "mode": "parallel",
-                "plans": [{"file": "plan_2.md", "name": "Extra"}],
+                "plans": [{"index": 2, "name": "Extra"}],
             }
         )
-        errors = validate_submission("execution_plan", data)
+        errors = validate_submission("plan", data)
         self.assertTrue(any("duplicate" in e for e in errors))
 
     def test_invalid_mode(self):
         data = self._valid_data()
         data["groups"][0]["mode"] = "concurrent"
-        errors = validate_submission("execution_plan", data)
+        errors = validate_submission("plan", data)
         self.assertTrue(any("mode" in e for e in errors))
 
     def test_invalid_severity(self):
         data = self._valid_data()
         data["review_strategy"]["severity"] = "extreme"
-        errors = validate_submission("execution_plan", data)
+        errors = validate_submission("plan", data)
         self.assertTrue(any("severity" in e for e in errors))
 
-    def test_plan_entry_missing_file(self):
+    def test_group_plan_references_missing_subplan(self):
         data = self._valid_data()
-        data["groups"][0]["plans"] = [{"name": "Missing file"}]
-        errors = validate_submission("execution_plan", data)
-        self.assertTrue(any("file" in e and "name" in e for e in errors))
+        data["groups"][0]["plans"] = [{"index": 99, "name": "Ghost"}]
+        errors = validate_submission("plan", data)
+        self.assertTrue(any("99" in e for e in errors))
 
-    def test_empty_groups_list(self):
+    def test_group_plan_missing_name(self):
         data = self._valid_data()
-        data["groups"] = []
-        errors = validate_submission("execution_plan", data)
-        self.assertTrue(any("at least one" in e or "non-empty" in e for e in errors))
+        data["groups"][0]["plans"] = [{"index": 1}]
+        errors = validate_submission("plan", data)
+        self.assertTrue(any("name" in e for e in errors))
 
     def test_optional_approved_preferences_valid(self):
         data = self._valid_data()
@@ -174,50 +171,17 @@ class TestValidateExecutionPlan(unittest.TestCase):
                 {"target_role": "coder", "bullet": "- Keep task boundaries explicit"}
             ],
         }
-        errors = validate_submission("execution_plan", data)
+        errors = validate_submission("plan", data)
         self.assertEqual(errors, [])
 
-
-class TestValidateSubplan(unittest.TestCase):
-    def _valid_data(self):
-        return {
-            "index": 1,
-            "title": "Auth module",
-            "scope": "User authentication",
-            "owned_files": ["src/auth.py"],
-            "dependencies": "None",
-            "implementation_approach": "Step by step",
-            "acceptance_criteria": "All tests pass",
-            "tasks": ["Create module", "Write tests"],
+    def test_optional_approved_preferences_wrong_role(self):
+        data = self._valid_data()
+        data["approved_preferences"] = {
+            "source_role": "architect",
+            "approved": [{"target_role": "coder", "bullet": "- Prefer typed helpers"}],
         }
-
-    def test_valid_submission(self):
-        errors = validate_submission("subplan", self._valid_data())
-        self.assertEqual(errors, [])
-
-    def test_index_below_one(self):
-        data = self._valid_data()
-        data["index"] = 0
-        errors = validate_submission("subplan", data)
-        self.assertTrue(any("index" in e for e in errors))
-
-    def test_empty_tasks(self):
-        data = self._valid_data()
-        data["tasks"] = []
-        errors = validate_submission("subplan", data)
-        self.assertTrue(any("tasks" in e for e in errors))
-
-    def test_empty_owned_files(self):
-        data = self._valid_data()
-        data["owned_files"] = []
-        errors = validate_submission("subplan", data)
-        self.assertTrue(any("owned_files" in e for e in errors))
-
-    def test_optional_isolation_rationale(self):
-        data = self._valid_data()
-        data["isolation_rationale"] = "No shared state"
-        errors = validate_submission("subplan", data)
-        self.assertEqual(errors, [])
+        errors = validate_submission("plan", data)
+        self.assertTrue(any("source_role" in e for e in errors))
 
 
 class TestValidateReview(unittest.TestCase):
@@ -309,54 +273,24 @@ class TestUnknownContract(unittest.TestCase):
 
 
 class TestRenderContractPrompt(unittest.TestCase):
-    @staticmethod
-    def _extract_yaml_block(text: str) -> str:
-        start = text.index("```yaml") + len("```yaml")
-        end = text.index("```", start)
-        return text[start:end].strip()
-
     def test_renders_all_contracts(self):
         for name in CONTRACTS:
             text = render_contract_prompt(name)
-            self.assertIn("```yaml", text)
-            self.assertIn("```", text)
+            self.assertIsInstance(text, str)
+            self.assertTrue(len(text) > 0)
 
     def test_unknown_contract_returns_comment(self):
         text = render_contract_prompt("nonexistent")
         self.assertIn("unknown contract", text)
 
-    def test_architecture_prompt_has_key_fields(self):
-        text = render_contract_prompt("architecture")
-        self.assertIn("solution_overview", text)
-        self.assertIn("components", text)
-
-    def test_optional_fields_marked(self):
-        text = render_contract_prompt("architecture")
-        self.assertIn("# optional", text)
-
     def test_review_prompt_has_verdict(self):
         text = render_contract_prompt("review")
         self.assertIn("verdict", text)
 
-    def test_architecture_prompt_examples_parse_with_component_structure(self):
-        text = render_contract_prompt("architecture")
-        parsed = yaml.safe_load(self._extract_yaml_block(text))
-
-        self.assertEqual(parsed["components"][0]["name"], "AuthService")
-        self.assertEqual(
-            parsed["components"][0]["responsibility"],
-            "Handles user authentication",
-        )
-
-    def test_subplan_prompt_examples_parse_list_values(self):
-        text = render_contract_prompt("subplan")
-        parsed = yaml.safe_load(self._extract_yaml_block(text))
-
-        self.assertEqual(
-            parsed["tasks"],
-            ["Create auth module", "Add login endpoint", "Write tests"],
-        )
-        self.assertEqual(parsed["owned_files"], ["src/auth.py", "tests/test_auth.py"])
+    def test_plan_prompt_has_key_fields(self):
+        text = render_contract_prompt("plan")
+        self.assertIn("groups", text)
+        self.assertIn("subplans", text)
 
 
 if __name__ == "__main__":

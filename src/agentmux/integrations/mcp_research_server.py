@@ -170,52 +170,37 @@ def submit_architecture(
 ) -> str:
     """Signal architecture completion.
 
-    Reads and validates the agent-written 02_planning/architecture.yaml,
-    then appends a completion signal to tool_events.jsonl.
-    Write the YAML file before calling this tool.
+    Checks that the agent-written 02_planning/architecture.md exists and has
+    content, then appends a completion signal to tool_events.jsonl.
+    Write the Markdown file before calling this tool.
     """
     feature = _feature_dir(feature_dir)
-    yaml_path = feature / SESSION_DIR_NAMES["planning"] / "architecture.yaml"
-    _read_yaml_for_signal(yaml_path, "architecture")
+    md_path = feature / SESSION_DIR_NAMES["planning"] / "architecture.md"
+    if not md_path.exists():
+        raise ValueError(
+            "architecture.md not found. Write the file before calling this tool."
+        )
+    if not md_path.read_text(encoding="utf-8").strip():
+        raise ValueError("architecture.md is empty.")
     append_tool_event(_log_path(feature_dir), "submit_architecture", {})
     return "Architecture submitted."
 
 
 @_tool()
-def submit_execution_plan(
+def submit_plan(
     feature_dir: str | None = None,
 ) -> str:
     """Signal execution plan completion.
 
-    Reads and validates the agent-written 02_planning/execution_plan.yaml,
+    Reads and validates the agent-written 02_planning/plan.yaml (version: 2),
     then appends a completion signal to tool_events.jsonl.
-    Write the YAML file before calling this tool.
+    Write plan.yaml before calling this tool.
     """
     feature = _feature_dir(feature_dir)
-    yaml_path = feature / SESSION_DIR_NAMES["planning"] / "execution_plan.yaml"
-    _read_yaml_for_signal(yaml_path, "execution_plan")
-    append_tool_event(_log_path(feature_dir), "submit_execution_plan", {})
-    return "Execution plan submitted."
-
-
-@_tool()
-def submit_subplan(
-    index: int,
-    feature_dir: str | None = None,
-) -> str:
-    """Signal sub-plan completion.
-
-    Reads and validates the agent-written 02_planning/plan_{index}.yaml,
-    then appends a completion signal to tool_events.jsonl.
-    Write the YAML file before calling this tool.
-    """
-    if not isinstance(index, int) or index < 1:
-        raise ValueError("index must be an integer >= 1.")
-    feature = _feature_dir(feature_dir)
-    yaml_path = feature / SESSION_DIR_NAMES["planning"] / f"plan_{index}.yaml"
-    _read_yaml_for_signal(yaml_path, "subplan")
-    append_tool_event(_log_path(feature_dir), "submit_subplan", {"index": index})
-    return f"Sub-plan {index} submitted."
+    yaml_path = feature / SESSION_DIR_NAMES["planning"] / "plan.yaml"
+    _read_yaml_for_signal(yaml_path, "plan")
+    append_tool_event(_log_path(feature_dir), "submit_plan", {})
+    return "Plan submitted."
 
 
 @_tool()

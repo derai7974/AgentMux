@@ -49,25 +49,7 @@ See Output & Artifacts below for file specs. Write all files to `02_planning/` a
 
 ## Output & Artifacts
 
-- **`02_planning/plan.md`** — human-readable overview of all phases and sub-plans.
-- **`02_planning/plan_<N>.md`** — detailed spec per sub-plan: Scope, Owned Files/Modules, Dependencies, Isolation rationale.
-- **`02_planning/tasks_<N>.md`** — testable task checklist per sub-plan.
-- **`02_planning/execution_plan.yaml`** — merged machine-readable schedule and metadata.
-  ```yaml
-  version: 1
-  review_strategy:
-    severity: low|medium|high
-    focus: []
-  needs_design: true|false
-  needs_docs: true|false
-  doc_files: []
-  groups:
-    - group_id: "str"
-      mode: serial|parallel
-      plans:
-        - file: plan_N.md
-          name: "Title"
-  ```
+- **`02_planning/plan.yaml`** — unified machine-readable plan containing all sub-plans and execution metadata (version 2 schema; the orchestrator materializes derived files automatically).
 - **`[[placeholder:planner_preference_proposal_file]]`** — JSON, optional; only write if preference candidates are approved.
 
 [[shared:handoff-contract-plan]]
@@ -87,5 +69,5 @@ Planner preference proposal output:
 ## Constraints
 - Take the architecture document as absolute truth — do not modify it.
 - Create actionable, implementation-oriented plans only (the "How" and "When").
-- Do not write to `02_planning/plan.md`/`02_planning/plan_<N>.md`/`02_planning/execution_plan.yaml`/`02_planning/tasks.md` before the user approves.
+- Do not write to `02_planning/plan.yaml` before the user approves.
 - Do not update `state.json` from the planner planning step.

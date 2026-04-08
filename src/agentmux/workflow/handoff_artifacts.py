@@ -66,40 +66,6 @@ def _write_approved_preferences(
     path.write_text(json.dumps(proposal.to_dict(), indent=2) + "\n", encoding="utf-8")
 
 
-def generate_architecture_md(data: dict[str, Any]) -> str:
-    """Generate human-readable markdown from architecture data."""
-    lines = ["# Architecture", ""]
-    lines.extend(["## Solution Overview", "", data["solution_overview"].strip(), ""])
-
-    lines.append("## Components")
-    lines.append("")
-    for comp in data["components"]:
-        lines.append(f"### {comp['name']}")
-        lines.append("")
-        lines.append(f"**Responsibility:** {comp['responsibility']}")
-        interfaces = comp.get("interfaces")
-        if interfaces:
-            lines.append("")
-            lines.append("**Interfaces:**")
-            for iface in interfaces:
-                lines.append(f"- {iface}")
-        lines.append("")
-
-    for section, key in [
-        ("Interfaces and Contracts", "interfaces_and_contracts"),
-        ("Data Models", "data_models"),
-        ("Cross-Cutting Concerns", "cross_cutting_concerns"),
-        ("Technology Choices", "technology_choices"),
-        ("Risks and Mitigations", "risks_and_mitigations"),
-    ]:
-        lines.extend([f"## {section}", "", data[key].strip(), ""])
-
-    if data.get("design_handoff"):
-        lines.extend(["## Design Handoff", "", data["design_handoff"].strip(), ""])
-
-    return "\n".join(lines)
-
-
 def generate_plan_md(data: dict[str, Any]) -> str:
     """Generate plan.md from plan_overview content."""
     return data["plan_overview"].strip() + "\n"
@@ -134,6 +100,35 @@ def generate_tasks_md(data: dict[str, Any]) -> str:
         lines.append(f"- [ ] {task}")
     lines.append("")
     return "\n".join(lines)
+
+
+def generate_execution_plan_yaml(data: dict[str, Any]) -> dict[str, Any]:
+    """Build a version-1 execution_plan.yaml dict from plan.yaml data.
+
+    Converts groups[].plans[].index references to plan_N.md file references
+    so that load_execution_plan() can consume it unchanged.
+    """
+    converted_groups = []
+    for grp in data.get("groups", []):
+        converted_plans = []
+        for p in grp.get("plans", []):
+            idx = p["index"]
+            converted_plans.append({"file": f"plan_{idx}.md", "name": p["name"]})
+        converted_groups.append(
+            {
+                "group_id": grp["group_id"],
+                "mode": grp["mode"],
+                "plans": converted_plans,
+            }
+        )
+    return {
+        "version": 1,
+        "groups": converted_groups,
+        "review_strategy": data.get("review_strategy", {}),
+        "needs_design": data.get("needs_design", False),
+        "needs_docs": data.get("needs_docs", False),
+        "doc_files": data.get("doc_files", []),
+    }
 
 
 def generate_review_md(data: dict[str, Any]) -> str:

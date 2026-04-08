@@ -147,26 +147,30 @@ class ReviewPassRequirementsTests(unittest.TestCase):
 
     def test_handle_review_passed_moves_to_completing(self) -> None:
         with tempfile.TemporaryDirectory() as td:
+            import yaml
+
             tmp_path = Path(td)
             ctx, state_path = self._make_ctx(tmp_path / "feature")
             ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+            (ctx.files.review_dir / "review.yaml").write_text(
+                yaml.dump(
+                    {
+                        "verdict": "pass",
+                        "summary": "LGTM, all checks pass.",
+                        "findings": [],
+                        "commit_message": "feat: implementation complete",
+                    },
+                    default_flow_style=False,
+                ),
+                encoding="utf-8",
+            )
 
             state = load_state(state_path)
             state["phase"] = "reviewing"
             write_state(state_path, state)
 
             handler = ReviewingHandler()
-            event = WorkflowEvent(
-                kind="review",
-                payload={
-                    "payload": {
-                        "verdict": "pass",
-                        "summary": "LGTM, all checks pass.",
-                        "findings": [],
-                        "commit_message": "feat: implementation complete",
-                    }
-                },
-            )
+            event = WorkflowEvent(kind="review", payload={"payload": {}})
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
             )
@@ -197,23 +201,25 @@ class ReviewPassRequirementsTests(unittest.TestCase):
                 encoding="utf-8",
             )
             ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+            (ctx.files.review_dir / "review.yaml").write_text(
+                yaml.dump(
+                    {
+                        "verdict": "pass",
+                        "summary": "LGTM, all checks pass.",
+                        "findings": [],
+                        "commit_message": "feat: implementation complete",
+                    },
+                    default_flow_style=False,
+                ),
+                encoding="utf-8",
+            )
 
             state = load_state(state_path)
             state["phase"] = "reviewing"
             write_state(state_path, state)
 
             handler = ReviewingHandler()
-            event = WorkflowEvent(
-                kind="review",
-                payload={
-                    "payload": {
-                        "verdict": "pass",
-                        "summary": "LGTM, all checks pass.",
-                        "findings": [],
-                        "commit_message": "feat: implementation complete",
-                    }
-                },
-            )
+            event = WorkflowEvent(kind="review", payload={"payload": {}})
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
             )
@@ -225,20 +231,14 @@ class ReviewPassRequirementsTests(unittest.TestCase):
 
     def test_handle_review_failed_moves_to_fixing_before_limit(self) -> None:
         with tempfile.TemporaryDirectory() as td:
+            import yaml
+
             tmp_path = Path(td)
             ctx, state_path = self._make_ctx(tmp_path / "feature")
             ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
-
-            state = load_state(state_path)
-            state["phase"] = "reviewing"
-            state["review_iteration"] = 1
-            write_state(state_path, state)
-
-            handler = ReviewingHandler()
-            event = WorkflowEvent(
-                kind="review",
-                payload={
-                    "payload": {
+            (ctx.files.review_dir / "review.yaml").write_text(
+                yaml.dump(
+                    {
                         "verdict": "fail",
                         "summary": "Issues found.",
                         "findings": [
@@ -249,9 +249,19 @@ class ReviewPassRequirementsTests(unittest.TestCase):
                                 "recommendation": "Add input validation.",
                             }
                         ],
-                    }
-                },
+                    },
+                    default_flow_style=False,
+                ),
+                encoding="utf-8",
             )
+
+            state = load_state(state_path)
+            state["phase"] = "reviewing"
+            state["review_iteration"] = 1
+            write_state(state_path, state)
+
+            handler = ReviewingHandler()
+            event = WorkflowEvent(kind="review", payload={"payload": {}})
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
             )

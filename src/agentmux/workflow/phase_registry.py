@@ -248,7 +248,7 @@ PHASE_REGISTRY: tuple[PhaseDescriptor, ...] = (
         dir_name="02_planning",
         handler_class=PlanningHandler,
         primary_roles=("planner",),
-        resume_check=ResumeCheck(completion_artifact="02_planning/plan.md"),
+        resume_check=ResumeCheck(completion_artifact="02_planning/plan.yaml"),
         research_owner="architect",
         emitted_events=(EVENT_PLAN_WRITTEN,),
     ),

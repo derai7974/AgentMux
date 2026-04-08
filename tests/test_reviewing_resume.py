@@ -237,6 +237,10 @@ class TestReviewArchive(unittest.TestCase):
         iteration: int = 0,
     ) -> tuple[dict, str | None]:
         ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        (ctx.files.review_dir / "review.yaml").write_text(
+            yaml.dump(payload, default_flow_style=False),
+            encoding="utf-8",
+        )
 
         state = load_state(state_path)
         state["phase"] = "reviewing"
@@ -244,7 +248,7 @@ class TestReviewArchive(unittest.TestCase):
         write_state(state_path, state)
 
         handler = ReviewingHandler()
-        event = WorkflowEvent(kind="review", payload={"payload": payload})
+        event = WorkflowEvent(kind="review", payload={"payload": {}})
         return handler.handle_event(event, load_state(state_path), ctx)
 
     def test_verdict_fail_creates_archive_and_keeps_review_md(self) -> None:

@@ -1,56 +1,44 @@
-## Submitting Your Execution Plan
+## Submitting Your Plan
 
-Write the YAML files below, then call the signal tools. The orchestrator materializes `.md` companions automatically if you do not write them.
-
-### Step 1: Write and submit each sub-plan
-
-Write `02_planning/plan_N.yaml` for each sub-plan:
+Write a single `02_planning/plan.yaml` containing all sub-plans and execution metadata, then call `submit_plan()` once. The orchestrator observes the file and materializes `plan_N.md`, `tasks_N.md`, `execution_plan.yaml`, and `plan.md` automatically.
 
 ```yaml
-index: 1
-title: Short descriptive title
-scope: What this sub-plan covers
-owned_files:
-  - src/auth.py
-  - tests/test_auth.py
-dependencies: None
-implementation_approach: |
-  Step-by-step approach.
-acceptance_criteria: |
-  Testable criteria for completion.
-tasks:
-  - First task
-  - Second task
-isolation_rationale: |  # optional
-  Why this sub-plan is safe for parallel execution.
-```
+version: 2
+plan_overview: |
+  # Implementation Plan
 
-Then call `submit_subplan(index=N)` for each sub-plan. The tool validates your YAML and signals the orchestrator.
-
-### Step 2: Write and submit the execution plan
-
-Write `02_planning/execution_plan.yaml`:
-
-```yaml
-version: 1
+  Overview of all planned work.
 review_strategy:
-  severity: medium
+  severity: medium   # low | medium | high
   focus:
-    - security
+    - security       # optional focus areas
 needs_design: false
 needs_docs: true
 doc_files:
   - docs/api.md
 groups:
   - group_id: core-setup
-    mode: serial
+    mode: serial     # serial | parallel
     plans:
-      - file: plan_1.md
+      - index: 1
         name: Core setup
-plan_overview: |
-  # Implementation Plan
-
-  Overview of all planned work.
+subplans:
+  - index: 1
+    title: Short descriptive title
+    scope: What this sub-plan covers
+    owned_files:
+      - src/auth.py
+      - tests/test_auth.py
+    dependencies: None
+    implementation_approach: |
+      Step-by-step approach.
+    acceptance_criteria: |
+      Testable criteria for completion.
+    tasks:
+      - First task
+      - Second task
+    isolation_rationale: |  # optional
+      Why this sub-plan is safe for parallel execution.
 approved_preferences:  # optional — same shape as approved_preferences.json
   source_role: planner
   approved:
@@ -58,4 +46,6 @@ approved_preferences:  # optional — same shape as approved_preferences.json
       bullet: "- Validate each task before done"
 ```
 
-Then call `submit_execution_plan()` (no arguments needed). The tool validates your YAML and signals the orchestrator to advance the workflow. If validation fails, it returns an error so you can correct the file.
+After writing the file, call `submit_plan()` (no arguments needed). The tool validates your YAML and signals the orchestrator to advance the workflow. If validation fails, it returns an error so you can correct the file.
+
+Each sub-plan in `subplans` must be referenced exactly once in `groups[].plans[]` via its `index`. Indices must start at 1 and be contiguous (1, 2, 3, …) — the implementation scheduler requires them to be sequential with no gaps.

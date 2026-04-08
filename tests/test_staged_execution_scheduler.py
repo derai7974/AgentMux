@@ -128,11 +128,71 @@ def _write_execution_plan(ctx: PipelineContext, groups: list[dict]) -> None:
     (planning_dir / "execution_plan.yaml").write_text(
         yaml.dump(payload, default_flow_style=False), encoding="utf-8"
     )
+    # Write plan.yaml (version 2) so resume check passes
+    all_indices = []
+    subplans = []
+    for group in groups:
+        for plan_file in group["plans"]:
+            plan_ref = plan_file["file"] if isinstance(plan_file, dict) else plan_file
+            plan_name = (
+                plan_file.get("name", plan_ref)
+                if isinstance(plan_file, dict)
+                else plan_ref
+            )
+            import re
+
+            match = re.search(r"plan_(\d+)\.md", plan_ref)
+            if match:
+                idx = int(match.group(1))
+                all_indices.append(idx)
+                subplans.append(
+                    {
+                        "index": idx,
+                        "title": plan_name,
+                        "scope": plan_name,
+                        "owned_files": [],
+                        "dependencies": "None",
+                        "implementation_approach": plan_name,
+                        "acceptance_criteria": "Done",
+                        "tasks": [plan_name],
+                    }
+                )
+    plan2_groups = [
+        {
+            "group_id": g["group_id"],
+            "mode": g.get("mode", "serial"),
+            "plans": [
+                {
+                    "index": (
+                        int(re.search(r"plan_(\d+)\.md", p["file"]).group(1))
+                        if isinstance(p, dict)
+                        and re.search(r"plan_(\d+)\.md", p["file"])
+                        else 1
+                    ),
+                    "name": (p.get("name", p["file"]) if isinstance(p, dict) else p),
+                }
+                for p in g["plans"]
+            ],
+        }
+        for g in groups
+    ]
+    plan2_payload = {
+        "version": 2,
+        "plan_overview": "# Plan\n\nScheduler test.",
+        "groups": plan2_groups,
+        "subplans": subplans,
+        "review_strategy": {"severity": "medium", "focus": []},
+        "needs_design": False,
+        "needs_docs": False,
+        "doc_files": [],
+    }
+    (planning_dir / "plan.yaml").write_text(
+        yaml.dump(plan2_payload, default_flow_style=False), encoding="utf-8"
+    )
     for group in groups:
         for plan_file in group["plans"]:
             plan_ref = plan_file["file"] if isinstance(plan_file, dict) else plan_file
             (planning_dir / plan_ref).write_text(f"# {plan_ref}\n", encoding="utf-8")
-            # Create per-plan tasks file
             import re
 
             match = re.search(r"plan_(\d+)\.md", plan_ref)

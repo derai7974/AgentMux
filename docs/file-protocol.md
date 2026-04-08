@@ -24,12 +24,11 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 
 - `architect_prompt.md` / `changes_prompt.txt` — architect prompts (for architecting phase)
 - `planner_prompt.md` — planner prompt for creating execution plans
-- `architecture.yaml` — canonical structured architecture document (the "What" and "With what"); written by the architect; signaled via MCP `submit_architecture`
-- `architecture.md` — human-readable companion of `architecture.yaml`; materialized automatically by the orchestrator from `architecture.yaml` if not written by the architect; consumed by the planner prompt
-- `plan.md` — human-readable planning overview; materialized automatically from `execution_plan.yaml` `plan_overview` field if not written by the planner; consumed by later prompts
-- `plan_<N>.md` — executable per-unit implementation plans; materialized automatically from `plan_<N>.yaml` if not written by the planner; consumed by coder prompts
-- `plan_<N>.yaml` — canonical structured sub-plan data; written by the planner; signaled via MCP `submit_subplan`
-- `execution_plan.yaml` — merged machine-readable schedule and planner metadata; written by the planner; signaled via MCP `submit_execution_plan`
+- `architecture.md` — human-readable architecture document (the "What" and "With what"); written directly by the architect; consumed by the planner prompt
+- `plan.md` — human-readable planning overview; materialized automatically by the orchestrator from `plan.yaml` `plan_overview` field
+- `plan_<N>.md` — executable per-unit implementation plans; materialized automatically by the orchestrator from `plan.yaml` `subplans[N]`; consumed by coder prompts
+- `plan.yaml` — unified machine-readable plan (version 2) written by the planner; contains all sub-plans and execution metadata; signaled via MCP `submit_plan`; the orchestrator materializes all derived files from it
+- `execution_plan.yaml` — version 1 scheduling file materialized automatically by the orchestrator from `plan.yaml` groups; consumed by `load_execution_plan()` and implementation scheduling
   - Each group has a unique `group_id` and an execution mode (`serial` or `parallel`)
   - `serial` groups execute plans one at a time in order (useful for sequential integration steps)
   - `parallel` groups execute all plans simultaneously
@@ -37,10 +36,10 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
   - Canonical plan-entry shape is a YAML mapping with `file` and `name` keys (for example `- file: plan_1.md` followed by `name: Core setup`)
   - Plan references must be unique across groups
   - Group ordering defines implementation wave order
-- `tasks_<N>.md` — per-plan implementation checklists; each coder receives only their assigned plan's tasks
+- `tasks_<N>.md` — per-plan implementation checklists; materialized automatically by the orchestrator from `plan.yaml` `subplans[N].tasks`; each coder receives only their assigned plan's tasks
 - `tasks.md` — optional human-readable overview summarizing all tasks (not used by scheduler)
 
-The `execution_plan.yaml` file also contains planner workflow-intent metadata alongside the groups:
+The `plan.yaml` (version 2) also contains planner workflow-intent metadata:
   - `needs_design` (`true`/`false`) — whether to run a dedicated design handoff
   - `needs_docs` (`true`/`false`) — informational signal that documentation updates are in scope
   - `doc_files` (`string[]`) — planned documentation targets when docs work is in scope
@@ -51,8 +50,8 @@ The `execution_plan.yaml` file also contains planner workflow-intent metadata al
 
 Execution scheduling is strict:
 
-- `execution_plan.yaml` is required before implementation starts.
-- `groups[].plans[]` entries must use YAML mappings with `file` and `name` keys.
+- `execution_plan.yaml` (orchestrator-materialized from `plan.yaml`) is required before implementation starts.
+- `groups[].plans[]` entries use YAML mappings with `file` and `name` keys.
 - Implementation dispatch uses numbered prompt files (`coder_prompt_<N>.txt`) only.
 
 ## Research (`03_research/`)
@@ -113,7 +112,7 @@ Execution scheduling is strict:
 
 ## MCP Tool Event Protocol
 
-When agents call MCP tools (`submit_architecture`, `submit_execution_plan`, `submit_subplan`, `submit_review`, `submit_done`, `submit_research_done`, `submit_pm_done`), the submission tools read the agent-written YAML file, validate it against the contract, and append a minimal signal entry to `tool_events.jsonl`. Validation errors are returned immediately so agents can correct their files. The tools write no workflow artifacts themselves — agents always own writing the YAML files.
+When agents call MCP tools (`submit_architecture`, `submit_plan`, `submit_review`, `submit_done`, `submit_research_done`, `submit_pm_done`), the submission tools read the agent-written file, validate it, and append a minimal signal entry to `tool_events.jsonl`. Validation errors are returned immediately so agents can correct their files. The tools write no workflow artifacts themselves — agents always own writing the output files.
 
 Each entry has this shape:
 

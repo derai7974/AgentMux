@@ -146,28 +146,15 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
             self.assertEqual("architecting", state["phase"])
             self.assertEqual("pm_completed", state.get("last_event"))
 
-            # 2. Architect submits architecture via MCP tool
+            # 2. Architect writes architecture.md then submits via MCP tool
             ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+            (ctx.files.planning_dir / "architecture.md").write_text(
+                "# Architecture\n\nSimple layered architecture.\n", encoding="utf-8"
+            )
 
             event = WorkflowEvent(
                 kind="tool.submit_architecture",
-                payload={
-                    "payload": {
-                        "solution_overview": "Simple layered architecture",
-                        "components": [
-                            {
-                                "name": "Core",
-                                "responsibility": "Main logic",
-                                "interfaces": ["run()"],
-                            }
-                        ],
-                        "interfaces_and_contracts": "Internal Python APIs",
-                        "data_models": "Feature state stored in JSON",
-                        "cross_cutting_concerns": "Logging, error handling",
-                        "technology_choices": "Python stdlib",
-                        "risks_and_mitigations": "None significant",
-                    }
-                },
+                payload={"payload": {}},
             )
             updates, _ = router.handle(event, load_state(state_path), ctx)
 
@@ -175,13 +162,21 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
             state = load_state(state_path)
             self.assertEqual("planning", state["phase"])
 
-            # 3. Planner submits subplan and execution plan via MCP tools
-            self._write_plan_files(ctx)
+            # 3. Planner writes plan.yaml and submits via single MCP tool call
+            import yaml as _yaml
 
-            event = WorkflowEvent(
-                kind="tool.submit_subplan",
-                payload={
-                    "payload": {
+            plan_data = {
+                "version": 2,
+                "plan_overview": "Single-phase implementation",
+                "groups": [
+                    {
+                        "group_id": "g1",
+                        "mode": "serial",
+                        "plans": [{"index": 1, "name": "Implementation"}],
+                    }
+                ],
+                "subplans": [
+                    {
                         "index": 1,
                         "title": "Implementation",
                         "scope": "Implement the feature",
@@ -190,32 +185,20 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
                         "implementation_approach": "Write the code",
                         "acceptance_criteria": "Tests pass",
                         "tasks": ["Implement feature", "Write tests"],
-                        "isolation_rationale": "",
                     }
-                },
+                ],
+                "review_strategy": {"severity": "medium", "focus": []},
+                "needs_design": False,
+                "needs_docs": False,
+                "doc_files": [],
+            }
+            (ctx.files.planning_dir / "plan.yaml").write_text(
+                _yaml.safe_dump(plan_data), encoding="utf-8"
             )
-            router.handle(event, load_state(state_path), ctx)
 
             event = WorkflowEvent(
-                kind="tool.submit_execution_plan",
-                payload={
-                    "payload": {
-                        "plan_overview": "Single-phase implementation",
-                        "groups": [
-                            {
-                                "group_id": "g1",
-                                "mode": "serial",
-                                "plans": [
-                                    {"file": "plan_1.md", "name": "Implementation"}
-                                ],
-                            }
-                        ],
-                        "review_strategy": {"severity": "medium", "focus": []},
-                        "needs_design": False,
-                        "needs_docs": False,
-                        "doc_files": [],
-                    }
-                },
+                kind="tool.submit_plan",
+                payload={"payload": {}},
             )
             updates, _ = router.handle(event, load_state(state_path), ctx)
 
@@ -238,19 +221,23 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
             self.assertEqual("reviewing", state["phase"])
             self.assertEqual("implementation_completed", state["last_event"])
 
-            # 5. Reviewer submits review (pass) via MCP tool
+            # 5. Reviewer writes review.yaml then submits via MCP tool
             ctx.files.review.parent.mkdir(parents=True, exist_ok=True)
-
-            event = WorkflowEvent(
-                kind="tool.submit_review",
-                payload={
-                    "payload": {
+            (ctx.files.review_dir / "review.yaml").write_text(
+                _yaml.safe_dump(
+                    {
                         "verdict": "pass",
                         "summary": "All checks pass, implementation is solid.",
                         "findings": [],
                         "commit_message": "feat: implement feature",
                     }
-                },
+                ),
+                encoding="utf-8",
+            )
+
+            event = WorkflowEvent(
+                kind="tool.submit_review",
+                payload={"payload": {}},
             )
             updates, _ = router.handle(event, load_state(state_path), ctx)
 

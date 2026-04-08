@@ -218,11 +218,11 @@ class TestEventDrivenOrchestrator(unittest.TestCase):
 
             with patch.object(orchestrator._router, "handle", return_value=({}, None)):
                 session_event = SessionEvent(
-                    kind="tool.submit_execution_plan",
+                    kind="tool.submit_plan",
                     source="tool_call",
                     payload={
-                        "tool": "submit_execution_plan",
-                        "payload": {"plan_overview": "test"},
+                        "tool": "submit_plan",
+                        "payload": {},
                         "_tool_event_meta": {"start_offset": 0, "end_offset": 123},
                     },
                 )

@@ -108,11 +108,43 @@ def _write_execution_plan(
     _write_yaml(files.execution_plan, data)
 
 
-def _proposal_payload(source_role: str, bullet: str) -> dict[str, object]:
+def _proposal_payload(
+    source_role: str, bullet: str, target_role: str = "coder"
+) -> dict[str, object]:
     return {
         "source_role": source_role,
-        "approved": [{"target_role": "coder", "bullet": bullet}],
+        "approved": [{"target_role": target_role, "bullet": bullet}],
     }
+
+
+def _write_plan_yaml(files, *, name: str = "implementation", **meta: object) -> None:
+    """Write plan.yaml (version 2) to disk for testing PlanningHandler."""
+    files.planning_dir.mkdir(parents=True, exist_ok=True)
+    data: dict[str, object] = {
+        "version": 2,
+        "plan_overview": f"# Plan\n\n{name} plan.",
+        "groups": [
+            {"group_id": "g1", "mode": "serial", "plans": [{"index": 1, "name": name}]}
+        ],
+        "subplans": [
+            {
+                "index": 1,
+                "title": name,
+                "scope": "Core implementation",
+                "owned_files": ["src/feature.py"],
+                "dependencies": "None",
+                "implementation_approach": "Implement the feature",
+                "acceptance_criteria": "Tests pass",
+                "tasks": ["Implement feature"],
+            }
+        ],
+        "review_strategy": {"severity": "medium", "focus": []},
+        "needs_design": False,
+        "needs_docs": False,
+        "doc_files": [],
+    }
+    data.update(meta)
+    _write_yaml(files.planning_dir / "plan.yaml", data)
 
 
 class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
@@ -127,31 +159,19 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             state["phase"] = "architecting"
             write_state(state_path, state)
 
+            # Architect writes architecture.md and approved_preferences.json directly.
+            ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+            (ctx.files.planning_dir / "architecture.md").write_text(
+                "# Architecture\n\nSimple layered architecture.\n", encoding="utf-8"
+            )
+            _write_json(
+                ctx.files.architect_preference_proposal,
+                _proposal_payload("architect", "Keep coder changes narrowly scoped"),
+            )
+
             handler = PHASE_HANDLERS.get("architecting")
             assert handler is not None
-            event = WorkflowEvent(
-                kind="architecture",
-                payload={
-                    "payload": {
-                        "solution_overview": "High-level approach",
-                        "components": [
-                            {
-                                "name": "AuthService",
-                                "responsibility": "Auth",
-                                "interfaces": ["login()"],
-                            }
-                        ],
-                        "interfaces_and_contracts": "REST API",
-                        "data_models": "User, Session",
-                        "cross_cutting_concerns": "Logging",
-                        "technology_choices": "Python + FastAPI",
-                        "risks_and_mitigations": "None identified",
-                        "approved_preferences": _proposal_payload(
-                            "architect", "Keep coder changes narrowly scoped"
-                        ),
-                    }
-                },
-            )
+            event = WorkflowEvent(kind="architecture", payload={"payload": {}})
 
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
@@ -244,14 +264,7 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             state = load_state(state_path)
             state["phase"] = "planning"
             write_state(state_path, state)
-            _write_execution_plan(ctx.files, needs_design=False)
-            # Write required files for plan completion
-            (ctx.files.planning_dir / "plan.md").write_text(
-                "# Plan\n", encoding="utf-8"
-            )
-            (ctx.files.planning_dir / "tasks.md").write_text(
-                "# Tasks\n\n- [ ] task\n", encoding="utf-8"
-            )
+            _write_plan_yaml(ctx.files, needs_design=False)
             _write_json(
                 ctx.files.architect_preference_proposal,
                 {
@@ -266,27 +279,7 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             )
 
             handler = PlanningHandler()
-            event = WorkflowEvent(
-                kind="execution_plan",
-                payload={
-                    "payload": {
-                        "plan_overview": "Implementation plan",
-                        "groups": [
-                            {
-                                "group_id": "g1",
-                                "mode": "serial",
-                                "plans": [
-                                    {"file": "plan_1.md", "name": "implementation"}
-                                ],
-                            }
-                        ],
-                        "review_strategy": {"severity": "medium", "focus": []},
-                        "needs_design": False,
-                        "needs_docs": False,
-                        "doc_files": [],
-                    }
-                },
-            )
+            event = WorkflowEvent(kind="plan", payload={"payload": {}})
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
             )
@@ -313,30 +306,10 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             state = load_state(state_path)
             state["phase"] = "planning"
             write_state(state_path, state)
-            _write_execution_plan(ctx.files, needs_design=False)
+            _write_plan_yaml(ctx.files, needs_design=False)
 
             handler = PlanningHandler()
-            event = WorkflowEvent(
-                kind="execution_plan",
-                payload={
-                    "payload": {
-                        "plan_overview": "Implementation plan",
-                        "groups": [
-                            {
-                                "group_id": "g1",
-                                "mode": "serial",
-                                "plans": [
-                                    {"file": "plan_1.md", "name": "implementation"}
-                                ],
-                            }
-                        ],
-                        "review_strategy": {"severity": "medium", "focus": []},
-                        "needs_design": False,
-                        "needs_docs": False,
-                        "doc_files": [],
-                    }
-                },
-            )
+            event = WorkflowEvent(kind="plan", payload={"payload": {}})
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
             )
@@ -352,36 +325,41 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             state = load_state(state_path)
             state["phase"] = "planning"
             write_state(state_path, state)
-            ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-            (ctx.files.planning_dir / "plan_1.md").write_text(
-                "# Implementation\n", encoding="utf-8"
-            )
+
+            plan_data: dict = {
+                "version": 2,
+                "plan_overview": "# Plan\n\nImplementation plan.",
+                "groups": [
+                    {
+                        "group_id": "g1",
+                        "mode": "serial",
+                        "plans": [{"index": 1, "name": "implementation"}],
+                    }
+                ],
+                "subplans": [
+                    {
+                        "index": 1,
+                        "title": "implementation",
+                        "scope": "Core implementation",
+                        "owned_files": ["src/feature.py"],
+                        "dependencies": "None",
+                        "implementation_approach": "Implement feature",
+                        "acceptance_criteria": "Tests pass",
+                        "tasks": ["Implement feature"],
+                    }
+                ],
+                "review_strategy": {"severity": "medium", "focus": []},
+                "needs_design": False,
+                "needs_docs": False,
+                "doc_files": [],
+                "approved_preferences": _proposal_payload(
+                    "planner", "Validate each task before marking done"
+                ),
+            }
+            _write_yaml(ctx.files.planning_dir / "plan.yaml", plan_data)
 
             handler = PlanningHandler()
-            event = WorkflowEvent(
-                kind="execution_plan",
-                payload={
-                    "payload": {
-                        "plan_overview": "Implementation plan",
-                        "groups": [
-                            {
-                                "group_id": "g1",
-                                "mode": "serial",
-                                "plans": [
-                                    {"file": "plan_1.md", "name": "implementation"}
-                                ],
-                            }
-                        ],
-                        "review_strategy": {"severity": "medium", "focus": []},
-                        "needs_design": False,
-                        "needs_docs": False,
-                        "doc_files": [],
-                        "approved_preferences": _proposal_payload(
-                            "planner", "Validate each task before marking done"
-                        ),
-                    }
-                },
-            )
+            event = WorkflowEvent(kind="plan", payload={"payload": {}})
 
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx
@@ -491,28 +469,26 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             state["phase"] = "reviewing"
             write_state(state_path, state)
 
+            review_data = {
+                "verdict": "fail",
+                "summary": "Issues found",
+                "findings": [
+                    {
+                        "location": "src/x.py:10",
+                        "issue": "Missing validation",
+                        "severity": "high",
+                        "recommendation": "Add check",
+                    }
+                ],
+                "approved_preferences": _proposal_payload(
+                    "reviewer", "Prefer focused regression coverage"
+                ),
+            }
+            _write_yaml(ctx.files.review_dir / "review.yaml", review_data)
+
             handler = PHASE_HANDLERS.get("reviewing")
             assert handler is not None
-            event = WorkflowEvent(
-                kind="review",
-                payload={
-                    "payload": {
-                        "verdict": "fail",
-                        "summary": "Issues found",
-                        "findings": [
-                            {
-                                "location": "src/x.py:10",
-                                "issue": "Missing validation",
-                                "severity": "high",
-                                "recommendation": "Add check",
-                            }
-                        ],
-                        "approved_preferences": _proposal_payload(
-                            "reviewer", "Prefer focused regression coverage"
-                        ),
-                    }
-                },
-            )
+            event = WorkflowEvent(kind="review", payload={"payload": {}})
 
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx

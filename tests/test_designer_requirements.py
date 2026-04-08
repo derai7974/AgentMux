@@ -256,29 +256,32 @@ class DesignerRequirementsTests(unittest.TestCase):
             state = load_state(state_path)
             state["phase"] = "planning"
             write_state(state_path, state)
-            _write_execution_plan(feature_dir, name="implementation", needs_design=True)
-            (feature_dir / PLANNING_DIR).mkdir(parents=True, exist_ok=True)
-            # Write all three required files for plan completion
-            (feature_dir / PLANNING_DIR / "plan.md").write_text(
-                "# Plan\n", encoding="utf-8"
-            )
-            (feature_dir / PLANNING_DIR / "tasks.md").write_text(
-                "# Tasks\n\n- [ ] task\n", encoding="utf-8"
-            )
+            import yaml as _yaml
 
-            handler = PlanningHandler()
-            event = WorkflowEvent(
-                kind="execution_plan",
-                payload={
-                    "payload": {
+            planning_dir = feature_dir / PLANNING_DIR
+            planning_dir.mkdir(parents=True, exist_ok=True)
+            (planning_dir / "plan.yaml").write_text(
+                _yaml.safe_dump(
+                    {
+                        "version": 2,
                         "plan_overview": "Implementation plan",
                         "groups": [
                             {
                                 "group_id": "g1",
                                 "mode": "serial",
-                                "plans": [
-                                    {"file": "plan_1.md", "name": "implementation"}
-                                ],
+                                "plans": [{"index": 1, "name": "implementation"}],
+                            }
+                        ],
+                        "subplans": [
+                            {
+                                "index": 1,
+                                "title": "implementation",
+                                "scope": "Core implementation",
+                                "owned_files": ["src/feature.py"],
+                                "dependencies": "None",
+                                "implementation_approach": "Implement the feature",
+                                "acceptance_criteria": "Tests pass",
+                                "tasks": ["Implement feature"],
                             }
                         ],
                         "review_strategy": {"severity": "medium", "focus": []},
@@ -286,7 +289,14 @@ class DesignerRequirementsTests(unittest.TestCase):
                         "needs_docs": False,
                         "doc_files": [],
                     }
-                },
+                ),
+                encoding="utf-8",
+            )
+
+            handler = PlanningHandler()
+            event = WorkflowEvent(
+                kind="plan",
+                payload={"payload": {}},
             )
             updates, next_phase = handler.handle_event(
                 event, load_state(state_path), ctx

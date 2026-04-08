@@ -146,6 +146,9 @@ class InferResumePhaseTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
                 "# Plan", encoding="utf-8"
             )
+            (feature_dir / PLANNING_DIR / "plan.yaml").write_text(
+                "version: 2\n", encoding="utf-8"
+            )
             self._write_yaml(
                 feature_dir / PLANNING_DIR / "execution_plan.yaml",
                 "needs_design: true\n",
@@ -167,6 +170,9 @@ class InferResumePhaseTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
                 "# Plan", encoding="utf-8"
             )
+            (feature_dir / PLANNING_DIR / "plan.yaml").write_text(
+                "version: 2\n", encoding="utf-8"
+            )
             (feature_dir / REVIEW_DIR / "fix_request.md").write_text(
                 "fix this", encoding="utf-8"
             )
@@ -184,6 +190,9 @@ class InferResumePhaseTests(unittest.TestCase):
             )
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
                 "# Plan", encoding="utf-8"
+            )
+            (feature_dir / PLANNING_DIR / "plan.yaml").write_text(
+                "version: 2\n", encoding="utf-8"
             )
             (feature_dir / REVIEW_DIR / "fix_request.md").write_text(
                 "fix this", encoding="utf-8"
@@ -205,6 +214,9 @@ class InferResumePhaseTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
                 "# Plan", encoding="utf-8"
             )
+            (feature_dir / PLANNING_DIR / "plan.yaml").write_text(
+                "version: 2\n", encoding="utf-8"
+            )
             (feature_dir / IMPLEMENTATION_DIR / "done_1").write_text(
                 "", encoding="utf-8"
             )
@@ -221,6 +233,9 @@ class InferResumePhaseTests(unittest.TestCase):
             )
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
                 "# Plan", encoding="utf-8"
+            )
+            (feature_dir / PLANNING_DIR / "plan.yaml").write_text(
+                "version: 2\n", encoding="utf-8"
             )
             (feature_dir / IMPLEMENTATION_DIR / "done_1").write_text(
                 "", encoding="utf-8"
@@ -241,6 +256,9 @@ class InferResumePhaseTests(unittest.TestCase):
             )
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
                 "# Plan", encoding="utf-8"
+            )
+            (feature_dir / PLANNING_DIR / "plan.yaml").write_text(
+                "version: 2\n", encoding="utf-8"
             )
             self._write_yaml(
                 feature_dir / PLANNING_DIR / "execution_plan.yaml",
@@ -270,6 +288,9 @@ class InferResumePhaseTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
                 "# Plan", encoding="utf-8"
             )
+            (feature_dir / PLANNING_DIR / "plan.yaml").write_text(
+                "version: 2\n", encoding="utf-8"
+            )
             self._write_yaml(
                 feature_dir / PLANNING_DIR / "execution_plan.yaml",
                 "needs_design: false\nneeds_docs: false\ndoc_files: []\n",
@@ -294,6 +315,9 @@ class InferResumePhaseTests(unittest.TestCase):
             )
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
                 "# Plan", encoding="utf-8"
+            )
+            (feature_dir / PLANNING_DIR / "plan.yaml").write_text(
+                "version: 2\n", encoding="utf-8"
             )
             self._write_yaml(
                 feature_dir / PLANNING_DIR / "execution_plan.yaml",

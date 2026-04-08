@@ -8,8 +8,7 @@ PROMPTS_DIR = Path(__file__).resolve().parents[1] / "src" / "agentmux" / "prompt
 # Tool names that should exist (unprefixed) in prompt files
 VALID_TOOL_NAMES = {
     "submit_architecture",
-    "submit_execution_plan",
-    "submit_subplan",
+    "submit_plan",
     "submit_review",
     "research_dispatch_code",
     "research_dispatch_web",
@@ -23,6 +22,7 @@ DEPRECATED_TOOL_NAMES = {
     "agentmux_submit_architecture",
     "agentmux_submit_execution_plan",
     "agentmux_submit_subplan",
+    "agentmux_submit_plan",
     "agentmux_submit_review",
     "agentmux_research_dispatch_code",
     "agentmux_research_dispatch_web",
@@ -67,13 +67,13 @@ class PromptToolNameMigrationTests(unittest.TestCase):
         self.assertNotIn("agentmux_submit_architecture", content)
 
     def test_handoff_contract_plan_uses_unprefixed_submit(self) -> None:
-        """handoff-contract-plan.md should reference unprefixed submit tools."""
+        """handoff-contract-plan.md should reference unprefixed submit_plan tool."""
         path = PROMPTS_DIR / "shared" / "handoff-contract-plan.md"
         content = path.read_text(encoding="utf-8")
-        self.assertIn("submit_subplan", content)
-        self.assertIn("submit_execution_plan", content)
-        self.assertNotIn("agentmux_submit_subplan", content)
-        self.assertNotIn("agentmux_submit_execution_plan", content)
+        self.assertIn("submit_plan", content)
+        self.assertNotIn("agentmux_submit_plan", content)
+        self.assertNotIn("submit_subplan", content)
+        self.assertNotIn("submit_execution_plan", content)
 
     def test_handoff_contract_review_uses_unprefixed_submit(self) -> None:
         """handoff-contract-review.md should reference submit_review."""

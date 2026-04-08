@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
 from agentmux.workflow.event_catalog import EVENT_PM_COMPLETED
 from agentmux.workflow.event_router import WorkflowEvent
@@ -346,98 +347,60 @@ class TestArchitectingHandlerToolEvents:
     def test_handle_architecture_writes_artifacts(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
-        """architecture event writes architecture.yaml and architecture.md."""
+        """architecture event reads architecture.md from disk and transitions."""
         handler = ArchitectingHandler()
+        # Pre-write architecture.md (the agent writes this before calling
+        # submit_architecture)
+        mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+        md_path = mock_ctx.files.planning_dir / "architecture.md"
+        md_path.write_text("# Architecture\n\nSome design content.\n", encoding="utf-8")
+
         event = WorkflowEvent(
             kind="architecture",
-            payload={
-                "payload": {
-                    "solution_overview": "A microservices architecture",
-                    "components": [
-                        {
-                            "name": "API Gateway",
-                            "responsibility": "Route requests",
-                            "interfaces": ["REST"],
-                        }
-                    ],
-                    "interfaces_and_contracts": "REST APIs between services",
-                    "data_models": "User, Session, Token",
-                    "cross_cutting_concerns": "Logging, monitoring",
-                    "technology_choices": "Python, FastAPI, PostgreSQL",
-                    "risks_and_mitigations": "Rate limiting needed",
-                }
-            },
+            payload={"payload": {}},
         )
 
         updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
-        # Verify artifacts were written
-        yaml_path = mock_ctx.files.planning_dir / "architecture.yaml"
-        md_path = mock_ctx.files.planning_dir / "architecture.md"
-        assert yaml_path.exists()
+        # architecture.md should still exist (handler reads, not re-creates)
         assert md_path.exists()
-
-        # Verify state transition
+        # State transition
         assert next_phase == "planning"
         assert "last_event" in updates
 
     def test_handle_architecture_idempotent(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
-        """architecture event is idempotent — doesn't overwrite existing files."""
+        """architecture event is idempotent — re-running doesn't break anything."""
         handler = ArchitectingHandler()
-        event = WorkflowEvent(
-            kind="architecture",
-            payload={
-                "payload": {
-                    "solution_overview": "A microservices architecture",
-                    "components": [
-                        {
-                            "name": "API Gateway",
-                            "responsibility": "Route requests",
-                            "interfaces": ["REST"],
-                        }
-                    ],
-                    "interfaces_and_contracts": "REST APIs between services",
-                    "data_models": "User, Session, Token",
-                    "cross_cutting_concerns": "Logging, monitoring",
-                    "technology_choices": "Python, FastAPI, PostgreSQL",
-                    "risks_and_mitigations": "Rate limiting needed",
-                }
-            },
-        )
-
-        # Pre-create architecture files
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        yaml_path = mock_ctx.files.planning_dir / "architecture.yaml"
-        yaml_path.write_text("original: content", encoding="utf-8")
+        md_path = mock_ctx.files.planning_dir / "architecture.md"
+        md_path.write_text("# Architecture\n\nOriginal content.\n", encoding="utf-8")
 
-        # Should not raise
-        updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
-        # Content should be unchanged
-        assert yaml_path.read_text(encoding="utf-8") == "original: content"
+        event = WorkflowEvent(kind="architecture", payload={"payload": {}})
+
+        # First run
+        handler.handle_event(event, empty_state, mock_ctx)
+        first_content = md_path.read_text(encoding="utf-8")
+
+        # Second run (reset mocks)
+        mock_ctx.runtime.deactivate.reset_mock()
+        mock_ctx.runtime.kill_primary.reset_mock()
+        handler.handle_event(event, empty_state, mock_ctx)
+        # MD content should not change
+        assert md_path.read_text(encoding="utf-8") == first_content
 
     def test_handle_architecture_applies_preferences_and_kills_architect(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
         """architecture event applies preferences and kills architect."""
         handler = ArchitectingHandler()
-        event = WorkflowEvent(
-            kind="architecture",
-            payload={
-                "payload": {
-                    "solution_overview": "A simple architecture",
-                    "components": [
-                        {"name": "App", "responsibility": "Main app", "interfaces": []}
-                    ],
-                    "interfaces_and_contracts": "None",
-                    "data_models": "None",
-                    "cross_cutting_concerns": "None",
-                    "technology_choices": "Python",
-                    "risks_and_mitigations": "None",
-                }
-            },
+        mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.planning_dir / "architecture.md").write_text(
+            "# Architecture\n\nContent.\n", encoding="utf-8"
         )
+
+        event = WorkflowEvent(kind="architecture", payload={"payload": {}})
 
         with patch(
             "agentmux.workflow.handlers.architecting.apply_role_preferences"
@@ -453,24 +416,12 @@ class TestArchitectingHandlerToolEvents:
     ) -> None:
         """architecture event deletes changes.md if it exists."""
         handler = ArchitectingHandler()
-        event = WorkflowEvent(
-            kind="architecture",
-            payload={
-                "payload": {
-                    "solution_overview": "A simple architecture",
-                    "components": [
-                        {"name": "App", "responsibility": "Main app", "interfaces": []}
-                    ],
-                    "interfaces_and_contracts": "None",
-                    "data_models": "None",
-                    "cross_cutting_concerns": "None",
-                    "technology_choices": "Python",
-                    "risks_and_mitigations": "None",
-                }
-            },
-        )
+        event = WorkflowEvent(kind="architecture", payload={"payload": {}})
 
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.planning_dir / "architecture.md").write_text(
+            "# Architecture\n\nContent.\n", encoding="utf-8"
+        )
         mock_ctx.files.changes.write_text("changes", encoding="utf-8")
 
         handler.handle_event(event, empty_state, mock_ctx)
@@ -593,156 +544,176 @@ class TestPlanningHandlerToolEvents:
     """Tests for PlanningHandler tool-event migration."""
 
     def test_get_tool_specs_returns_correct_specs(self) -> None:
-        """get_tool_specs() returns execution_plan and subplan specs."""
+        """get_tool_specs() returns plan spec (not execution_plan/subplan)."""
         handler = PlanningHandler()
         specs = handler.get_tool_specs()
         spec_names = [s.name for s in specs]
-        assert "execution_plan" in spec_names
-        assert "subplan" in spec_names
+        assert "plan" in spec_names
+        assert "execution_plan" not in spec_names
+        assert "subplan" not in spec_names
 
-        ep_spec = next(s for s in specs if s.name == "execution_plan")
-        assert ep_spec.tool_names == ("submit_execution_plan",)
-
-        sp_spec = next(s for s in specs if s.name == "subplan")
-        assert sp_spec.tool_names == ("submit_subplan",)
+        plan_spec = next(s for s in specs if s.name == "plan")
+        assert plan_spec.tool_names == ("submit_plan",)
 
     def test_get_event_specs_is_empty(self) -> None:
         """get_event_specs() returns empty sequence."""
         handler = PlanningHandler()
         assert len(handler.get_event_specs()) == 0
 
-    def test_handle_execution_plan_writes_artifacts(
+    def test_handle_plan_writes_all_artifacts(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
-        """execution_plan event writes execution_plan.yaml and plan.md."""
-        handler = PlanningHandler()
-        event = WorkflowEvent(
-            kind="execution_plan",
-            payload={
-                "payload": {
-                    "plan_overview": "Build in 3 phases",
-                    "groups": [
-                        {
-                            "group_id": "g1",
-                            "mode": "serial",
-                            "plans": [
-                                {
-                                    "file": "plan_1.md",
-                                    "name": "Setup",
-                                }
-                            ],
-                        }
-                    ],
-                    "review_strategy": {"severity": "medium", "focus": []},
-                    "needs_design": False,
-                    "needs_docs": False,
-                    "doc_files": [],
-                }
-            },
-        )
+        """plan event reads plan.yaml and materializes plan_N.md, tasks_N.md,
+        execution_plan.yaml, plan.md."""
+        import yaml
 
-        # load_execution_plan requires referenced plan files to exist
+        handler = PlanningHandler()
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        (mock_ctx.files.planning_dir / "plan_1.md").write_text("plan 1")
-
-        updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
-
-        yaml_path = mock_ctx.files.planning_dir / "execution_plan.yaml"
-        md_path = mock_ctx.files.planning_dir / "plan.md"
-        assert yaml_path.exists()
-        assert md_path.exists()
-
-    def test_handle_execution_plan_idempotent(
-        self, mock_ctx: MagicMock, empty_state: dict
-    ) -> None:
-        """execution_plan event is idempotent."""
-        handler = PlanningHandler()
-        event = WorkflowEvent(
-            kind="execution_plan",
-            payload={
-                "payload": {
-                    "plan_overview": "Build in 3 phases",
-                    "groups": [
-                        {
-                            "group_id": "g1",
-                            "mode": "serial",
-                            "plans": [{"file": "plan_1.md", "name": "Setup"}],
-                        }
-                    ],
-                    "review_strategy": {"severity": "medium", "focus": []},
-                    "needs_design": False,
-                    "needs_docs": False,
-                    "doc_files": [],
+        plan_data = {
+            "version": 2,
+            "plan_overview": "Build core feature",
+            "groups": [
+                {
+                    "group_id": "g1",
+                    "mode": "serial",
+                    "plans": [{"index": 1, "name": "Setup"}],
                 }
-            },
-        )
-
-        mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        yaml_path = mock_ctx.files.planning_dir / "execution_plan.yaml"
-        yaml_path.write_text("original: content", encoding="utf-8")
-
-        handler.handle_event(event, empty_state, mock_ctx)
-        assert yaml_path.read_text(encoding="utf-8") == "original: content"
-
-    def test_handle_subplan_writes_artifacts(
-        self, mock_ctx: MagicMock, empty_state: dict
-    ) -> None:
-        """subplan event writes plan_N.yaml, plan_N.md, tasks_N.md."""
-        handler = PlanningHandler()
-        event = WorkflowEvent(
-            kind="subplan",
-            payload={
-                "payload": {
+            ],
+            "subplans": [
+                {
                     "index": 1,
-                    "title": "Setup Infrastructure",
-                    "scope": "Set up CI/CD and infra",
-                    "owned_files": ["src/infra/main.tf"],
+                    "title": "Core Setup",
+                    "scope": "Set up core infrastructure",
+                    "owned_files": ["src/core.py"],
                     "dependencies": "None",
-                    "implementation_approach": "Use Terraform",
-                    "acceptance_criteria": "Infra is provisioned",
-                    "tasks": ["Write terraform config", "Apply changes"],
-                    "isolation_rationale": "",
+                    "implementation_approach": "Implement step by step",
+                    "acceptance_criteria": "Tests pass",
+                    "tasks": ["Write code", "Write tests"],
                 }
-            },
+            ],
+            "review_strategy": {"severity": "medium", "focus": []},
+            "needs_design": False,
+            "needs_docs": False,
+            "doc_files": [],
+        }
+        (mock_ctx.files.planning_dir / "plan.yaml").write_text(
+            yaml.safe_dump(plan_data), encoding="utf-8"
         )
 
+        event = WorkflowEvent(kind="plan", payload={"payload": {}})
         updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
-        yaml_path = mock_ctx.files.planning_dir / "plan_1.yaml"
-        md_path = mock_ctx.files.planning_dir / "plan_1.md"
-        tasks_path = mock_ctx.files.planning_dir / "tasks_1.md"
-        assert yaml_path.exists()
-        assert md_path.exists()
-        assert tasks_path.exists()
+        assert (mock_ctx.files.planning_dir / "plan_1.md").exists()
+        assert (mock_ctx.files.planning_dir / "tasks_1.md").exists()
+        assert (mock_ctx.files.planning_dir / "execution_plan.yaml").exists()
+        assert (mock_ctx.files.planning_dir / "plan.md").exists()
+        assert next_phase == "implementing"
+        assert "last_event" in updates
 
-    def test_handle_subplan_idempotent(
+    def test_handle_plan_regenerates_on_replan(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
-        """subplan event is idempotent."""
+        """plan event always regenerates derived artifacts (no stale files on
+        replan)."""
+        import yaml
+
         handler = PlanningHandler()
-        event = WorkflowEvent(
-            kind="subplan",
-            payload={
-                "payload": {
+        mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+
+        # Write stale plan_1.md from a previous plan
+        stale = mock_ctx.files.planning_dir / "plan_1.md"
+        stale.write_text("old content", encoding="utf-8")
+
+        plan_data = {
+            "version": 2,
+            "plan_overview": "New plan",
+            "groups": [
+                {
+                    "group_id": "g1",
+                    "mode": "serial",
+                    "plans": [{"index": 1, "name": "New"}],
+                }
+            ],
+            "subplans": [
+                {
                     "index": 1,
-                    "title": "Setup",
-                    "scope": "Setup scope",
-                    "owned_files": [],
+                    "title": "New Setup",
+                    "scope": "New scope",
+                    "owned_files": ["src/new.py"],
+                    "dependencies": "None",
+                    "implementation_approach": "New approach",
+                    "acceptance_criteria": "All good",
+                    "tasks": ["Do stuff"],
+                }
+            ],
+            "review_strategy": {"severity": "medium", "focus": []},
+            "needs_design": False,
+            "needs_docs": False,
+            "doc_files": [],
+        }
+        (mock_ctx.files.planning_dir / "plan.yaml").write_text(
+            yaml.safe_dump(plan_data), encoding="utf-8"
+        )
+
+        event = WorkflowEvent(kind="plan", payload={"payload": {}})
+        handler.handle_event(event, empty_state, mock_ctx)
+
+        assert stale.read_text(encoding="utf-8") != "old content"
+
+    def test_handle_plan_prunes_stale_subplan_files(
+        self, mock_ctx: MagicMock, empty_state: dict
+    ) -> None:
+        """plan event removes plan_N.md / tasks_N.md for removed subplans."""
+        import yaml
+
+        handler = PlanningHandler()
+        mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+
+        # Stale files from a 2-subplan previous run
+        (mock_ctx.files.planning_dir / "plan_2.md").write_text(
+            "stale", encoding="utf-8"
+        )
+        (mock_ctx.files.planning_dir / "tasks_2.md").write_text(
+            "stale", encoding="utf-8"
+        )
+
+        plan_data = {
+            "version": 2,
+            "plan_overview": "Single subplan",
+            "groups": [
+                {
+                    "group_id": "g1",
+                    "mode": "serial",
+                    "plans": [{"index": 1, "name": "Only"}],
+                }
+            ],
+            "subplans": [
+                {
+                    "index": 1,
+                    "title": "Only Plan",
+                    "scope": "Scope",
+                    "owned_files": ["src/a.py"],
                     "dependencies": "None",
                     "implementation_approach": "Approach",
-                    "acceptance_criteria": "Criteria",
-                    "tasks": ["Task 1"],
-                    "isolation_rationale": "",
+                    "acceptance_criteria": "Done",
+                    "tasks": ["Task"],
                 }
-            },
+            ],
+            "review_strategy": {"severity": "medium", "focus": []},
+            "needs_design": False,
+            "needs_docs": False,
+            "doc_files": [],
+        }
+        (mock_ctx.files.planning_dir / "plan.yaml").write_text(
+            yaml.safe_dump(plan_data), encoding="utf-8"
         )
 
-        mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        yaml_path = mock_ctx.files.planning_dir / "plan_1.yaml"
-        yaml_path.write_text("original: content", encoding="utf-8")
-
+        event = WorkflowEvent(kind="plan", payload={"payload": {}})
         handler.handle_event(event, empty_state, mock_ctx)
-        assert yaml_path.read_text(encoding="utf-8") == "original: content"
+
+        assert not (mock_ctx.files.planning_dir / "plan_2.md").exists()
+        assert not (mock_ctx.files.planning_dir / "tasks_2.md").exists()
+        assert (mock_ctx.files.planning_dir / "plan_1.md").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -899,21 +870,23 @@ class TestReviewingHandlerToolEvents:
     def test_handle_review_verdict_pass(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
-        """review event with verdict:pass writes review.yaml and requests summary."""
+        """review event with verdict:pass reads review.yaml and requests summary."""
         from agentmux.workflow.event_catalog import EVENT_REVIEW_PASSED
 
         handler = ReviewingHandler()
-        event = WorkflowEvent(
-            kind="review",
-            payload={
-                "payload": {
+        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.review_dir / "review.yaml").write_text(
+            yaml.dump(
+                {
                     "verdict": "pass",
                     "summary": "Looks good!",
                     "findings": [],
                     "commit_message": "feat: implement feature",
-                }
-            },
+                },
+                default_flow_style=False,
+            )
         )
+        event = WorkflowEvent(kind="review", payload={"payload": {}})
 
         updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
@@ -935,10 +908,10 @@ class TestReviewingHandlerToolEvents:
         from agentmux.workflow.event_catalog import EVENT_REVIEW_FAILED
 
         handler = ReviewingHandler()
-        event = WorkflowEvent(
-            kind="review",
-            payload={
-                "payload": {
+        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.review_dir / "review.yaml").write_text(
+            yaml.dump(
+                {
                     "verdict": "fail",
                     "summary": "Needs fixes",
                     "findings": [
@@ -950,9 +923,11 @@ class TestReviewingHandlerToolEvents:
                         }
                     ],
                     "commit_message": "",
-                }
-            },
+                },
+                default_flow_style=False,
+            )
         )
+        event = WorkflowEvent(kind="review", payload={"payload": {}})
 
         updates, next_phase = handler.handle_event(event, empty_state, mock_ctx)
 
@@ -971,10 +946,10 @@ class TestReviewingHandlerToolEvents:
         from agentmux.workflow.event_catalog import EVENT_REVIEW_FAILED
 
         handler = ReviewingHandler()
-        event = WorkflowEvent(
-            kind="review",
-            payload={
-                "payload": {
+        mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.review_dir / "review.yaml").write_text(
+            yaml.dump(
+                {
                     "verdict": "fail",
                     "summary": "Still failing",
                     "findings": [
@@ -986,9 +961,11 @@ class TestReviewingHandlerToolEvents:
                         }
                     ],
                     "commit_message": "",
-                }
-            },
+                },
+                default_flow_style=False,
+            )
         )
+        event = WorkflowEvent(kind="review", payload={"payload": {}})
 
         state = {"review_iteration": 3}
         updates, next_phase = handler.handle_event(event, state, mock_ctx)
@@ -999,19 +976,8 @@ class TestReviewingHandlerToolEvents:
     def test_handle_review_idempotent(
         self, mock_ctx: MagicMock, empty_state: dict
     ) -> None:
-        """review event is idempotent."""
+        """review.yaml is agent-written; handler only reads it, never overwrites."""
         handler = ReviewingHandler()
-        event = WorkflowEvent(
-            kind="review",
-            payload={
-                "payload": {
-                    "verdict": "pass",
-                    "summary": "Looks good!",
-                    "findings": [],
-                    "commit_message": "",
-                }
-            },
-        )
 
         mock_ctx.files.review_dir.mkdir(parents=True, exist_ok=True)
         yaml_path = mock_ctx.files.review_dir / "review.yaml"
@@ -1019,5 +985,6 @@ class TestReviewingHandlerToolEvents:
         md_path = mock_ctx.files.review_dir / "review.md"
         md_path.write_text("# Review\n\nLooks good!", encoding="utf-8")
 
+        event = WorkflowEvent(kind="review", payload={"payload": {}})
         handler.handle_event(event, empty_state, mock_ctx)
         assert yaml_path.read_text(encoding="utf-8") == "original: content"

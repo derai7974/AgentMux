@@ -32,10 +32,6 @@ _VALID_FOCUS_AREAS = {
     "maintainability",
 }
 _VALID_FINDING_SEVERITIES = {"critical", "high", "medium", "low", "info"}
-_ARCHITECT_PREFERENCES_EXAMPLE = {
-    "source_role": "architect",
-    "approved": [{"target_role": "coder", "bullet": "- Prefer explicit interfaces"}],
-}
 _PLANNER_PREFERENCES_EXAMPLE = {
     "source_role": "planner",
     "approved": [
@@ -67,8 +63,8 @@ class HandoffContract:
     name: str
     description: str
     fields: tuple[FieldSpec, ...]
-    yaml_file: str  # relative path within feature dir
-    md_file: str  # generated markdown companion
+    yaml_file: str  # relative path within feature dir (canonical artifact)
+    md_file: str  # generated markdown companion (may equal yaml_file for md-only)
 
     def field_names(self) -> set[str]:
         return {f.name for f in self.fields}
@@ -78,103 +74,33 @@ class HandoffContract:
 
 
 # ---------------------------------------------------------------------------
-# Contract: Architecture
+# Contract: Architecture (MD-only — no structured YAML validation)
 # ---------------------------------------------------------------------------
 
 ARCHITECTURE_CONTRACT = HandoffContract(
     name="architecture",
     description="Technical architecture document produced by the architect.",
-    yaml_file="02_planning/architecture.yaml",
+    yaml_file="02_planning/architecture.md",
     md_file="02_planning/architecture.md",
-    fields=(
-        FieldSpec(
-            name="solution_overview",
-            type="str",
-            description="High-level approach and rationale.",
-            example="Use a plugin-based architecture with dynamic loading.",
-        ),
-        FieldSpec(
-            name="components",
-            type="list[dict]",
-            description=(
-                "System components. Each: {name, responsibility, interfaces: [...]}."
-            ),
-            example=[
-                {
-                    "name": "AuthService",
-                    "responsibility": "Handles user authentication",
-                    "interfaces": ["login()", "logout()", "verify_token()"],
-                }
-            ],
-        ),
-        FieldSpec(
-            name="interfaces_and_contracts",
-            type="str",
-            description="API boundaries, data formats, protocols.",
-        ),
-        FieldSpec(
-            name="data_models",
-            type="str",
-            description="Key entities, relationships, storage.",
-        ),
-        FieldSpec(
-            name="cross_cutting_concerns",
-            type="str",
-            description="Error handling, logging, security, testing strategy.",
-        ),
-        FieldSpec(
-            name="technology_choices",
-            type="str",
-            description="Tools, libraries, frameworks with rationale.",
-        ),
-        FieldSpec(
-            name="risks_and_mitigations",
-            type="str",
-            description="Known risks and mitigation strategies.",
-        ),
-        FieldSpec(
-            name="design_handoff",
-            type="str",
-            required=False,
-            description="Optional notes for the designer if UI work is needed.",
-        ),
-        FieldSpec(
-            name="approved_preferences",
-            type="dict",
-            required=False,
-            description=(
-                "Optional approved reusable preferences. Shape matches "
-                "approved_preferences.json."
-            ),
-            example=_ARCHITECT_PREFERENCES_EXAMPLE,
-        ),
-    ),
+    fields=(),  # Free-form markdown; no structured field validation
 )
 
 # ---------------------------------------------------------------------------
-# Contract: Execution Plan (merged plan_meta + execution_plan)
+# Contract: Plan (unified execution plan + all sub-plans in one file)
 # ---------------------------------------------------------------------------
 
-EXECUTION_PLAN_CONTRACT = HandoffContract(
-    name="execution_plan",
-    description="Merged execution plan with scheduling groups and metadata.",
-    yaml_file="02_planning/execution_plan.yaml",
+PLAN_CONTRACT = HandoffContract(
+    name="plan",
+    description=(
+        "Unified execution plan with embedded sub-plans produced by the planner."
+    ),
+    yaml_file="02_planning/plan.yaml",
     md_file="02_planning/plan.md",
     fields=(
         FieldSpec(
-            name="groups",
-            type="list[dict]",
-            description=(
-                "Execution groups. Each: "
-                "{group_id, mode: 'serial'|'parallel', plans: [{file, name}]}."
-            ),
-            example=[
-                {
-                    "group_id": "core",
-                    "mode": "serial",
-                    "plans": [{"file": "plan_1.md", "name": "Core setup"}],
-                }
-            ],
+            name="plan_overview",
+            type="str",
+            description="Human-readable plan summary (becomes plan.md content).",
         ),
         FieldSpec(
             name="review_strategy",
@@ -203,9 +129,41 @@ EXECUTION_PLAN_CONTRACT = HandoffContract(
             example=["docs/api.md"],
         ),
         FieldSpec(
-            name="plan_overview",
-            type="str",
-            description="Human-readable plan summary (becomes plan.md content).",
+            name="groups",
+            type="list[dict]",
+            description=(
+                "Execution groups. Each: "
+                "{group_id, mode: 'serial'|'parallel', plans: [{index, name}]}."
+            ),
+            example=[
+                {
+                    "group_id": "core",
+                    "mode": "serial",
+                    "plans": [{"index": 1, "name": "Core setup"}],
+                }
+            ],
+        ),
+        FieldSpec(
+            name="subplans",
+            type="list[dict]",
+            description=(
+                "Sub-plans for the coder. Each: "
+                "{index, title, scope, owned_files, dependencies, "
+                "implementation_approach, acceptance_criteria, tasks, "
+                "isolation_rationale (optional)}."
+            ),
+            example=[
+                {
+                    "index": 1,
+                    "title": "Core setup",
+                    "scope": "Set up the foundation",
+                    "owned_files": ["src/core.py"],
+                    "dependencies": "None",
+                    "implementation_approach": "Step by step",
+                    "acceptance_criteria": "Tests pass",
+                    "tasks": ["Create module", "Write tests"],
+                }
+            ],
         ),
         FieldSpec(
             name="approved_preferences",
@@ -216,69 +174,6 @@ EXECUTION_PLAN_CONTRACT = HandoffContract(
                 "approved_preferences.json."
             ),
             example=_PLANNER_PREFERENCES_EXAMPLE,
-        ),
-    ),
-)
-
-# ---------------------------------------------------------------------------
-# Contract: Subplan
-# ---------------------------------------------------------------------------
-
-SUBPLAN_CONTRACT = HandoffContract(
-    name="subplan",
-    description="Individual execution sub-plan for the coder.",
-    yaml_file="02_planning/plan_{index}.yaml",
-    md_file="02_planning/plan_{index}.md",
-    fields=(
-        FieldSpec(
-            name="index",
-            type="int",
-            description="Sub-plan number (1, 2, 3, ...).",
-            example=1,
-        ),
-        FieldSpec(
-            name="title",
-            type="str",
-            description="Short descriptive title.",
-            example="Implement user authentication module",
-        ),
-        FieldSpec(
-            name="scope",
-            type="str",
-            description="What this sub-plan covers.",
-        ),
-        FieldSpec(
-            name="owned_files",
-            type="list[str]",
-            description="Files created or modified (for parallel isolation).",
-            example=["src/auth.py", "tests/test_auth.py"],
-        ),
-        FieldSpec(
-            name="dependencies",
-            type="str",
-            description="What this sub-plan depends on.",
-        ),
-        FieldSpec(
-            name="implementation_approach",
-            type="str",
-            description="How to implement — step-by-step approach.",
-        ),
-        FieldSpec(
-            name="acceptance_criteria",
-            type="str",
-            description="Testable criteria for completion.",
-        ),
-        FieldSpec(
-            name="tasks",
-            type="list[str]",
-            description="Task checklist items for progress tracking.",
-            example=["Create auth module", "Add login endpoint", "Write tests"],
-        ),
-        FieldSpec(
-            name="isolation_rationale",
-            type="str",
-            required=False,
-            description="Why this sub-plan is safe for parallel execution.",
         ),
     ),
 )
@@ -349,8 +244,7 @@ CONTRACTS: dict[str, HandoffContract] = {
     c.name: c
     for c in (
         ARCHITECTURE_CONTRACT,
-        EXECUTION_PLAN_CONTRACT,
-        SUBPLAN_CONTRACT,
+        PLAN_CONTRACT,
         REVIEW_CONTRACT,
     )
 }
@@ -437,37 +331,58 @@ def validate_submission(contract_name: str, data: dict[str, Any]) -> list[str]:
             )
 
     # Contract-specific validation
-    if contract_name == "architecture":
-        _validate_architecture(data, errors)
-    elif contract_name == "execution_plan":
-        _validate_execution_plan(data, errors)
-    elif contract_name == "subplan":
-        _validate_subplan(data, errors)
+    if contract_name == "plan":
+        _validate_plan(data, errors)
     elif contract_name == "review":
         _validate_review(data, errors)
 
     return errors
 
 
-def _validate_architecture(data: dict[str, Any], errors: list[str]) -> None:
-    components = data.get("components")
-    if isinstance(components, list):
-        for i, comp in enumerate(components, 1):
-            if not isinstance(comp, dict):
-                continue
-            if not comp.get("name"):
-                errors.append(f"components[{i}] missing 'name'.")
-            if not comp.get("responsibility"):
-                errors.append(f"components[{i}] missing 'responsibility'.")
-    _validate_approved_preferences(data, "architect", errors)
-
-
-def _validate_execution_plan(data: dict[str, Any], errors: list[str]) -> None:
+def _validate_plan(data: dict[str, Any], errors: list[str]) -> None:
+    version = data.get("version")
+    if version != 2:
+        errors.append(f"plan.yaml must have version: 2 (got {version!r}).")
+        return  # skip further checks; structure may be completely different
     groups = data.get("groups")
     if isinstance(groups, list) and len(groups) == 0:
         errors.append("groups must contain at least one group.")
+    subplans = data.get("subplans")
+    subplan_indices: set[int] = set()
+    if isinstance(subplans, list):
+        if len(subplans) == 0:
+            errors.append("subplans must contain at least one sub-plan.")
+        for i, sp in enumerate(subplans, 1):
+            if not isinstance(sp, dict):
+                errors.append(f"subplans[{i}] must be a mapping.")
+                continue
+            idx = sp.get("index")
+            if not isinstance(idx, int) or isinstance(idx, bool) or idx < 1:
+                errors.append(f"subplans[{i}].index must be an integer >= 1.")
+            else:
+                if idx in subplan_indices:
+                    errors.append(f"subplans[{i}] has duplicate index {idx}.")
+                subplan_indices.add(idx)
+            for required_str in (
+                "title",
+                "scope",
+                "dependencies",
+                "implementation_approach",
+                "acceptance_criteria",
+            ):
+                val = sp.get(required_str)
+                if not val or not str(val).strip():
+                    errors.append(f"subplans[{i}].{required_str} must not be empty.")
+            tasks = sp.get("tasks")
+            if not isinstance(tasks, list) or len(tasks) == 0:
+                errors.append(f"subplans[{i}].tasks must be a non-empty list.")
+            owned = sp.get("owned_files")
+            if not isinstance(owned, list) or len(owned) == 0:
+                errors.append(f"subplans[{i}].owned_files must be a non-empty list.")
+
     if isinstance(groups, list):
         seen_ids: set[str] = set()
+        seen_refs: set[int] = set()
         for i, grp in enumerate(groups, 1):
             if not isinstance(grp, dict):
                 errors.append(f"groups[{i}] must be a mapping.")
@@ -491,10 +406,42 @@ def _validate_execution_plan(data: dict[str, Any], errors: list[str]) -> None:
                 for j, p in enumerate(plans, 1):
                     if not isinstance(p, dict):
                         errors.append(f"groups[{i}].plans[{j}] must be a mapping.")
-                    elif not p.get("file") or not p.get("name"):
+                        continue
+                    pidx = p.get("index")
+                    if not isinstance(pidx, int) or isinstance(pidx, bool) or pidx < 1:
                         errors.append(
-                            f"groups[{i}].plans[{j}] must have 'file' and 'name'."
+                            f"groups[{i}].plans[{j}] must have a valid 'index'."
                         )
+                    elif pidx in seen_refs:
+                        errors.append(
+                            f"groups[{i}].plans[{j}] duplicates plan index {pidx}."
+                        )
+                    else:
+                        seen_refs.add(pidx)
+                        if subplan_indices and pidx not in subplan_indices:
+                            errors.append(
+                                f"groups[{i}].plans[{j}] references index {pidx} "
+                                "which has no matching subplan."
+                            )
+                    if not p.get("name"):
+                        errors.append(f"groups[{i}].plans[{j}] must have 'name'.")
+
+    # Ensure every subplan is referenced by exactly one group entry.
+    if subplan_indices and isinstance(groups, list):
+        unreferenced = subplan_indices - seen_refs
+        for idx in sorted(unreferenced):
+            errors.append(f"subplan with index {idx} is not referenced by any group.")
+
+    # Enforce contiguous 1..N indexes (required by implementation scheduler).
+    if seen_refs:
+        max_idx = max(seen_refs)
+        missing = sorted(set(range(1, max_idx + 1)) - seen_refs)
+        if missing:
+            missing_csv = ", ".join(str(i) for i in missing)
+            errors.append(
+                f"plan indices must be contiguous from 1..{max_idx};"
+                f" missing: {missing_csv}."
+            )
 
     strategy = data.get("review_strategy")
     if isinstance(strategy, dict):
@@ -505,20 +452,6 @@ def _validate_execution_plan(data: dict[str, Any], errors: list[str]) -> None:
                 f"{', '.join(sorted(_VALID_SEVERITIES))} (got '{sev}')."
             )
     _validate_approved_preferences(data, "planner", errors)
-
-
-def _validate_subplan(data: dict[str, Any], errors: list[str]) -> None:
-    idx = data.get("index")
-    if isinstance(idx, int) and idx < 1:
-        errors.append("index must be >= 1.")
-
-    tasks = data.get("tasks")
-    if isinstance(tasks, list) and len(tasks) == 0:
-        errors.append("tasks must contain at least one item.")
-
-    owned = data.get("owned_files")
-    if isinstance(owned, list) and len(owned) == 0:
-        errors.append("owned_files must contain at least one item.")
 
 
 def _validate_review(data: dict[str, Any], errors: list[str]) -> None:

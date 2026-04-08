@@ -529,8 +529,12 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             )
             # Planning contract belongs to the planner, not the architect
             self.assertNotIn(planning_contract_line, architect_prompt)
-            # Note: planning_contract_line removed from streamlined planner
-            self.assertIn(planning_contract_line, change_prompt)
+            # change.md (replanning prompt) now uses plan.yaml v2 schema
+            change_docs_line = (
+                "Documentation updates must be captured as explicit tasks "
+                "in the relevant sub-plan."
+            )
+            self.assertIn(change_docs_line, change_prompt)
             self.assertIn(
                 "When your assigned task checklist includes documentation tasks, "
                 "complete them as part of implementation in this coder step.",
