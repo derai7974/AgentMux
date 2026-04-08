@@ -5,7 +5,10 @@ import re
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from ..runtime.tool_events import append_tool_event
+from ..shared.models import SESSION_DIR_NAMES
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -141,116 +144,95 @@ def research_dispatch_web(
 # ---------------------------------------------------------------------------
 
 
+def _read_yaml_for_signal(yaml_path: Path, contract_name: str) -> dict[str, Any]:
+    """Read and validate a YAML file written by the agent.
+
+    Raises ValueError if the file is missing, unparseable, or invalid.
+    """
+    if not yaml_path.exists():
+        raise ValueError(
+            f"{yaml_path.name} not found at {yaml_path}. "
+            "Write the file before calling this tool."
+        )
+    try:
+        data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise ValueError(f"Failed to parse {yaml_path.name}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"{yaml_path.name} must be a YAML mapping.")
+    _validate_or_raise(contract_name, data)
+    return data
+
+
 @_tool()
 def submit_architecture(
-    solution_overview: str,
-    components: list[dict[str, Any]],
-    interfaces_and_contracts: str,
-    data_models: str,
-    cross_cutting_concerns: str,
-    technology_choices: str,
-    risks_and_mitigations: str,
     feature_dir: str | None = None,
-    design_handoff: str | None = None,
 ) -> str:
-    """Submit architecture document.
+    """Signal architecture completion.
 
-    Validates input and appends to tool_events.jsonl.
+    Reads and validates the agent-written 02_planning/architecture.yaml,
+    then appends a completion signal to tool_events.jsonl.
+    Write the YAML file before calling this tool.
     """
-    data: dict[str, Any] = {
-        "solution_overview": solution_overview,
-        "components": components,
-        "interfaces_and_contracts": interfaces_and_contracts,
-        "data_models": data_models,
-        "cross_cutting_concerns": cross_cutting_concerns,
-        "technology_choices": technology_choices,
-        "risks_and_mitigations": risks_and_mitigations,
-    }
-    if design_handoff is not None:
-        data["design_handoff"] = design_handoff
-
-    _validate_or_raise("architecture", data)
-    append_tool_event(_log_path(feature_dir), "submit_architecture", data)
+    feature = _feature_dir(feature_dir)
+    yaml_path = feature / SESSION_DIR_NAMES["planning"] / "architecture.yaml"
+    _read_yaml_for_signal(yaml_path, "architecture")
+    append_tool_event(_log_path(feature_dir), "submit_architecture", {})
     return "Architecture submitted."
 
 
 @_tool()
 def submit_execution_plan(
-    groups: list[dict[str, Any]],
-    review_strategy: dict[str, Any],
-    needs_design: bool,
-    needs_docs: bool,
-    doc_files: list[str],
-    plan_overview: str,
     feature_dir: str | None = None,
 ) -> str:
-    """Submit the execution plan. Validates and appends to tool_events.jsonl."""
-    data: dict[str, Any] = {
-        "groups": groups,
-        "review_strategy": review_strategy,
-        "needs_design": needs_design,
-        "needs_docs": needs_docs,
-        "doc_files": doc_files,
-        "plan_overview": plan_overview,
-    }
+    """Signal execution plan completion.
 
-    _validate_or_raise("execution_plan", data)
-    append_tool_event(_log_path(feature_dir), "submit_execution_plan", data)
+    Reads and validates the agent-written 02_planning/execution_plan.yaml,
+    then appends a completion signal to tool_events.jsonl.
+    Write the YAML file before calling this tool.
+    """
+    feature = _feature_dir(feature_dir)
+    yaml_path = feature / SESSION_DIR_NAMES["planning"] / "execution_plan.yaml"
+    _read_yaml_for_signal(yaml_path, "execution_plan")
+    append_tool_event(_log_path(feature_dir), "submit_execution_plan", {})
     return "Execution plan submitted."
 
 
 @_tool()
 def submit_subplan(
     index: int,
-    title: str,
-    scope: str,
-    owned_files: list[str],
-    dependencies: str,
-    implementation_approach: str,
-    acceptance_criteria: str,
-    tasks: list[str],
     feature_dir: str | None = None,
-    isolation_rationale: str | None = None,
 ) -> str:
-    """Submit a sub-plan. Validates and appends to tool_events.jsonl."""
-    data: dict[str, Any] = {
-        "index": index,
-        "title": title,
-        "scope": scope,
-        "owned_files": owned_files,
-        "dependencies": dependencies,
-        "implementation_approach": implementation_approach,
-        "acceptance_criteria": acceptance_criteria,
-        "tasks": tasks,
-    }
-    if isolation_rationale is not None:
-        data["isolation_rationale"] = isolation_rationale
+    """Signal sub-plan completion.
 
-    _validate_or_raise("subplan", data)
-    append_tool_event(_log_path(feature_dir), "submit_subplan", data)
+    Reads and validates the agent-written 02_planning/plan_{index}.yaml,
+    then appends a completion signal to tool_events.jsonl.
+    Write the YAML file before calling this tool.
+    """
+    if not isinstance(index, int) or index < 1:
+        raise ValueError("index must be an integer >= 1.")
+    feature = _feature_dir(feature_dir)
+    yaml_path = feature / SESSION_DIR_NAMES["planning"] / f"plan_{index}.yaml"
+    _read_yaml_for_signal(yaml_path, "subplan")
+    append_tool_event(_log_path(feature_dir), "submit_subplan", {"index": index})
     return f"Sub-plan {index} submitted."
 
 
 @_tool()
 def submit_review(
-    verdict: str,
-    summary: str,
     feature_dir: str | None = None,
-    findings: list[dict[str, Any]] | None = None,
-    commit_message: str | None = None,
 ) -> str:
-    """Submit a code review. Validates and appends to tool_events.jsonl."""
-    data: dict[str, Any] = {
-        "verdict": verdict,
-        "summary": summary,
-    }
-    if findings is not None:
-        data["findings"] = findings
-    if commit_message is not None:
-        data["commit_message"] = commit_message
+    """Signal review completion.
 
-    _validate_or_raise("review", data)
-    append_tool_event(_log_path(feature_dir), "submit_review", data)
+    Reads and validates the agent-written 06_review/review.yaml,
+    then appends a completion signal to tool_events.jsonl.
+    Write the YAML file before calling this tool.
+    """
+    feature = _feature_dir(feature_dir)
+    yaml_path = feature / SESSION_DIR_NAMES["review"] / "review.yaml"
+    data = _read_yaml_for_signal(yaml_path, "review")
+    verdict = data.get("verdict", "unknown")
+    append_tool_event(_log_path(feature_dir), "submit_review", {})
     return f"Review submitted (verdict: {verdict})."
 
 

@@ -24,12 +24,12 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 
 - `architect_prompt.md` / `changes_prompt.txt` — architect prompts (for architecting phase)
 - `planner_prompt.md` — planner prompt for creating execution plans
-- `architecture.yaml` — canonical structured architecture document (the "What" and "With what"); written by MCP `submit_architecture` or directly by the architect
-- `architecture.md` — human-readable companion of `architecture.yaml`; consumed by the planner prompt, so it remains required alongside the canonical YAML
-- `plan.md` — human-readable planning overview created by planner; required alongside `execution_plan.yaml` for planning completion and later prompts
-- `plan_<N>.md` — executable per-unit implementation plans referenced by scheduler metadata and consumed by coder prompts
-- `plan_<N>.yaml` — canonical structured sub-plan data; written by MCP `submit_subplan` or directly by the planner
-- `execution_plan.yaml` — merged machine-readable schedule and planner metadata
+- `architecture.yaml` — canonical structured architecture document (the "What" and "With what"); written by the architect; signaled via MCP `submit_architecture`
+- `architecture.md` — human-readable companion of `architecture.yaml`; materialized automatically by the orchestrator from `architecture.yaml` if not written by the architect; consumed by the planner prompt
+- `plan.md` — human-readable planning overview; materialized automatically from `execution_plan.yaml` `plan_overview` field if not written by the planner; consumed by later prompts
+- `plan_<N>.md` — executable per-unit implementation plans; materialized automatically from `plan_<N>.yaml` if not written by the planner; consumed by coder prompts
+- `plan_<N>.yaml` — canonical structured sub-plan data; written by the planner; signaled via MCP `submit_subplan`
+- `execution_plan.yaml` — merged machine-readable schedule and planner metadata; written by the planner; signaled via MCP `submit_execution_plan`
   - Each group has a unique `group_id` and an execution mode (`serial` or `parallel`)
   - `serial` groups execute plans one at a time in order (useful for sequential integration steps)
   - `parallel` groups execute all plans simultaneously
@@ -79,7 +79,7 @@ Execution scheduling is strict:
 ## Review (`06_review/`)
 
 - `review_prompt.md` — legacy review prompt (backward compatibility)
-- `review.yaml` — canonical structured review verdict and findings; written by MCP `submit_review` or directly by the reviewer
+- `review.yaml` — canonical structured review verdict and findings; written by the reviewer; signaled via MCP `submit_review`
 - `review.md` — human-readable review companion used by summary generation, monitor output, and PR assembly; generated automatically from `review.yaml` when missing
 - `review_logic_prompt.md` — Logic & Alignment reviewer prompt (functional correctness vs plan)
 - `review_quality_prompt.md` — Quality & Style reviewer prompt (clean code, naming, standards)
@@ -113,7 +113,7 @@ Execution scheduling is strict:
 
 ## MCP Tool Event Protocol
 
-When agents call MCP tools (`submit_architecture`, `submit_execution_plan`, `submit_subplan`, `submit_review`, `submit_done`, `submit_research_done`, `submit_pm_done`), the tool validates the inputs, appends an entry to `tool_events.jsonl`, and returns a confirmation string. The tools are **pure**: they do not write any workflow artifacts directly.
+When agents call MCP tools (`submit_architecture`, `submit_execution_plan`, `submit_subplan`, `submit_review`, `submit_done`, `submit_research_done`, `submit_pm_done`), the submission tools read the agent-written YAML file, validate it against the contract, and append a minimal signal entry to `tool_events.jsonl`. Validation errors are returned immediately so agents can correct their files. The tools write no workflow artifacts themselves — agents always own writing the YAML files.
 
 Each entry has this shape:
 
@@ -121,9 +121,9 @@ Each entry has this shape:
 {"tool": "<tool_name>", "timestamp": "<ISO-8601>", "payload": {...}}
 ```
 
-`ToolCallEventSource` tails `tool_events.jsonl` and emits `SessionEvent(kind="tool.<name>")` events into the `EventBus`. The orchestrator persists an applied cursor in `tool_event_state.json` after each tool event is handled, so resume replays only unapplied signals. The `WorkflowEventRouter` routes tool events via `ToolSpec` to the appropriate phase handler, which writes the canonical artifacts (`.yaml` + `.md`) as side-effects and drives state transitions.
+`ToolCallEventSource` tails `tool_events.jsonl` and emits `SessionEvent(kind="tool.<name>")` events into the `EventBus`. The orchestrator persists an applied cursor in `tool_event_state.json` after each tool event is handled, so resume replays only unapplied signals. The `WorkflowEventRouter` routes tool events via `ToolSpec` to the appropriate phase handler, which materializes `.md` companions from the agent-written `.yaml` (if missing) and drives state transitions.
 
-Agents no longer need to create workflow artifact files manually. The orchestrator handles all artifact creation in response to tool-call events.
+Agents write workflow artifact YAML files directly. The MCP submission tools validate the agent-written file and signal the orchestrator to advance — they do not write files themselves.
 
 ## Workflow Events
 

@@ -10,13 +10,18 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
+import yaml
+
 from agentmux.workflow.event_catalog import EVENT_ARCHITECTURE_WRITTEN
 from agentmux.workflow.event_router import (
     EventSpec,
     ToolSpec,
     WorkflowEvent,
 )
-from agentmux.workflow.handoff_artifacts import submit_architecture
+from agentmux.workflow.handoff_artifacts import (
+    _write_approved_preferences,
+    generate_architecture_md,
+)
 from agentmux.workflow.phase_helpers import (
     apply_role_preferences,
     dispatch_research_task,
@@ -97,12 +102,22 @@ class ArchitectingHandler:
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle architecture submission via tool event."""
-        payload = event.payload.get("payload", {})
-
-        # Write architecture artifacts (idempotent — guard by existence)
+        # YAML is agent-written and already validated by the MCP signal tool.
         yaml_path = ctx.files.planning_dir / "architecture.yaml"
-        if not yaml_path.exists():
-            submit_architecture(ctx.files.feature_dir, payload)
+        data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+
+        # Materialize architecture.md if the agent did not write it.
+        md_path = ctx.files.planning_dir / "architecture.md"
+        if not md_path.exists():
+            md_path.parent.mkdir(parents=True, exist_ok=True)
+            md_path.write_text(generate_architecture_md(data), encoding="utf-8")
+
+        # Write approved_preferences.json if included in the YAML.
+        _write_approved_preferences(
+            ctx.files.feature_dir,
+            data.get("approved_preferences"),
+            expected_source_role="architect",
+        )
 
         # Apply approved preferences from architect
         apply_role_preferences(ctx, "architect")

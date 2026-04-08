@@ -64,6 +64,14 @@ Each proposal uses this shape:
 }
 ```
 
+MCP handoff tools can now carry the same structure as optional `approved_preferences` metadata on:
+
+- `submit_architecture`
+- `submit_execution_plan`
+- `submit_review`
+
+When provided, AgentMux materializes that metadata back into the phase-scoped `approved_preferences.json` artifact before the existing preference-application logic runs.
+
 Application flow:
 
 - Agents write proposal artifacts only after explicit user approval.

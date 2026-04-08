@@ -1,69 +1,61 @@
 ## Submitting Your Execution Plan
 
-Use the MCP tools to submit your execution plan. This ensures structured, validated output.
+Write the YAML files below, then call the signal tools. The orchestrator materializes `.md` companions automatically if you do not write them.
 
-### Step 1: Submit sub-plans
+### Step 1: Write and submit each sub-plan
 
-For each sub-plan, call `submit_subplan` with:
+Write `02_planning/plan_N.yaml` for each sub-plan:
 
-> When you call this tool, the orchestrator observes the event and advances the workflow. No manual file creation is required.
-- `index` (required) — Sub-plan number (1, 2, 3, ...)
-- `title` (required) — Short descriptive title
-- `scope` (required) — What this sub-plan covers
-- `owned_files` (required) — Files created or modified (for parallel isolation)
-- `dependencies` (required) — What this sub-plan depends on
-- `implementation_approach` (required) — Step-by-step approach
-- `acceptance_criteria` (required) — Testable criteria for completion
-- `tasks` (required) — Task checklist items
-- `isolation_rationale` (optional) — Why this sub-plan is safe for parallel execution
+```yaml
+index: 1
+title: Short descriptive title
+scope: What this sub-plan covers
+owned_files:
+  - src/auth.py
+  - tests/test_auth.py
+dependencies: None
+implementation_approach: |
+  Step-by-step approach.
+acceptance_criteria: |
+  Testable criteria for completion.
+tasks:
+  - First task
+  - Second task
+isolation_rationale: |  # optional
+  Why this sub-plan is safe for parallel execution.
+```
 
-### Step 2: Submit the execution plan
+Then call `submit_subplan(index=N)` for each sub-plan. The tool validates your YAML and signals the orchestrator.
 
-Call `submit_execution_plan` with:
+### Step 2: Write and submit the execution plan
 
-> When you call this tool, the orchestrator observes the event and advances the workflow. No manual file creation is required.
-- `groups` (required) — Execution groups: `[{group_id, mode: "serial"|"parallel", plans: [{file, name}]}]`
-- `review_strategy` (required) — `{severity: "low"|"medium"|"high", focus: [...]}`
-- `needs_design` (required) — Whether a design phase is required
-- `needs_docs` (required) — Whether documentation updates are needed
-- `doc_files` (required) — Documentation files to create or update
-- `plan_overview` (required) — Human-readable plan summary
-
-The tools validate input and write the corresponding `.yaml` and `.md` files.
-
-**If MCP tools are unavailable**, write `02_planning/execution_plan.yaml` directly:
+Write `02_planning/execution_plan.yaml`:
 
 ```yaml
 version: 1
 review_strategy:
   severity: medium
-  focus: [security, performance]
+  focus:
+    - security
 needs_design: false
 needs_docs: true
-doc_files: [docs/api.md]
+doc_files:
+  - docs/api.md
 groups:
   - group_id: core-setup
     mode: serial
     plans:
       - file: plan_1.md
-        name: Setup core module
+        name: Core setup
+plan_overview: |
+  # Implementation Plan
+
+  Overview of all planned work.
+approved_preferences:  # optional — same shape as approved_preferences.json
+  source_role: planner
+  approved:
+    - target_role: coder
+      bullet: "- Validate each task before done"
 ```
 
-And write each `02_planning/plan_N.yaml`:
-
-```yaml
-index: 1
-title: Plan title
-scope: What it covers
-owned_files: [src/file.py]
-dependencies: None
-implementation_approach: |
-  Step-by-step approach.
-acceptance_criteria: |
-  Testable criteria.
-tasks:
-  - First task
-  - Second task
-```
-
-Then write the corresponding `.md` and `tasks_N.md` files as human-readable versions.
+Then call `submit_execution_plan()` (no arguments needed). The tool validates your YAML and signals the orchestrator to advance the workflow. If validation fails, it returns an error so you can correct the file.

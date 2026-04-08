@@ -1,7 +1,8 @@
-"""Tests for refactored MCP research server tools (Sub-plan 2).
+"""Tests for refactored MCP research server tools.
 
-All tools are now pure: they validate inputs, append to tool_events.jsonl,
-and return a confirmation string. They write NO files other than the log.
+Submit tools are completion signals: they read and validate the agent-written
+YAML file, append a minimal signal to tool_events.jsonl, and return a
+confirmation string. They write NO files other than the log.
 """
 
 from __future__ import annotations
@@ -111,241 +112,234 @@ class TestResearchDispatchWeb(_FeatureDirMixin, unittest.TestCase):
 
 
 class TestSubmitArchitecture(_FeatureDirMixin, unittest.TestCase):
-    """Tests for renamed submit_architecture tool."""
+    """Tests for submit_architecture signal tool."""
 
-    def _defaults(self, **overrides):
-        defaults = {
-            "solution_overview": "Plugin architecture",
-            "components": [{"name": "Core", "responsibility": "Main loop"}],
-            "interfaces_and_contracts": "REST API",
-            "data_models": "User, Session",
-            "cross_cutting_concerns": "Logging",
-            "technology_choices": "Python",
-            "risks_and_mitigations": "None",
-            "feature_dir": str(self.feature_dir),
-        }
-        defaults.update(overrides)
-        return defaults
+    _VALID = {
+        "solution_overview": "Plugin architecture",
+        "components": [
+            {"name": "Core", "responsibility": "Main loop", "interfaces": ["run()"]}
+        ],
+        "interfaces_and_contracts": "REST API",
+        "data_models": "User, Session",
+        "cross_cutting_concerns": "Logging",
+        "technology_choices": "Python",
+        "risks_and_mitigations": "None",
+    }
 
-    def test_validates_and_appends(self):
-        result = mrs.submit_architecture(**self._defaults())
+    def _write_yaml(self, data=None):
+        import yaml
+
+        path = self.feature_dir / "02_planning" / "architecture.yaml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(yaml.safe_dump(data or self._VALID))
+
+    def test_reads_file_appends_minimal_signal(self):
+        self._write_yaml()
+        result = mrs.submit_architecture(feature_dir=str(self.feature_dir))
         self.assertIn("Architecture submitted", result)
         entries = self._read_log_entries()
-        self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]["tool"], "submit_architecture")
-        self.assertEqual(
-            entries[0]["payload"]["solution_overview"], "Plugin architecture"
-        )
+        self.assertEqual(entries[0]["payload"], {})
 
-    def test_does_not_write_files(self):
-        mrs.submit_architecture(**self._defaults())
-        self.assertFalse(
-            (self.feature_dir / "02_planning" / "architecture.yaml").exists()
-        )
+    def test_does_not_write_any_extra_files(self):
+        self._write_yaml()
+        mrs.submit_architecture(feature_dir=str(self.feature_dir))
+        # Only the pre-written yaml and the log should exist
         self.assertFalse(
             (self.feature_dir / "02_planning" / "architecture.md").exists()
         )
 
-    def test_validation_error_on_empty_field(self):
+    def test_raises_when_yaml_missing(self):
         with self.assertRaises(ValueError) as ctx:
-            mrs.submit_architecture(
-                solution_overview="",
-                components=[],
-                interfaces_and_contracts="x",
-                data_models="x",
-                cross_cutting_concerns="x",
-                technology_choices="x",
-                risks_and_mitigations="x",
-                feature_dir=str(self.feature_dir),
-            )
-        self.assertIn("solution_overview", str(ctx.exception))
+            mrs.submit_architecture(feature_dir=str(self.feature_dir))
+        self.assertIn("architecture.yaml", str(ctx.exception))
 
-    def test_optional_design_handoff_in_payload(self):
-        mrs.submit_architecture(**self._defaults(design_handoff="UI mockups needed"))
-        entries = self._read_log_entries()
-        self.assertEqual(entries[0]["payload"]["design_handoff"], "UI mockups needed")
+    def test_validation_error_on_empty_field(self):
+        bad = {**self._VALID, "solution_overview": ""}
+        self._write_yaml(bad)
+        with self.assertRaises(ValueError) as ctx:
+            mrs.submit_architecture(feature_dir=str(self.feature_dir))
+        self.assertIn("solution_overview", str(ctx.exception))
 
 
 class TestSubmitExecutionPlan(_FeatureDirMixin, unittest.TestCase):
-    """Tests for renamed submit_execution_plan tool."""
+    """Tests for submit_execution_plan signal tool."""
 
-    def _defaults(self, **overrides):
-        defaults = {
-            "groups": [
-                {
-                    "group_id": "core",
-                    "mode": "serial",
-                    "plans": [{"file": "plan_1.md", "name": "Setup"}],
-                }
-            ],
-            "review_strategy": {"severity": "medium", "focus": ["security"]},
-            "needs_design": False,
-            "needs_docs": True,
-            "doc_files": ["docs/api.md"],
-            "plan_overview": "# Plan\n\nSetup core modules.",
-            "feature_dir": str(self.feature_dir),
-        }
-        defaults.update(overrides)
-        return defaults
+    _VALID = {
+        "version": 1,
+        "groups": [
+            {
+                "group_id": "core",
+                "mode": "serial",
+                "plans": [{"file": "plan_1.md", "name": "Setup"}],
+            }
+        ],
+        "review_strategy": {"severity": "medium", "focus": ["security"]},
+        "needs_design": False,
+        "needs_docs": True,
+        "doc_files": ["docs/api.md"],
+        "plan_overview": "# Plan\n\nSetup core modules.",
+    }
 
-    def test_validates_and_appends(self):
-        result = mrs.submit_execution_plan(**self._defaults())
+    def _write_yaml(self, data=None):
+        import yaml
+
+        path = self.feature_dir / "02_planning" / "execution_plan.yaml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(yaml.safe_dump(data or self._VALID))
+
+    def test_reads_file_appends_minimal_signal(self):
+        self._write_yaml()
+        result = mrs.submit_execution_plan(feature_dir=str(self.feature_dir))
         self.assertIn("Execution plan submitted", result)
         entries = self._read_log_entries()
-        self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]["tool"], "submit_execution_plan")
-        self.assertEqual(entries[0]["payload"]["needs_design"], False)
+        self.assertEqual(entries[0]["payload"], {})
 
-    def test_does_not_write_files(self):
-        mrs.submit_execution_plan(**self._defaults())
-        self.assertFalse(
-            (self.feature_dir / "02_planning" / "execution_plan.yaml").exists()
-        )
+    def test_does_not_write_any_extra_files(self):
+        self._write_yaml()
+        mrs.submit_execution_plan(feature_dir=str(self.feature_dir))
         self.assertFalse((self.feature_dir / "02_planning" / "plan.md").exists())
 
-    def test_validation_error_on_bad_mode(self):
+    def test_raises_when_yaml_missing(self):
         with self.assertRaises(ValueError) as ctx:
-            mrs.submit_execution_plan(
-                groups=[
-                    {
-                        "group_id": "g1",
-                        "mode": "bad",
-                        "plans": [{"file": "p.md", "name": "x"}],
-                    }
-                ],
-                review_strategy={"severity": "medium", "focus": []},
-                needs_design=False,
-                needs_docs=False,
-                doc_files=[],
-                plan_overview="Overview",
-                feature_dir=str(self.feature_dir),
-            )
+            mrs.submit_execution_plan(feature_dir=str(self.feature_dir))
+        self.assertIn("execution_plan.yaml", str(ctx.exception))
+
+    def test_validation_error_on_bad_mode(self):
+        bad = {
+            **self._VALID,
+            "groups": [
+                {
+                    "group_id": "g1",
+                    "mode": "bad",
+                    "plans": [{"file": "p.md", "name": "x"}],
+                }
+            ],
+        }
+        self._write_yaml(bad)
+        with self.assertRaises(ValueError) as ctx:
+            mrs.submit_execution_plan(feature_dir=str(self.feature_dir))
         self.assertIn("mode", str(ctx.exception))
 
 
 class TestSubmitSubplan(_FeatureDirMixin, unittest.TestCase):
-    """Tests for renamed submit_subplan tool."""
+    """Tests for submit_subplan signal tool."""
 
-    def _defaults(self, **overrides):
-        defaults = {
-            "index": 1,
-            "title": "Auth module",
-            "scope": "User authentication",
-            "owned_files": ["src/auth.py"],
-            "dependencies": "None",
-            "implementation_approach": "Step by step",
-            "acceptance_criteria": "Tests pass",
-            "tasks": ["Create module", "Write tests"],
-            "feature_dir": str(self.feature_dir),
-        }
-        defaults.update(overrides)
-        return defaults
+    _VALID = {
+        "index": 1,
+        "title": "Auth module",
+        "scope": "User authentication",
+        "owned_files": ["src/auth.py"],
+        "dependencies": "None",
+        "implementation_approach": "Step by step",
+        "acceptance_criteria": "Tests pass",
+        "tasks": ["Create module", "Write tests"],
+    }
 
-    def test_validates_and_appends(self):
-        result = mrs.submit_subplan(**self._defaults())
+    def _write_yaml(self, index=1, data=None):
+        import yaml
+
+        path = self.feature_dir / "02_planning" / f"plan_{index}.yaml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(yaml.safe_dump(data or self._VALID))
+
+    def test_reads_file_appends_signal_with_index(self):
+        self._write_yaml(1)
+        result = mrs.submit_subplan(index=1, feature_dir=str(self.feature_dir))
         self.assertIn("Sub-plan 1 submitted", result)
         entries = self._read_log_entries()
-        self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]["tool"], "submit_subplan")
-        self.assertEqual(entries[0]["payload"]["index"], 1)
+        self.assertEqual(entries[0]["payload"], {"index": 1})
 
-    def test_does_not_write_files(self):
-        mrs.submit_subplan(**self._defaults())
-        self.assertFalse((self.feature_dir / "02_planning" / "plan_1.yaml").exists())
+    def test_does_not_write_any_extra_files(self):
+        self._write_yaml(1)
+        mrs.submit_subplan(index=1, feature_dir=str(self.feature_dir))
         self.assertFalse((self.feature_dir / "02_planning" / "plan_1.md").exists())
         self.assertFalse((self.feature_dir / "02_planning" / "tasks_1.md").exists())
 
+    def test_raises_when_yaml_missing(self):
+        with self.assertRaises(ValueError) as ctx:
+            mrs.submit_subplan(index=1, feature_dir=str(self.feature_dir))
+        self.assertIn("plan_1.yaml", str(ctx.exception))
+
     def test_validation_error_on_index_zero(self):
         with self.assertRaises(ValueError):
-            mrs.submit_subplan(
-                index=0,
-                title="Bad",
-                scope="x",
-                owned_files=["f.py"],
-                dependencies="none",
-                implementation_approach="x",
-                acceptance_criteria="x",
-                tasks=["t"],
-                feature_dir=str(self.feature_dir),
-            )
-
-    def test_optional_isolation_rationale_in_payload(self):
-        mrs.submit_subplan(**self._defaults(isolation_rationale="No shared state"))
-        entries = self._read_log_entries()
-        self.assertEqual(
-            entries[0]["payload"]["isolation_rationale"], "No shared state"
-        )
+            mrs.submit_subplan(index=0, feature_dir=str(self.feature_dir))
 
 
 class TestSubmitReview(_FeatureDirMixin, unittest.TestCase):
-    """Tests for renamed submit_review tool."""
+    """Tests for submit_review signal tool."""
 
-    def test_pass_validates_and_appends(self):
-        result = mrs.submit_review(
-            verdict="pass",
-            summary="All checks passed",
-            feature_dir=str(self.feature_dir),
-        )
+    _VALID_PASS = {"verdict": "pass", "summary": "All checks passed"}
+
+    def _write_yaml(self, data):
+        import yaml
+
+        path = self.feature_dir / "06_review" / "review.yaml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(yaml.safe_dump(data))
+
+    def test_pass_reads_file_appends_minimal_signal(self):
+        self._write_yaml(self._VALID_PASS)
+        result = mrs.submit_review(feature_dir=str(self.feature_dir))
         self.assertIn("verdict: pass", result)
         entries = self._read_log_entries()
-        self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]["tool"], "submit_review")
-        self.assertEqual(entries[0]["payload"]["verdict"], "pass")
+        self.assertEqual(entries[0]["payload"], {})
 
-    def test_fail_with_findings_appends(self):
-        result = mrs.submit_review(
-            verdict="fail",
-            summary="Issues found",
-            feature_dir=str(self.feature_dir),
-            findings=[
-                {
-                    "location": "src/x.py:10",
-                    "issue": "Missing validation",
-                    "severity": "high",
-                    "recommendation": "Add check",
-                }
-            ],
-        )
-        self.assertIn("verdict: fail", result)
-        entries = self._read_log_entries()
-        self.assertEqual(entries[0]["payload"]["verdict"], "fail")
-        self.assertEqual(len(entries[0]["payload"]["findings"]), 1)
-
-    def test_does_not_write_files(self):
-        mrs.submit_review(
-            verdict="pass",
-            summary="OK",
-            feature_dir=str(self.feature_dir),
-        )
-        self.assertFalse((self.feature_dir / "06_review" / "review.yaml").exists())
+    def test_does_not_write_any_extra_files(self):
+        self._write_yaml(self._VALID_PASS)
+        mrs.submit_review(feature_dir=str(self.feature_dir))
         self.assertFalse((self.feature_dir / "06_review" / "review.md").exists())
 
-    def test_fail_without_findings_raises(self):
+    def test_raises_when_yaml_missing(self):
         with self.assertRaises(ValueError) as ctx:
-            mrs.submit_review(
-                verdict="fail",
-                summary="Bad",
-                feature_dir=str(self.feature_dir),
-            )
+            mrs.submit_review(feature_dir=str(self.feature_dir))
+        self.assertIn("review.yaml", str(ctx.exception))
+
+    def test_fail_with_findings_appends_empty_payload(self):
+        self._write_yaml(
+            {
+                "verdict": "fail",
+                "summary": "Issues found",
+                "findings": [
+                    {
+                        "location": "src/x.py:10",
+                        "issue": "Missing val",
+                        "severity": "high",
+                        "recommendation": "Add check",
+                    }
+                ],
+            }
+        )
+        result = mrs.submit_review(feature_dir=str(self.feature_dir))
+        self.assertIn("verdict: fail", result)
+        entries = self._read_log_entries()
+        self.assertEqual(entries[0]["payload"], {})
+
+    def test_fail_without_findings_raises(self):
+        self._write_yaml({"verdict": "fail", "summary": "Bad"})
+        with self.assertRaises(ValueError) as ctx:
+            mrs.submit_review(feature_dir=str(self.feature_dir))
         self.assertIn("findings", str(ctx.exception))
 
     def test_invalid_verdict_raises(self):
+        self._write_yaml({"verdict": "maybe", "summary": "Unsure"})
         with self.assertRaises(ValueError):
-            mrs.submit_review(
-                verdict="maybe",
-                summary="Unsure",
-                feature_dir=str(self.feature_dir),
-            )
+            mrs.submit_review(feature_dir=str(self.feature_dir))
 
-    def test_commit_message_in_payload(self):
-        mrs.submit_review(
-            verdict="pass",
-            summary="OK",
-            feature_dir=str(self.feature_dir),
-            commit_message="feat: add auth",
-        )
-        entries = self._read_log_entries()
-        self.assertEqual(entries[0]["payload"]["commit_message"], "feat: add auth")
+    def test_optional_approved_preferences_accepted(self):
+        data = {
+            **self._VALID_PASS,
+            "approved_preferences": {
+                "source_role": "reviewer",
+                "approved": [{"target_role": "coder", "bullet": "- Keep tests"}],
+            },
+        }
+        self._write_yaml(data)
+        result = mrs.submit_review(feature_dir=str(self.feature_dir))
+        self.assertIn("verdict: pass", result)
 
 
 class TestSubmitDone(_FeatureDirMixin, unittest.TestCase):

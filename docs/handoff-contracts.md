@@ -6,10 +6,12 @@ Handoff contracts define the structured interface between workflow phases. Each 
 
 ## Overview
 
-Agents submit phase outputs through either:
+Agents submit phase outputs by writing the canonical `.yaml` file, then calling the MCP submission tool as a completion signal:
 
-1. **MCP submission tools** (preferred) — the `agentmux-research` MCP server exposes `submit_*` tools that accept structured parameters, validate them against the contract, append an event to `tool_events.jsonl`, and return a confirmation string. The tools are **pure**: they do not write workflow artifacts directly. The orchestrator observes the event and drives artifact creation as a side-effect. Agents no longer need to create any files manually.
-2. **Direct YAML write** (fallback) — agents that cannot call MCP tools write the canonical `.yaml` file directly. Shared prompt fragments (`[[shared:handoff-contract-*]]`) embedded in agent prompts provide the YAML schema and examples.
+1. **Write the YAML file** — agent writes the canonical `.yaml` artifact (e.g., `02_planning/architecture.yaml`) directly. Shared prompt fragments (`[[shared:handoff-contract-*]]`) embedded in agent prompts provide the schema and examples.
+2. **Call the MCP signal tool** — the `agentmux-research` MCP server exposes `submit_*` tools that read the agent-written file, validate it against the contract, append a minimal signal entry to `tool_events.jsonl`, and return a confirmation string (or a validation error the agent can act on). The tools write no files themselves.
+
+The orchestrator observes the signal event, materializes `.md` companions from the YAML if not already present, and drives the state transition.
 
 Completion semantics are phase-specific:
 
@@ -25,7 +27,7 @@ Completion semantics are phase-specific:
 - **Canonical file:** `02_planning/architecture.yaml`
 - **Companion file:** `02_planning/architecture.md`
 - **Required fields:** `solution_overview`, `components` (list of `{name, responsibility, interfaces}`), `interfaces_and_contracts`, `data_models`, `cross_cutting_concerns`, `technology_choices`, `risks_and_mitigations`
-- **Optional fields:** `design_handoff`
+- **Optional fields:** `design_handoff`, `approved_preferences` (same shape as `approved_preferences.json`; materialized to `02_planning/approved_preferences.json`)
 
 ### Execution plan
 
@@ -33,6 +35,7 @@ Completion semantics are phase-specific:
 - **Canonical file:** `02_planning/execution_plan.yaml`
 - **Companion file:** `02_planning/plan.md`
 - **Required fields:** `groups` (list of `{group_id, mode, plans: [{file, name}]}`), `review_strategy` (`{severity, focus}`), `needs_design`, `needs_docs`, `doc_files`, `plan_overview`
+- **Optional fields:** `approved_preferences` (same shape as `approved_preferences.json`; materialized to `02_planning/approved_preferences.json`)
 
 The YAML file merges the former `execution_plan.json` scheduling data and `plan_meta.json` workflow-intent metadata into a single file with a `version: 1` header.
 
@@ -53,6 +56,7 @@ Subplans are submitted individually before the execution plan. The `index` value
 - **Companion file:** `06_review/review.md`
 - **Required fields:** `verdict` (`"pass"` or `"fail"`), `summary`
 - **Conditional fields:** `findings` (required on `fail` — list of `{location, issue, severity, recommendation}`), `commit_message` (optional on `pass`)
+- **Optional fields:** `approved_preferences` (same shape as `approved_preferences.json`; materialized to `08_completion/approved_preferences.json`)
 
 ## Validation
 
@@ -71,16 +75,18 @@ MCP tools raise a validation error with all issues listed; agents receive the er
 
 ## Dual-file output
 
-Each submission writes two files:
+Each handoff produces two files:
 
-- **`.yaml`** — the machine-readable canonical artifact.
-- **`.md`** — a human-readable companion generated from the same data. Useful for attaching to tmux, reviewing in PRs, and reading in subsequent agent prompts via `[[include:...]]`.
+- **`.yaml`** — the machine-readable canonical artifact; written by the agent.
+- **`.md`** — a human-readable companion; materialized automatically by the orchestrator from the YAML if the agent does not write it.
 
-For architecture, execution plans, and subplans, the `.md` companions are still required by downstream prompts. For reviews, the runtime can synthesize `review.md` from `review.yaml` when the Markdown companion is missing.
+The `.md` companions are consumed by downstream prompts (plan.md by coder, architecture.md by planner, review.md by fix/summary prompts).
+
+When the agent includes an optional `approved_preferences` mapping in the YAML, the orchestrator writes it to the phase-appropriate `approved_preferences.json` artifact so the existing preference-memory application flow can consume it unchanged.
 
 ## Shared prompt fragments
 
-Three shared fragments provide agents with MCP tool usage instructions and YAML fallback examples:
+Three shared fragments provide agents with file-writing instructions and YAML schema examples:
 
 | Fragment | Included by | Purpose |
 |---|---|---|

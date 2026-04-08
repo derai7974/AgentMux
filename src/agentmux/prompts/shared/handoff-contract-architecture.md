@@ -1,22 +1,6 @@
 ## Submitting Your Architecture
 
-Use the `submit_architecture` MCP tool to submit your architecture document. This ensures structured, validated output.
-
-> When you call this tool, the orchestrator observes the event and advances the workflow. No manual file creation is required.
-
-**Tool parameters:**
-- `solution_overview` (required) — High-level approach and rationale
-- `components` (required) — List of components, each with `name`, `responsibility`, and `interfaces`
-- `interfaces_and_contracts` (required) — API boundaries, data formats, protocols
-- `data_models` (required) — Key entities, relationships, storage
-- `cross_cutting_concerns` (required) — Error handling, logging, security, testing strategy
-- `technology_choices` (required) — Tools, libraries, frameworks with rationale
-- `risks_and_mitigations` (required) — Known risks and mitigation strategies
-- `design_handoff` (optional) — Notes for the designer if UI work is needed
-
-The tool validates your input and writes `architecture.yaml` + `architecture.md` to the planning directory.
-
-**If the MCP tool is unavailable**, write `02_planning/architecture.yaml` directly:
+Write `02_planning/architecture.yaml` with the fields below, then call `submit_architecture()` to validate your file and signal completion. The orchestrator materializes `architecture.md` automatically if you do not write it.
 
 ```yaml
 solution_overview: |
@@ -38,6 +22,11 @@ risks_and_mitigations: |
   Known risks and mitigations.
 design_handoff: |  # optional
   Notes for designer.
+approved_preferences:  # optional — same shape as approved_preferences.json
+  source_role: architect
+  approved:
+    - target_role: coder
+      bullet: "- Prefer typed helpers"
 ```
 
-Then write `02_planning/architecture.md` as a human-readable version of the same content.
+After writing the file, call `submit_architecture()` (no arguments needed). The tool validates your YAML and signals the orchestrator to advance the workflow. If validation fails, it returns an error so you can correct the file.

@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
+import yaml
+
 from agentmux.agent_labels import role_display_label
 from agentmux.workflow.event_catalog import (
     EVENT_RESUMED,
@@ -13,9 +15,9 @@ from agentmux.workflow.event_catalog import (
 )
 from agentmux.workflow.event_router import EventSpec, ToolSpec, WorkflowEvent
 from agentmux.workflow.handoff_artifacts import (
+    _write_approved_preferences,
     load_review_text,
     review_yaml_has_verdict,
-    submit_review,
 )
 from agentmux.workflow.phase_helpers import (
     load_plan_meta,
@@ -152,14 +154,18 @@ class ReviewingHandler:
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle review submission via tool event."""
-        payload = event.payload.get("payload", {})
-
-        # Write review artifacts (idempotent — guard by existence)
+        # YAML is agent-written and already validated by the MCP signal tool.
         yaml_path = ctx.files.review_dir / "review.yaml"
-        if not yaml_path.exists():
-            submit_review(ctx.files.feature_dir, payload)
+        data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+        verdict = data.get("verdict", "").lower()
 
-        verdict = payload.get("verdict", "").lower()
+        # Write approved_preferences.json if included in the YAML.
+        _write_approved_preferences(
+            ctx.files.feature_dir,
+            data.get("approved_preferences"),
+            expected_source_role="reviewer",
+        )
+
         review_iteration = int(state.get("review_iteration", 0))
 
         # Archive this review for history (review_0.md, review_1.md, …).

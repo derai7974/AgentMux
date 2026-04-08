@@ -90,6 +90,24 @@ class TestValidateArchitecture(unittest.TestCase):
         errors = validate_submission("architecture", data)
         self.assertTrue(any("invalid type" in e for e in errors))
 
+    def test_optional_approved_preferences_valid(self):
+        data = self._valid_data()
+        data["approved_preferences"] = {
+            "source_role": "architect",
+            "approved": [{"target_role": "coder", "bullet": "- Prefer typed helpers"}],
+        }
+        errors = validate_submission("architecture", data)
+        self.assertEqual(errors, [])
+
+    def test_optional_approved_preferences_wrong_source_role(self):
+        data = self._valid_data()
+        data["approved_preferences"] = {
+            "source_role": "planner",
+            "approved": [{"target_role": "coder", "bullet": "- Prefer typed helpers"}],
+        }
+        errors = validate_submission("architecture", data)
+        self.assertTrue(any("source_role" in e for e in errors))
+
 
 class TestValidateExecutionPlan(unittest.TestCase):
     def _valid_data(self):
@@ -147,6 +165,17 @@ class TestValidateExecutionPlan(unittest.TestCase):
         data["groups"] = []
         errors = validate_submission("execution_plan", data)
         self.assertTrue(any("at least one" in e or "non-empty" in e for e in errors))
+
+    def test_optional_approved_preferences_valid(self):
+        data = self._valid_data()
+        data["approved_preferences"] = {
+            "source_role": "planner",
+            "approved": [
+                {"target_role": "coder", "bullet": "- Keep task boundaries explicit"}
+            ],
+        }
+        errors = validate_submission("execution_plan", data)
+        self.assertEqual(errors, [])
 
 
 class TestValidateSubplan(unittest.TestCase):
@@ -249,6 +278,20 @@ class TestValidateReview(unittest.TestCase):
         data = {"verdict": "maybe", "summary": "Unsure"}
         errors = validate_submission("review", data)
         self.assertTrue(any("verdict" in e for e in errors))
+
+    def test_optional_approved_preferences_valid(self):
+        data = {
+            "verdict": "pass",
+            "summary": "All good",
+            "approved_preferences": {
+                "source_role": "reviewer",
+                "approved": [
+                    {"target_role": "coder", "bullet": "- Keep findings terse"}
+                ],
+            },
+        }
+        errors = validate_submission("review", data)
+        self.assertEqual(errors, [])
 
 
 class TestValidationError(unittest.TestCase):

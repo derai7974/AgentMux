@@ -108,7 +108,72 @@ def _write_execution_plan(
     _write_yaml(files.execution_plan, data)
 
 
+def _proposal_payload(source_role: str, bullet: str) -> dict[str, object]:
+    return {
+        "source_role": source_role,
+        "approved": [{"target_role": "coder", "bullet": bullet}],
+    }
+
+
 class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
+    def test_architecture_submission_materializes_tool_payload_preferences(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td) / "feature"
+            ctx, state_path = _make_ctx(feature_dir)
+
+            state = load_state(state_path)
+            state["phase"] = "architecting"
+            write_state(state_path, state)
+
+            handler = PHASE_HANDLERS.get("architecting")
+            assert handler is not None
+            event = WorkflowEvent(
+                kind="architecture",
+                payload={
+                    "payload": {
+                        "solution_overview": "High-level approach",
+                        "components": [
+                            {
+                                "name": "AuthService",
+                                "responsibility": "Auth",
+                                "interfaces": ["login()"],
+                            }
+                        ],
+                        "interfaces_and_contracts": "REST API",
+                        "data_models": "User, Session",
+                        "cross_cutting_concerns": "Logging",
+                        "technology_choices": "Python + FastAPI",
+                        "risks_and_mitigations": "None identified",
+                        "approved_preferences": _proposal_payload(
+                            "architect", "Keep coder changes narrowly scoped"
+                        ),
+                    }
+                },
+            )
+
+            updates, next_phase = handler.handle_event(
+                event, load_state(state_path), ctx
+            )
+
+            self.assertEqual("architecting", state["phase"])
+            self.assertEqual("planning", next_phase)
+            self.assertEqual("architecture_written", updates.get("last_event"))
+            self.assertTrue(ctx.files.architect_preference_proposal.is_file())
+            self.assertIn(
+                '"source_role": "architect"',
+                ctx.files.architect_preference_proposal.read_text(encoding="utf-8"),
+            )
+            target = (
+                ctx.files.project_dir / ".agentmux" / "prompts" / "agents" / "coder.md"
+            )
+            self.assertTrue(target.is_file())
+            self.assertIn(
+                "- Keep coder changes narrowly scoped",
+                target.read_text(encoding="utf-8"),
+            )
+
     def test_pm_completed_applies_approved_preferences_before_planning_transition(
         self,
     ) -> None:
@@ -279,6 +344,65 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             prompts_dir = ctx.files.project_dir / ".agentmux" / "prompts" / "agents"
             self.assertFalse(prompts_dir.exists())
 
+    def test_plan_written_materializes_tool_payload_preferences(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td) / "feature"
+            ctx, state_path = _make_ctx(feature_dir, with_designer=False)
+
+            state = load_state(state_path)
+            state["phase"] = "planning"
+            write_state(state_path, state)
+            ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+            (ctx.files.planning_dir / "plan_1.md").write_text(
+                "# Implementation\n", encoding="utf-8"
+            )
+
+            handler = PlanningHandler()
+            event = WorkflowEvent(
+                kind="execution_plan",
+                payload={
+                    "payload": {
+                        "plan_overview": "Implementation plan",
+                        "groups": [
+                            {
+                                "group_id": "g1",
+                                "mode": "serial",
+                                "plans": [
+                                    {"file": "plan_1.md", "name": "implementation"}
+                                ],
+                            }
+                        ],
+                        "review_strategy": {"severity": "medium", "focus": []},
+                        "needs_design": False,
+                        "needs_docs": False,
+                        "doc_files": [],
+                        "approved_preferences": _proposal_payload(
+                            "planner", "Validate each task before marking done"
+                        ),
+                    }
+                },
+            )
+
+            updates, next_phase = handler.handle_event(
+                event, load_state(state_path), ctx
+            )
+
+            self.assertEqual("implementing", next_phase)
+            self.assertEqual("plan_written", updates.get("last_event"))
+            self.assertTrue(ctx.files.architect_preference_proposal.is_file())
+            self.assertIn(
+                '"source_role": "planner"',
+                ctx.files.architect_preference_proposal.read_text(encoding="utf-8"),
+            )
+            target = (
+                ctx.files.project_dir / ".agentmux" / "prompts" / "agents" / "coder.md"
+            )
+            self.assertTrue(target.is_file())
+            self.assertIn(
+                "- Validate each task before marking done",
+                target.read_text(encoding="utf-8"),
+            )
+
     def test_approval_received_applies_reviewer_preferences_before_changed_file_scan(
         self,
     ) -> None:
@@ -354,6 +478,52 @@ class PreferenceMemoryWorkflowRequirementsTests(unittest.TestCase):
             self.assertIn(
                 ".agentmux/prompts/agents/coder.md",
                 finalize_mock.call_args.kwargs["changed_paths"],
+            )
+
+    def test_review_submission_materializes_reviewer_preferences_to_completion_dir(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            feature_dir = Path(td) / "feature"
+            ctx, state_path = _make_ctx(feature_dir)
+
+            state = load_state(state_path)
+            state["phase"] = "reviewing"
+            write_state(state_path, state)
+
+            handler = PHASE_HANDLERS.get("reviewing")
+            assert handler is not None
+            event = WorkflowEvent(
+                kind="review",
+                payload={
+                    "payload": {
+                        "verdict": "fail",
+                        "summary": "Issues found",
+                        "findings": [
+                            {
+                                "location": "src/x.py:10",
+                                "issue": "Missing validation",
+                                "severity": "high",
+                                "recommendation": "Add check",
+                            }
+                        ],
+                        "approved_preferences": _proposal_payload(
+                            "reviewer", "Prefer focused regression coverage"
+                        ),
+                    }
+                },
+            )
+
+            updates, next_phase = handler.handle_event(
+                event, load_state(state_path), ctx
+            )
+
+            self.assertEqual("fixing", next_phase)
+            self.assertEqual("review_failed", updates.get("last_event"))
+            self.assertTrue(ctx.files.reviewer_preference_proposal.is_file())
+            self.assertIn(
+                '"source_role": "reviewer"',
+                ctx.files.reviewer_preference_proposal.read_text(encoding="utf-8"),
             )
 
     def test_approval_received_without_proposal_file_is_prompt_extension_noop(

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from ..shared.models import SESSION_DIR_NAMES
+from ..shared.models import SESSION_DIR_NAMES, PreferenceProposal
 from .handoff_contracts import validate_submission
 
 _VALID_REVIEW_VERDICTS = {"pass", "fail"}
@@ -33,6 +34,36 @@ def _validate_or_raise(contract_name: str, data: dict[str, Any]) -> None:
         raise ValueError(
             f"Validation failed for '{contract_name}': " + "; ".join(errors)
         )
+
+
+def _write_approved_preferences(
+    feature_dir: Path,
+    proposal_data: dict[str, Any] | None,
+    *,
+    expected_source_role: str,
+) -> None:
+    if proposal_data is None:
+        return
+    proposal = PreferenceProposal.from_dict(proposal_data)
+    if proposal.source_role != expected_source_role:
+        raise ValueError(
+            "approved_preferences.source_role must be "
+            f"'{expected_source_role}' (got '{proposal.source_role}')."
+        )
+
+    if proposal.source_role in {"architect", "planner"}:
+        path = feature_dir / SESSION_DIR_NAMES["planning"] / "approved_preferences.json"
+    elif proposal.source_role == "reviewer":
+        path = (
+            feature_dir / SESSION_DIR_NAMES["completion"] / "approved_preferences.json"
+        )
+    else:  # pragma: no cover - guarded by PreferenceProposal.from_dict
+        raise ValueError(
+            f"Unsupported preference proposal source: {proposal.source_role}"
+        )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(proposal.to_dict(), indent=2) + "\n", encoding="utf-8")
 
 
 def generate_architecture_md(data: dict[str, Any]) -> str:
@@ -131,64 +162,6 @@ def generate_review_md(data: dict[str, Any]) -> str:
         )
 
     return "\n".join(lines)
-
-
-def submit_architecture(feature_dir: Path, data: dict[str, Any]) -> str:
-    """Validate and write architecture handoff artifacts."""
-    _validate_or_raise("architecture", data)
-    planning_dir = feature_dir / SESSION_DIR_NAMES["planning"]
-    planning_dir.mkdir(parents=True, exist_ok=True)
-    _write_yaml(planning_dir / "architecture.yaml", data)
-    _write_md(planning_dir / "architecture.md", generate_architecture_md(data))
-    return "Architecture submitted. Files: architecture.yaml, architecture.md"
-
-
-def submit_execution_plan(feature_dir: Path, data: dict[str, Any]) -> str:
-    """Validate and write execution plan artifacts."""
-    _validate_or_raise("execution_plan", data)
-    planning_dir = feature_dir / SESSION_DIR_NAMES["planning"]
-    planning_dir.mkdir(parents=True, exist_ok=True)
-
-    yaml_data = {
-        "version": 1,
-        "review_strategy": data["review_strategy"],
-        "needs_design": data["needs_design"],
-        "needs_docs": data["needs_docs"],
-        "doc_files": data["doc_files"],
-        "groups": data["groups"],
-    }
-    _write_yaml(planning_dir / "execution_plan.yaml", yaml_data)
-    _write_md(planning_dir / "plan.md", generate_plan_md(data))
-    return "Execution plan submitted. Files: execution_plan.yaml, plan.md"
-
-
-def submit_subplan(feature_dir: Path, data: dict[str, Any]) -> str:
-    """Validate and write subplan artifacts."""
-    _validate_or_raise("subplan", data)
-    planning_dir = feature_dir / SESSION_DIR_NAMES["planning"]
-    planning_dir.mkdir(parents=True, exist_ok=True)
-
-    index = data["index"]
-    _write_yaml(planning_dir / f"plan_{index}.yaml", data)
-    _write_md(planning_dir / f"plan_{index}.md", generate_subplan_md(data))
-    _write_md(planning_dir / f"tasks_{index}.md", generate_tasks_md(data))
-    return (
-        f"Sub-plan {index} submitted. "
-        f"Files: plan_{index}.yaml, plan_{index}.md, tasks_{index}.md"
-    )
-
-
-def submit_review(feature_dir: Path, data: dict[str, Any]) -> str:
-    """Validate and write review artifacts."""
-    _validate_or_raise("review", data)
-    review_dir = feature_dir / SESSION_DIR_NAMES["review"]
-    review_dir.mkdir(parents=True, exist_ok=True)
-
-    _write_yaml(review_dir / "review.yaml", data)
-    _write_md(review_dir / "review.md", generate_review_md(data))
-    return (
-        f"Review submitted (verdict: {data['verdict']}). Files: review.yaml, review.md"
-    )
 
 
 def _load_review_yaml_data(review_dir: Path) -> dict[str, Any] | None:

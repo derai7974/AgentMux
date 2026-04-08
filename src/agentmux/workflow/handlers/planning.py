@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
+import yaml
+
 from agentmux.workflow.event_catalog import EVENT_CHANGES_REQUESTED, EVENT_PLAN_WRITTEN
 from agentmux.workflow.event_router import (
     EventSpec,
@@ -17,8 +19,10 @@ from agentmux.workflow.event_router import (
 )
 from agentmux.workflow.execution_plan import load_execution_plan
 from agentmux.workflow.handoff_artifacts import (
-    submit_execution_plan,
-    submit_subplan,
+    _write_approved_preferences,
+    generate_plan_md,
+    generate_subplan_md,
+    generate_tasks_md,
 )
 from agentmux.workflow.phase_helpers import (
     apply_role_preferences,
@@ -115,20 +119,27 @@ class PlanningHandler:
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle execution plan submission via tool event."""
-        payload = event.payload.get("payload", {})
-
-        # Write execution plan artifacts (idempotent — guard by existence)
+        # YAML is agent-written and already validated by the MCP signal tool.
         yaml_path = ctx.files.planning_dir / "execution_plan.yaml"
-        wrote_plan = not yaml_path.exists()
-        if wrote_plan:
-            submit_execution_plan(ctx.files.feature_dir, payload)
+        data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+
+        # Materialize plan.md if the agent did not write it.
+        plan_md_path = ctx.files.planning_dir / "plan.md"
+        if not plan_md_path.exists() and data.get("plan_overview"):
+            plan_md_path.parent.mkdir(parents=True, exist_ok=True)
+            plan_md_path.write_text(generate_plan_md(data), encoding="utf-8")
+
+        # Write approved_preferences.json if included in the YAML.
+        _write_approved_preferences(
+            ctx.files.feature_dir,
+            data.get("approved_preferences"),
+            expected_source_role="planner",
+        )
 
         # Apply approved preferences from planner
         apply_role_preferences(ctx, "planner")
 
-        # Validate only what we just wrote — skip on replay (existing file may differ)
-        if wrote_plan and yaml_path.exists():
-            load_execution_plan(ctx.files.planning_dir)
+        load_execution_plan(ctx.files.planning_dir)
         meta = load_plan_meta(ctx.files.planning_dir)
         needs_design = bool(meta.get("needs_design")) and "designer" in ctx.agents
 
@@ -156,10 +167,22 @@ class PlanningHandler:
         if index is None:
             return {"error": "missing subplan index"}, None
 
-        # Write subplan artifacts (idempotent — guard by existence)
+        # YAML is agent-written and already validated by the MCP signal tool.
         yaml_path = ctx.files.planning_dir / f"plan_{index}.yaml"
         if not yaml_path.exists():
-            submit_subplan(ctx.files.feature_dir, payload)
+            return {"error": f"plan_{index}.yaml not found"}, None
+        data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+
+        # Materialize .md companions if the agent did not write them.
+        plan_md_path = ctx.files.planning_dir / f"plan_{index}.md"
+        if not plan_md_path.exists():
+            plan_md_path.parent.mkdir(parents=True, exist_ok=True)
+            plan_md_path.write_text(generate_subplan_md(data), encoding="utf-8")
+
+        tasks_md_path = ctx.files.planning_dir / f"tasks_{index}.md"
+        if not tasks_md_path.exists():
+            tasks_md_path.parent.mkdir(parents=True, exist_ok=True)
+            tasks_md_path.write_text(generate_tasks_md(data), encoding="utf-8")
 
         return {}, None
 

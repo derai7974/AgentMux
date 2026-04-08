@@ -1,25 +1,18 @@
 ## Submitting Your Review
 
-Use the `submit_review` MCP tool to submit your review. This ensures structured, validated output.
-
-> When you call this tool, the orchestrator observes the event and advances the workflow. No manual file creation is required.
-
-**Tool parameters:**
-- `verdict` (required) — `"pass"` or `"fail"`
-- `summary` (required) — What was reviewed and the outcome
-- `findings` (on fail) — List of issues: `[{location, issue, severity, recommendation}]`
-- `commit_message` (on pass, optional) — Suggested commit message
-
-The tool validates your input and writes `review.yaml` + `review.md` to the review directory.
-
-**If the MCP tool is unavailable**, write `06_review/review.yaml` directly:
+Write `06_review/review.yaml` with the fields below, then call `submit_review()` to validate your file and signal completion. The orchestrator materializes `review.md` automatically.
 
 On pass:
 ```yaml
 verdict: pass
 summary: |
   All checks passed. Implementation matches the plan.
-commit_message: "feat: implement feature X"
+commit_message: "feat: implement feature X"  # optional
+approved_preferences:  # optional — same shape as approved_preferences.json
+  source_role: reviewer
+  approved:
+    - target_role: coder
+      bullet: "- Keep regression tests"
 ```
 
 On fail:
@@ -34,4 +27,4 @@ findings:
     recommendation: Add email format check before database lookup.
 ```
 
-Then write `06_review/review.md` with `verdict: pass` or `verdict: fail` as the **first line**, followed by the review content.
+After writing the file, call `submit_review()` (no arguments needed). The tool validates your YAML and signals the orchestrator to advance the workflow. If validation fails, it returns an error so you can correct the file.
