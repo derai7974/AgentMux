@@ -12,6 +12,7 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 - `runtime_state.json` / `orchestrator.log` — runtime tracking and orchestrator logs
 - `created_files.log` — append-only created-file history written by the orchestrator as `YYYY-MM-DD HH:MM:SS  relative/path`; records files only (not directories), deduplicated by relative path, and seeded once at startup to include pre-existing session files
 - `tool_events.jsonl` — append-only MCP tool-call event log; each entry is a JSON object `{"tool": "<name>", "timestamp": "<ISO-8601>", "payload": {...}}`; written by MCP server tools and tailed by `ToolCallEventSource`
+- `tool_event_state.json` — persisted tool-event replay cursor; stores the last applied byte offset in `tool_events.jsonl` so resume replays only unapplied tool signals
 
 ## Product Management (`01_product_management/`)
 
@@ -120,7 +121,7 @@ Each entry has this shape:
 {"tool": "<tool_name>", "timestamp": "<ISO-8601>", "payload": {...}}
 ```
 
-`ToolCallEventSource` tails `tool_events.jsonl` and emits `SessionEvent(kind="tool.<name>")` events into the `EventBus`. The `WorkflowEventRouter` routes these via `ToolSpec` to the appropriate phase handler, which writes the canonical artifacts (`.yaml` + `.md`) as side-effects and drives state transitions.
+`ToolCallEventSource` tails `tool_events.jsonl` and emits `SessionEvent(kind="tool.<name>")` events into the `EventBus`. The orchestrator persists an applied cursor in `tool_event_state.json` after each tool event is handled, so resume replays only unapplied signals. The `WorkflowEventRouter` routes tool events via `ToolSpec` to the appropriate phase handler, which writes the canonical artifacts (`.yaml` + `.md`) as side-effects and drives state transitions.
 
 Agents no longer need to create workflow artifact files manually. The orchestrator handles all artifact creation in response to tool-call events.
 

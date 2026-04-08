@@ -1,4 +1,4 @@
-"""Tests for runtime/tool_events.py — ToolCallEventSource and append_tool_event."""
+"""Tests for runtime/tool_events.py — ToolCallEventSource and cursor helpers."""
 
 from __future__ import annotations
 
@@ -9,7 +9,15 @@ import unittest
 from pathlib import Path
 
 from agentmux.runtime.event_bus import EventBus, SessionEvent
-from agentmux.runtime.tool_events import ToolCallEventSource, append_tool_event
+from agentmux.runtime.tool_events import (
+    TOOL_EVENT_CURSOR_STATE_NAME,
+    TOOL_EVENT_META_KEY,
+    ToolCallEventSource,
+    append_tool_event,
+    load_tool_event_cursor,
+    persist_tool_event_cursor,
+    tool_event_cursor_from_session_event,
+)
 
 
 class TestAppendToolEvent(unittest.TestCase):
@@ -57,6 +65,28 @@ class TestAppendToolEvent(unittest.TestCase):
             self.assertEqual(entries[2]["tool"], "tool_c")
 
 
+class TestToolEventCursorState(unittest.TestCase):
+    """Tests for persisted tool-event cursor state."""
+
+    def test_persist_and_load_cursor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            feature_dir = Path(tmpdir)
+            persist_tool_event_cursor(feature_dir, 42)
+
+            self.assertEqual(42, load_tool_event_cursor(feature_dir))
+            self.assertTrue((feature_dir / TOOL_EVENT_CURSOR_STATE_NAME).exists())
+
+    def test_load_cursor_defaults_to_zero_for_missing_or_invalid_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            feature_dir = Path(tmpdir)
+            self.assertEqual(0, load_tool_event_cursor(feature_dir))
+
+            (feature_dir / TOOL_EVENT_CURSOR_STATE_NAME).write_text(
+                "not json", encoding="utf-8"
+            )
+            self.assertEqual(0, load_tool_event_cursor(feature_dir))
+
+
 class TestToolCallEventSourceSeeding(unittest.TestCase):
     """Tests for ToolCallEventSource.start() seeding of existing entries."""
 
@@ -97,6 +127,7 @@ class TestToolCallEventSourceSeeding(unittest.TestCase):
             self.assertEqual(received[0].source, "tool_call")
             self.assertEqual(received[0].payload.get("payload"), {"status": "ok"})
             self.assertEqual(received[0].payload.get("tool"), "submit_architecture")
+            self.assertIn(TOOL_EVENT_META_KEY, received[0].payload)
             self.assertEqual(received[1].kind, "tool.submit_plan")
 
     def test_seeds_empty_log(self) -> None:
@@ -115,6 +146,31 @@ class TestToolCallEventSourceSeeding(unittest.TestCase):
             source.stop()
 
             self.assertEqual(len(received), 0)
+
+    def test_seeds_only_unapplied_lines_after_cursor(self) -> None:
+        """start() resumes from the persisted applied cursor."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            feature_dir = Path(tmpdir)
+            log_path = feature_dir / "tool_events.jsonl"
+            append_tool_event(log_path, "first_tool", {"seq": 1})
+            append_tool_event(log_path, "second_tool", {"seq": 2})
+
+            with log_path.open("r", encoding="utf-8") as handle:
+                handle.readline()
+                cursor = handle.tell()
+            persist_tool_event_cursor(feature_dir, cursor)
+
+            received: list[SessionEvent] = []
+            bus = EventBus()
+            bus.register(received.append)
+
+            source = ToolCallEventSource(feature_dir)
+            source.start(bus)
+            source.stop()
+
+            self.assertEqual(1, len(received))
+            self.assertEqual("tool.second_tool", received[0].kind)
+            self.assertEqual({"seq": 2}, received[0].payload.get("payload"))
 
     def test_seeds_no_log_file(self) -> None:
         """start() with no log file emits no events and does not crash."""
@@ -169,6 +225,7 @@ class TestToolCallEventSourceTailing(unittest.TestCase):
             self.assertEqual(received[0].kind, "tool.new_tool")
             self.assertEqual(received[0].payload.get("payload"), {"data": "test"})
             self.assertEqual(received[0].payload.get("tool"), "new_tool")
+            self.assertIsNotNone(tool_event_cursor_from_session_event(received[0]))
 
     @unittest.skipUnless(WATCHDOG_AVAILABLE, "watchdog not installed")
     def test_tails_multiple_new_lines(self) -> None:

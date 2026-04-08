@@ -12,7 +12,11 @@ import unittest
 from pathlib import Path
 
 from agentmux.runtime.event_bus import EventBus, SessionEvent
-from agentmux.runtime.tool_events import ToolCallEventSource, append_tool_event
+from agentmux.runtime.tool_events import (
+    TOOL_EVENT_META_KEY,
+    ToolCallEventSource,
+    append_tool_event,
+)
 
 
 class FakeEventBus:
@@ -147,7 +151,7 @@ class TestToolEventPipeline(unittest.TestCase):
                 "timestamp": "2026-04-08T12:00:00+00:00",
                 "payload": {"subplan_index": 3},
             }
-            source._emit_line(json.dumps(entry), bus)
+            source._emit_line(json.dumps(entry), bus, start_offset=0, end_offset=42)
 
             self.assertEqual(1, len(bus.events))
             event = bus.events[0]
@@ -156,6 +160,10 @@ class TestToolEventPipeline(unittest.TestCase):
             self.assertEqual("tool_call", event.source)
             self.assertEqual("submit_done", event.payload.get("tool"))
             self.assertEqual({"subplan_index": 3}, event.payload.get("payload"))
+            self.assertEqual(
+                {"start_offset": 0, "end_offset": 42},
+                event.payload.get(TOOL_EVENT_META_KEY),
+            )
 
     def test_tool_call_event_source_integrates_with_real_event_bus(self) -> None:
         """ToolCallEventSource publishes to a real EventBus via _seed_existing."""

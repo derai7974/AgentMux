@@ -286,7 +286,7 @@ def submit_research_done(
     append_tool_event(
         _log_path(feature_dir),
         "submit_research_done",
-        {"topic": normalized, "type": type},
+        {"topic": normalized, "type": type, "role_type": type},
     )
     return f"Research on '{normalized}' ({type}) marked done."
 

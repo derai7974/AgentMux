@@ -202,15 +202,6 @@ def load_runtime_files(project_dir: Path, feature_dir: Path) -> RuntimeFiles:
 
 
 def infer_resume_phase(feature_dir: Path, state: dict[str, Any]) -> str:
-    for key in ("research_tasks", "web_research_tasks"):
-        tasks = state.get(key)
-        if isinstance(tasks, dict):
-            state[key] = {
-                str(topic): str(status)
-                for topic, status in tasks.items()
-                if str(status) != "dispatched"
-            }
-
     # product_management is a flag-gated optional entry point that may override
     # any stored phase (including non-failed ones).
     if (

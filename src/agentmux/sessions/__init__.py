@@ -146,6 +146,8 @@ class SessionService:
 
         try:
             raw = json.loads(snapshot_path.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                return killed
             pids = raw.get("process_pids", {})
         except (json.JSONDecodeError, OSError):
             return killed
@@ -166,6 +168,12 @@ class SessionService:
                 killed.append(pid)
             except (ProcessLookupError, PermissionError, ValueError):
                 pass  # Already dead, can't access, or invalid PID
+
+        if isinstance(raw, dict):
+            raw["process_pids"] = {}
+            tmp_path = snapshot_path.with_suffix(".json.tmp")
+            tmp_path.write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
+            tmp_path.rename(snapshot_path)
 
         return killed
 

@@ -7,6 +7,8 @@ This module provides:
 - ``ToolCallEventSource`` — an ``EventSource`` that seeds existing entries
   from ``tool_events.jsonl`` and tails the file via watchdog, publishing
   ``SessionEvent(kind="tool.<name>", source="tool_call", ...)`` to the bus.
+- Cursor helpers for persisting the last applied tool-event offset so resume
+  can continue from the exact next unapplied signal.
 """
 
 from __future__ import annotations
@@ -22,6 +24,58 @@ from .event_bus import EventBus, EventSource, SessionEvent
 logger = logging.getLogger(__name__)
 
 TOOL_EVENTS_LOG_NAME = "tool_events.jsonl"
+TOOL_EVENT_CURSOR_STATE_NAME = "tool_event_state.json"
+TOOL_EVENT_CURSOR_STATE_VERSION = 1
+TOOL_EVENT_META_KEY = "_tool_event_meta"
+
+
+def _tool_event_cursor_path(feature_dir: Path) -> Path:
+    return feature_dir / TOOL_EVENT_CURSOR_STATE_NAME
+
+
+def load_tool_event_cursor(feature_dir: Path) -> int:
+    """Load the persisted applied-cursor for ``tool_events.jsonl``."""
+    cursor_path = _tool_event_cursor_path(feature_dir)
+    if not cursor_path.exists():
+        return 0
+    try:
+        raw = json.loads(cursor_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return 0
+    if not isinstance(raw, dict):
+        return 0
+    cursor = raw.get("applied_cursor", 0)
+    try:
+        return max(int(cursor), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def persist_tool_event_cursor(feature_dir: Path, cursor: int) -> None:
+    """Persist the applied-cursor for ``tool_events.jsonl`` atomically."""
+    normalized_cursor = max(int(cursor), 0)
+    cursor_path = _tool_event_cursor_path(feature_dir)
+    cursor_path.parent.mkdir(parents=True, exist_ok=True)
+    data = {
+        "version": TOOL_EVENT_CURSOR_STATE_VERSION,
+        "applied_cursor": normalized_cursor,
+    }
+    tmp_path = cursor_path.with_suffix(".json.tmp")
+    tmp_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    tmp_path.rename(cursor_path)
+
+
+def tool_event_cursor_from_session_event(event: SessionEvent) -> int | None:
+    """Extract the applied-cursor offset from a tool-call ``SessionEvent``."""
+    meta = event.payload.get(TOOL_EVENT_META_KEY)
+    if not isinstance(meta, dict):
+        return None
+    cursor = meta.get("end_offset")
+    try:
+        normalized = int(cursor)
+    except (TypeError, ValueError):
+        return None
+    return normalized if normalized >= 0 else None
 
 
 def append_tool_event(
@@ -61,6 +115,7 @@ class ToolCallEventSource(EventSource):
 
         ensure_watchdog_available()
 
+        self._offset = load_tool_event_cursor(self._feature_dir)
         self._seed_existing(bus)
 
         from watchdog.events import FileSystemEvent, FileSystemEventHandler
@@ -100,12 +155,32 @@ class ToolCallEventSource(EventSource):
         log_path = self._feature_dir / TOOL_EVENTS_LOG_NAME
         if not log_path.exists():
             return
-
-        text = log_path.read_text(encoding="utf-8")
-        lines = text.splitlines()
-        for line in lines:
-            self._emit_line(line, bus)
-        self._offset = log_path.stat().st_size
+        current_size = log_path.stat().st_size
+        if self._offset > current_size:
+            logger.warning(
+                "tool event cursor %s exceeds log size %s; replaying from start",
+                self._offset,
+                current_size,
+            )
+            self._offset = 0
+            persist_tool_event_cursor(self._feature_dir, 0)
+        with log_path.open("r", encoding="utf-8") as f:
+            f.seek(self._offset)
+            while True:
+                start_offset = f.tell()
+                line = f.readline()
+                if not line:
+                    break
+                end_offset = f.tell()
+                stripped = line.rstrip("\n")
+                if stripped:
+                    self._emit_line(
+                        stripped,
+                        bus,
+                        start_offset=start_offset,
+                        end_offset=end_offset,
+                    )
+            self._offset = f.tell()
 
     def _on_modified(self, bus: EventBus) -> None:
         log_path = self._feature_dir / TOOL_EVENTS_LOG_NAME
@@ -118,24 +193,49 @@ class ToolCallEventSource(EventSource):
 
         with log_path.open("r", encoding="utf-8") as f:
             f.seek(self._offset)
-            for line in f:
+            while True:
+                start_offset = f.tell()
+                line = f.readline()
+                if not line:
+                    break
+                end_offset = f.tell()
                 stripped = line.rstrip("\n")
                 if stripped:
-                    self._emit_line(stripped, bus)
+                    self._emit_line(
+                        stripped,
+                        bus,
+                        start_offset=start_offset,
+                        end_offset=end_offset,
+                    )
             self._offset = f.tell()
 
-    def _emit_line(self, line: str, bus: EventBus) -> None:
+    def _emit_line(
+        self,
+        line: str,
+        bus: EventBus,
+        *,
+        start_offset: int,
+        end_offset: int,
+    ) -> None:
         try:
             entry = json.loads(line)
         except (json.JSONDecodeError, ValueError):
             logger.warning("Skipping malformed tool event line: %s", line[:120])
             return
+        if not isinstance(entry, dict):
+            logger.warning("Skipping non-object tool event line: %s", line[:120])
+            return
 
         tool_name = entry.get("tool", "unknown")
+        payload = dict(entry)
+        payload[TOOL_EVENT_META_KEY] = {
+            "start_offset": start_offset,
+            "end_offset": end_offset,
+        }
         bus.publish(
             SessionEvent(
                 kind=f"tool.{tool_name}",
                 source="tool_call",
-                payload=entry,
+                payload=payload,
             )
         )

@@ -25,6 +25,7 @@ from agentmux.workflow.phase_helpers import (
     dispatch_research_task,
     load_plan_meta,
     notify_research_complete,
+    research_role_from_payload,
     send_to_role,
 )
 from agentmux.workflow.prompts import (
@@ -239,9 +240,8 @@ class PlanningHandler:
         """Handle research completion via tool event."""
         payload = event.payload.get("payload", {})
         topic = payload.get("topic", "")
-        role_type = payload.get("role_type", "")  # "code" or "web"
-        if not topic or not role_type:
+        role = research_role_from_payload(payload)
+        if not topic or role is None:
             return {}, None
 
-        role = "code-researcher" if role_type == "code" else "web-researcher"
         return notify_research_complete(role, topic, state, ctx, "planner")

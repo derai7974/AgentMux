@@ -11,7 +11,11 @@ from ..runtime.interruption_sources import (
     INTERRUPTION_EVENT_PANE_EXITED,
     InterruptionEventSource,
 )
-from ..runtime.tool_events import ToolCallEventSource
+from ..runtime.tool_events import (
+    ToolCallEventSource,
+    persist_tool_event_cursor,
+    tool_event_cursor_from_session_event,
+)
 from ..sessions.state_store import cleanup_feature_dir, load_state
 from ..shared.models import BATCH_AGENT_ROLES, GitHubConfig, WorkflowSettings
 from .event_router import WorkflowEvent, WorkflowEventRouter
@@ -151,11 +155,52 @@ class PipelineOrchestrator:
         # Route to phase handler
         state = load_state(self._ctx.files.state)
         updates, exit_code = self._router.handle(wf_event, state, self._ctx)
+        if event.kind.startswith("tool."):
+            cursor = tool_event_cursor_from_session_event(event)
+            if cursor is not None:
+                persist_tool_event_cursor(self._ctx.files.feature_dir, cursor)
 
         if exit_code is not None:
             self._exit_code = exit_code
             if self._exit_event:
                 self._exit_event.set()
+
+    def _rehydrate_dispatched_research_tasks(self, ctx: PipelineContext) -> None:
+        """Restart in-flight research tasks after unapplied signals have replayed."""
+        state = load_state(ctx.files.state)
+        if state.get("phase") not in {
+            "product_management",
+            "architecting",
+            "planning",
+        }:
+            return
+
+        parallel_panes = getattr(ctx.runtime, "parallel_panes", {})
+        if not isinstance(parallel_panes, dict):
+            parallel_panes = {}
+
+        for tasks_key, role, prefix in (
+            ("research_tasks", "code-researcher", "code-"),
+            ("web_research_tasks", "web-researcher", "web-"),
+        ):
+            tasks = state.get(tasks_key)
+            if not isinstance(tasks, dict):
+                continue
+            active_task_ids = {
+                str(task_id)
+                for task_id in dict(parallel_panes.get(role, {}))
+                if task_id is not None
+            }
+            for topic, status in tasks.items():
+                normalized_topic = str(topic).strip()
+                if not normalized_topic or str(status) != "dispatched":
+                    continue
+                if normalized_topic in active_task_ids:
+                    continue
+                research_dir = ctx.files.research_dir / f"{prefix}{normalized_topic}"
+                if not (research_dir / "prompt.md").exists():
+                    continue
+                ctx.runtime.spawn_task(role, normalized_topic, research_dir)
 
     def run(self, ctx: PipelineContext, keep_session: bool) -> int:
         """Run the pipeline - event-driven, no loop.
@@ -190,6 +235,8 @@ class PipelineOrchestrator:
             state = load_state(ctx.files.state)
             self._router.enter_current_phase(state, ctx)
             bus.start()
+            if self._exit_code is None:
+                self._rehydrate_dispatched_research_tasks(ctx)
 
             # Block until exit signal (no loop!)
             self._exit_event.wait()

@@ -309,7 +309,7 @@ class InferResumePhaseTests(unittest.TestCase):
             state = {"phase": "failed", "subplan_count": 1}
             self.assertEqual("completing", infer_resume_phase(feature_dir, state))
 
-    def test_removes_dispatched_research_tasks_from_state(self) -> None:
+    def test_preserves_dispatched_research_tasks_for_resume_rehydration(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
             state = {
@@ -318,8 +318,10 @@ class InferResumePhaseTests(unittest.TestCase):
                 "web_research_tasks": {"x": "dispatched", "y": "done"},
             }
             infer_resume_phase(feature_dir, state)
-            self.assertEqual({"b": "done"}, state["research_tasks"])
-            self.assertEqual({"y": "done"}, state["web_research_tasks"])
+            self.assertEqual({"a": "dispatched", "b": "done"}, state["research_tasks"])
+            self.assertEqual(
+                {"x": "dispatched", "y": "done"}, state["web_research_tasks"]
+            )
 
 
 class ResumeStartupRoleTests(unittest.TestCase):
@@ -503,8 +505,12 @@ class ResumeApplicationFlowTests(unittest.TestCase):
             )
             self.assertEqual("planning", updated_state["phase"])
             self.assertEqual("resumed", updated_state["last_event"])
-            self.assertEqual({"b": "done"}, updated_state["research_tasks"])
-            self.assertEqual({"y": "done"}, updated_state["web_research_tasks"])
+            self.assertEqual(
+                {"a": "dispatched", "b": "done"}, updated_state["research_tasks"]
+            )
+            self.assertEqual(
+                {"x": "dispatched", "y": "done"}, updated_state["web_research_tasks"]
+            )
 
     def test_run_resume_non_failed_planning_state_uses_planner_initial_role(
         self,

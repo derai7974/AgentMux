@@ -190,6 +190,16 @@ def notify_research_complete(
     return {tasks_key: tasks}, None
 
 
+def research_role_from_payload(payload: dict) -> str | None:
+    """Map research-done payloads to the corresponding researcher role."""
+    role_type = str(payload.get("role_type") or payload.get("type") or "").strip()
+    if role_type == "code":
+        return "code-researcher"
+    if role_type == "web":
+        return "web-researcher"
+    return None
+
+
 def apply_role_preferences(ctx: PipelineContext, role: str) -> None:
     """Apply approved preferences for a role if they exist.
 
