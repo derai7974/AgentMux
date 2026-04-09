@@ -212,7 +212,7 @@ src/agentmux/prompts/commands/          — phase-specific command prompts (what
 When you modify code that changes behavior documented in `docs/`, update the relevant doc file in the same change. Each doc file lists its related source files at the top — use this to determine which docs are affected.
 
 Rules:
-- **New workflow file or phase**: Update `docs/file-protocol.md`
+- **New workflow file or phase**: Update `docs/phases/<phase>.md` (artifact table, transitions) and `docs/phases/index.md` (phase sequence table). `docs/file-protocol.md` covers the event/scheduling protocol only.
 - **Config schema or provider change**: Update `docs/configuration.md`
 - **Tmux pane logic**: Update `docs/tmux-layout.md`
 - **Research dispatch**: Update `docs/research-dispatch.md`

@@ -14,89 +14,16 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 - `tool_events.jsonl` — append-only MCP tool-call event log; each entry is a JSON object `{"tool": "<name>", "timestamp": "<ISO-8601>", "payload": {...}}`; written by MCP server tools and tailed by `ToolCallEventSource`
 - `tool_event_state.json` — persisted tool-event replay cursor; stores the last applied byte offset in `tool_events.jsonl` so resume replays only unapplied tool signals
 
-## Product Management (`01_product_management/`)
+## Phase artifacts
 
-- `product_manager_prompt.md` — prompt for PM analysis phase
-- `analysis.md` — PM usability rationale: friction points, integration fit, alternatives considered and rejected, notes for the architect. Advisory only — if it conflicts with `requirements.md`, `requirements.md` wins.
-- `done` — completion marker for PM handoff to planning
+For the full artifact listing per phase (files, writers, readers, formats, and transitions), see **[docs/phases/](phases/index.md)**:
 
-## Planning (`02_planning/`)
-
-- `architect_prompt.md` / `changes_prompt.txt` — architect prompts (for architecting phase)
-- `planner_prompt.md` — planner prompt for creating execution plans
-- `architecture.md` — human-readable architecture document (the "What" and "With what"); written directly by the architect; consumed by the planner prompt
-- `plan.md` — human-readable planning overview; materialized automatically by the orchestrator from `plan.yaml` `plan_overview` field
-- `plan_<N>.md` — executable per-unit implementation plans; materialized automatically by the orchestrator from `plan.yaml` `subplans[N]`; consumed by coder prompts
-- `plan.yaml` — unified machine-readable plan (version 2) written by the planner; contains all sub-plans and execution metadata; signaled via MCP `submit_plan`; the orchestrator materializes all derived files from it
-- `execution_plan.yaml` — version 1 scheduling file materialized automatically by the orchestrator from `plan.yaml` groups; consumed by `load_execution_plan()` and implementation scheduling
-  - Each group has a unique `group_id` and an execution mode (`serial` or `parallel`)
-  - `serial` groups execute plans one at a time in order (useful for sequential integration steps)
-  - `parallel` groups execute all plans simultaneously
-  - Both modes can reference one or more named `plan_<N>.md` entries
-  - Canonical plan-entry shape is a YAML mapping with `file` and `name` keys (for example `- file: plan_1.md` followed by `name: Core setup`)
-  - Plan references must be unique across groups
-  - Group ordering defines implementation wave order
-- `tasks_<N>.md` — per-plan implementation checklists; materialized automatically by the orchestrator from `plan.yaml` `subplans[N].tasks`; each coder receives only their assigned plan's tasks
-- `tasks.md` — optional human-readable overview summarizing all tasks (not used by scheduler)
-
-The `plan.yaml` (version 2) also contains planner workflow-intent metadata:
-  - `needs_design` (`true`/`false`) — whether to run a dedicated design handoff
-  - `needs_docs` (`true`/`false`) — informational signal that documentation updates are in scope
-  - `doc_files` (`string[]`) — planned documentation targets when docs work is in scope
-  - `review_strategy` (`object`) — risk assessment and review scope configuration:
-    - `severity` (`"low"`|`"medium"`|`"high"`) — implementation risk level: `low` for UI/CSS/text, `medium` for logic changes, `high` for security/DB/core changes
-    - `focus` (`string[]`) — specific review focus areas (e.g., `["security", "performance", "data-consistency"]`)
-  - Documentation updates must be captured explicitly in `plan.md`, each `plan_<N>.md`, and corresponding `tasks_<N>.md`; this metadata does not create a separate runtime phase
-
-Execution scheduling is strict:
-
-- `execution_plan.yaml` (orchestrator-materialized from `plan.yaml`) is required before implementation starts.
-- `groups[].plans[]` entries use YAML mappings with `file` and `name` keys.
-- Implementation dispatch uses numbered prompt files (`coder_prompt_<N>.txt`) only.
-
-## Research (`03_research/`)
-
-- `code-<topic>/request.md` / `summary.md` / `detail.md` / `done` / `prompt.md`
-- `web-<topic>/request.md` / `summary.md` / `detail.md` / `done` / `prompt.md`
-
-## Design (`04_design/`)
-
-- `designer_prompt.md` / `design.md`
-
-## Implementation (`05_implementation/`)
-
-- `coder_prompt_<N>.txt` — implementing-phase prompts mapped to scheduled plan units (`plan_<N>.md`)
-- `done_*` — coder completion markers for implementing-phase scheduled plan units (`done_<N>` maps to `plan_<N>.md`)
-- `done_1` — fixing-phase completion marker after a review-requested fix run
-- `state.json` includes implementing-phase progress metadata so monitor/orchestrator can track:
-  - `implementation_group_total` — total scheduled execution groups
-  - `implementation_group_index` — current 1-based active group index (or total when implementation is complete)
-  - `implementation_group_mode` — active group mode (`serial`/`parallel`)
-  - `implementation_active_plan_ids` — active `plan_<N>` ids for the current group
-  - `implementation_completed_group_ids` — ordered list of completed `group_id` values
-
-## Review (`06_review/`)
-
-- `review_prompt.md` — legacy review prompt (backward compatibility)
-- `review.yaml` — canonical structured review verdict and findings; written by the reviewer; signaled via MCP `submit_review`
-- `review.md` — human-readable review companion used by summary generation, monitor output, and PR assembly; generated automatically from `review.yaml` when missing
-- `review_logic_prompt.md` — Logic & Alignment reviewer prompt (functional correctness vs plan)
-- `review_quality_prompt.md` — Quality & Style reviewer prompt (clean code, naming, standards)
-- `review_expert_prompt.md` — Deep-Dive Expert reviewer prompt (security, performance, edge cases)
-- `fix_prompt.txt` / `fix_request.md`
-
-**Reviewer Selection:** Which prompt is used depends on `execution_plan.yaml` `review_strategy`:
-- Missing `review_strategy` → uses `review_logic_prompt.md` (backward compatible default)
-- `severity: low` → uses `review_quality_prompt.md`
-- `severity: medium/high` without security/performance focus → uses `review_logic_prompt.md`
-- `severity: medium/high` with security or performance in focus → uses `review_expert_prompt.md`
-
-## Completion (`08_completion/`)
-
-- `summary_prompt.md` — prompt asking reviewer to write an implementation summary
-- `summary.md` — reviewer-written implementation summary (what was done, key decisions)
-- `approval.json` — written by the native completion UI when user approves
-- `changes.md` — written by the native completion UI when user requests changes
+- [Product Management](phases/product-management.md) — `01_product_management/`
+- [Planning](phases/planning.md) — `02_planning/` and `03_research/`
+- [Design](phases/design.md) — `04_design/`
+- [Implementation](phases/implementation.md) — `05_implementation/`
+- [Review](phases/review.md) — `06_review/`
+- [Completion](phases/completion.md) — `08_completion/`
 
 ## Key functions
 

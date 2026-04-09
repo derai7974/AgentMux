@@ -24,19 +24,13 @@ Completion semantics are phase-specific:
 ### Architecture
 
 - **MCP tool:** `submit_architecture`
-- **Agent-written file:** `02_planning/architecture.md`
-- **Validation:** file must be non-empty
-- **Optional:** `02_planning/approved_preferences.json` — written by the agent if preference candidates are approved; the orchestrator reads it for planner prompt injection
+- **Artifacts:** see [phases/planning.md § Architecting](phases/planning.md#architecting)
+- **Validation:** `architecture.md` must be non-empty
 
 ### Plan
 
 - **MCP tool:** `submit_plan`
-- **Agent-written file:** `02_planning/plan.yaml` (version 2)
-- **Orchestrator-materialized files:**
-  - `02_planning/plan_N.md` — per-subplan human-readable plan (one per subplan index)
-  - `02_planning/tasks_N.md` — per-subplan task checklist (one per subplan index)
-  - `02_planning/execution_plan.yaml` — version 1 scheduling file for backward compatibility with `load_execution_plan()`
-  - `02_planning/plan.md` — human-readable plan overview from `plan_overview`
+- **Artifacts:** see [phases/planning.md § Planning](phases/planning.md#planning)
 - **Required fields:** `version` (must be `2`), `plan_overview`, `groups`, `subplans`, `review_strategy`, `needs_design`, `needs_docs`, `doc_files`
 - **Optional fields:** `approved_preferences` — applied directly from `plan.yaml`; no separate `approved_preferences.json` is written
 
@@ -83,8 +77,7 @@ Groups reference sub-plans by `index`. Indices must start at 1 and be contiguous
 ### Review
 
 - **MCP tool:** `submit_review`
-- **Canonical file:** `06_review/review.yaml`
-- **Companion file:** `06_review/review.md`
+- **Artifacts:** see [phases/review.md](phases/review.md)
 - **Required fields:** `verdict` (`"pass"` or `"fail"`), `summary`
 - **Conditional fields:** `findings` (required on `fail` — list of `{location, issue, severity, recommendation}`), `commit_message` (optional on `pass`)
 - **Optional fields:** `approved_preferences` (written by the reviewer during the summary step to `08_completion/approved_preferences.json`)
