@@ -18,7 +18,7 @@ Your job:
 1. Revise requirements/plan as needed based on the change feedback.
 2. Use the `[[placeholder:user_ask_tool]]` tool to present the revised implementation plan and ask for approval.
 3. Iterate with the user until explicit approval.
-4. After explicit approval, write a single `02_planning/plan.yaml` containing all sub-plans and execution metadata (version: 2 schema — see [[shared:handoff-contract-plan]] below).
+4. After explicit approval, write a single `02_planning/plan.yaml` containing all sub-plans and execution metadata (version: 2 schema — see the handoff contract below).
 5. For each sub-plan, include: Scope, Owned files/modules, Dependencies, Implementation approach, Acceptance criteria, Tasks.
 6. Perform explicit conflict mapping by touched files/modules and assign explicit ownership. For parallel groups, the owned files/modules must be disjoint. If two sub-plans would edit the same file or module, merge that work into one sub-plan or move the overlapping portion into a serial group.
 7. Each tasks list must contain only tasks relevant to that specific sub-plan's owned files/modules.
