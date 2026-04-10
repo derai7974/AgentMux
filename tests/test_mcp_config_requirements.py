@@ -269,7 +269,9 @@ class McpConfigRequirementsTests(unittest.TestCase):
                     output=output,
                 )
 
-            self.assertIn("Missing MCP config for codex", output.getvalue())
+            self.assertIn(
+                "Agentmux MCP server not configured for codex", output.getvalue()
+            )
             self.assertFalse((home_dir / ".codex" / "config.toml").exists())
 
     def test_ensure_mcp_config_dedupes_shared_provider_prompt(self) -> None:

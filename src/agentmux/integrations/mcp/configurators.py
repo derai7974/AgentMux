@@ -107,18 +107,20 @@ class PersistentMcpConfigurator(ABC):
     ) -> str:
         path = self.config_path(project_dir)
         return (
-            f"Warning: Missing MCP config for {self.provider} ({roles_label}) "
-            f"at {path}. "
-            "Research MCP tools will be unavailable until configured."
+            f"Warning: Agentmux MCP server not configured for {self.provider} "
+            f"({roles_label}) at {path}. "
+            "The pipeline will not function — run 'agentmux init' to configure."
         )
 
     def configured_message(self, server: McpServerSpec, project_dir: Path) -> str:
         path = self.config_path(project_dir)
-        return f"Configured MCP research tools for {self.provider} at {path}."
+        return f"Configured agentmux MCP tools for {self.provider} at {path}."
 
     def skipped_message(self, server: McpServerSpec) -> str:
         return (
-            f"Skipped MCP setup for {self.provider}; research will fall back to files."
+            f"Warning: Skipped agentmux MCP setup for {self.provider}. "
+            "The pipeline will not function without it — "
+            "re-run 'agentmux init' to configure."
         )
 
 
@@ -163,8 +165,8 @@ class ClaudeConfigurator(JsonMcpConfigurator):
     ) -> str:
         path = self.config_path(project_dir)
         return (
-            f"Configure project MCP research tools for claude ({roles_label}) "
-            f"at {path}?"
+            f"Agentmux requires its MCP server for claude ({roles_label}) "
+            f"to coordinate agents. Install at {path}?"
         )
 
 
@@ -197,8 +199,8 @@ class GeminiConfigurator(JsonMcpConfigurator):
     ) -> str:
         path = self.config_path(project_dir)
         return (
-            f"Configure project MCP research tools for gemini ({roles_label}) "
-            f"at {path}?"
+            f"Agentmux requires its MCP server for gemini ({roles_label}) "
+            f"to coordinate agents. Install at {path}?"
         )
 
 
@@ -227,8 +229,8 @@ class OpenCodeConfigurator(JsonMcpConfigurator):
     ) -> str:
         path = self.config_path(project_dir)
         return (
-            f"Configure project MCP research tools for opencode ({roles_label}) "
-            f"at {path}?"
+            f"Agentmux requires its MCP server for opencode ({roles_label}) "
+            f"to coordinate agents. Install at {path}?"
         )
 
 
@@ -265,13 +267,13 @@ class CodexConfigurator(PersistentMcpConfigurator):
     ) -> str:
         path = self.config_path(project_dir)
         return (
-            f"Codex configures MCP servers in {path}. "
-            f"Configure agentmux-research for codex ({roles_label}) there?"
+            f"Agentmux requires its MCP server for codex ({roles_label}) "
+            f"to coordinate agents. Install at {path}?"
         )
 
     def configured_message(self, server: McpServerSpec, project_dir: Path) -> str:
         path = self.config_path(project_dir)
-        return f"Configured codex MCP research tools at {path}."
+        return f"Configured agentmux MCP tools for codex at {path}."
 
 
 class CopilotConfigurator(JsonMcpConfigurator):
@@ -316,8 +318,8 @@ class CopilotConfigurator(JsonMcpConfigurator):
     ) -> str:
         path = self.config_path(project_dir)
         return (
-            f"Configure project MCP research tools for copilot ({roles_label}) "
-            f"at {path}?"
+            f"Agentmux requires its MCP server for copilot ({roles_label}) "
+            f"to coordinate agents. Install at {path}?"
         )
 
 
