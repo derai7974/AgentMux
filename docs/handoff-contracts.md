@@ -24,7 +24,7 @@ Completion semantics are phase-specific:
 ### Architecture
 
 - **MCP tool:** `submit_architecture`
-- **Artifacts:** see [phases/planning.md § Architecting](phases/planning.md#architecting)
+- **Artifacts:** see [phases/02_architecting.md](phases/02_architecting.md)
 - **Validation:** `architecture.md` must be non-empty
 
 ### Plan

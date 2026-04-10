@@ -158,6 +158,16 @@ class TestSubmitPlan(SubmitToolTestBase):
             submit_plan(feature_dir=str(self.feature_dir))
         self.assertIn("plan.yaml", str(ctx.exception))
 
+    def test_raises_when_yaml_is_not_a_dict(self):
+        from agentmux.integrations.mcp_research_server import submit_plan
+
+        path = self.feature_dir / "04_planning" / "plan.yaml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("- item1\n- item2\n", encoding="utf-8")
+        with self.assertRaises(ValueError) as ctx:
+            submit_plan(feature_dir=str(self.feature_dir))
+        self.assertIn("must be a YAML mapping", str(ctx.exception))
+
     def test_raises_on_invalid_mode(self):
         from agentmux.integrations.mcp_research_server import submit_plan
 
@@ -178,14 +188,6 @@ class TestSubmitPlan(SubmitToolTestBase):
         self._write_yaml("04_planning/plan.yaml", bad)
         with self.assertRaises(ValueError):
             submit_plan(feature_dir=str(self.feature_dir))
-
-    def test_accepts_optional_approved_preferences(self):
-        data = {
-            **_VALID_PLAN,
-        }
-        self._write_yaml("04_planning/plan.yaml", data)
-        result = self._submit()
-        self.assertIn("Plan submitted", result)
 
     def test_preferences_param_writes_bullets_to_agent_prompt(self):
         import os
@@ -249,6 +251,16 @@ class TestSubmitReview(SubmitToolTestBase):
         with self.assertRaises(ValueError) as ctx:
             submit_review(feature_dir=str(self.feature_dir))
         self.assertIn("review.yaml", str(ctx.exception))
+
+    def test_raises_when_yaml_is_not_a_dict(self):
+        from agentmux.integrations.mcp_research_server import submit_review
+
+        path = self.feature_dir / "07_review" / "review.yaml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("- item1\n- item2\n", encoding="utf-8")
+        with self.assertRaises(ValueError) as ctx:
+            submit_review(feature_dir=str(self.feature_dir))
+        self.assertIn("must be a YAML mapping", str(ctx.exception))
 
     def test_fail_with_findings(self):
         data = {

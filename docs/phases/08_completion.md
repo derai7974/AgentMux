@@ -51,4 +51,4 @@ See [Artifact: completion-artifacts.md](../artifacts/completion-artifacts.md) fo
 - When the user approves, the pipeline commits locally and optionally opens a draft PR if `gh` is available and configured.
 - When the user requests changes, the architect receives a re-planning prompt with the description from `changes.md` and the cycle restarts.
 - GitHub branch/PR failures do not roll back the local commit.
-- Reviewer-stage preferences (via `submit_review preferences` field) are written to `.agentmux/prompts/agents/<role>.md` under `## Approved Preferences`.
+- Reviewer-stage preferences (via `submit_review` tool's `preferences` parameter) are written to `.agentmux/prompts/agents/<role>.md` under `## Approved Preferences`.

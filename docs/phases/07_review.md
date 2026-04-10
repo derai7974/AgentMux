@@ -49,7 +49,6 @@ See [Artifact: review.yaml](../artifacts/review-yaml.md) for the full schema and
 | `summary` | yes | string |
 | `findings` | on `fail` | list of `{location, issue, severity, recommendation}` |
 | `commit_message` | optional | string (used verbatim as commit message on pass) |
-| `preferences` | optional | written to agent prompt file under `## Approved Preferences` |
 
 ## Transitions
 

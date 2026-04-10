@@ -14,7 +14,6 @@
 | `summary` | string | yes | Human-readable summary of what was reviewed and the overall finding. |
 | `findings` | list[dict] | on `fail` | List of individual issues found. Required (and non-empty) when `verdict` is `"fail"`. Not required on `"pass"`. See [findings fields](#findings-fields). |
 | `commit_message` | string | no | Suggested commit message. On `"pass"`, the completing phase uses this verbatim (trimmed) as the final commit message. When omitted or blank, completion drafts a deterministic fallback from session artifacts. |
-| `preferences` | string | no | Approved coding or workflow preferences. Written directly to `.agentmux/prompts/agents/<role>.md` under `## Approved Preferences` so future runs remember them. |
 
 ## `findings` fields
 
@@ -42,8 +41,6 @@ summary: |
   Implementation matches the plan. JWT token generation and validation
   are correct, middleware integrates cleanly, and all tests pass.
 commit_message: "feat(auth): add JWT token service and middleware"
-preferences: |
-  Prefer explicit type annotations for all public functions.
 ```
 
 ## Fail example

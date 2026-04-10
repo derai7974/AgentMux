@@ -78,6 +78,12 @@ class TestValidatePlan(unittest.TestCase):
         errors = validate_submission("plan", self._valid_data())
         self.assertEqual(errors, [])
 
+    def test_empty_doc_files_is_accepted(self):
+        data = self._valid_data()
+        data["doc_files"] = []
+        errors = validate_submission("plan", data)
+        self.assertEqual(errors, [])
+
     def test_empty_groups(self):
         data = self._valid_data()
         data["groups"] = []
@@ -110,6 +116,20 @@ class TestValidatePlan(unittest.TestCase):
 
     def test_duplicate_subplan_index(self):
         data = self._valid_data()
+        # Add a second subplan with index 2 so the group can reference it cleanly.
+        data["subplans"].append(
+            {
+                "index": 2,
+                "title": "Extra",
+                "scope": "Extra",
+                "owned_files": ["src/extra.py"],
+                "dependencies": "None",
+                "implementation_approach": "Do it",
+                "acceptance_criteria": "Works",
+                "tasks": ["Task A"],
+            }
+        )
+        # Now duplicate index 1 — only the duplicate error should fire.
         dup = dict(data["subplans"][0])
         data["subplans"].append(dup)
         errors = validate_submission("plan", data)
@@ -150,6 +170,18 @@ class TestValidatePlan(unittest.TestCase):
         data["review_strategy"]["severity"] = "extreme"
         errors = validate_submission("plan", data)
         self.assertTrue(any("severity" in e for e in errors))
+
+    def test_missing_severity_raises(self):
+        data = self._valid_data()
+        data["review_strategy"] = {}
+        errors = validate_submission("plan", data)
+        self.assertTrue(any("severity is required" in e for e in errors))
+
+    def test_empty_review_strategy_raises(self):
+        data = self._valid_data()
+        data["review_strategy"] = {"focus": ["security"]}
+        errors = validate_submission("plan", data)
+        self.assertTrue(any("severity is required" in e for e in errors))
 
     def test_group_plan_references_missing_subplan(self):
         data = self._valid_data()

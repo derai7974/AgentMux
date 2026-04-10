@@ -403,8 +403,10 @@ def _validate_plan(data: dict[str, Any], errors: list[str]) -> None:
 
     strategy = data.get("review_strategy")
     if isinstance(strategy, dict):
-        sev = strategy.get("severity", "")
-        if sev and sev not in _VALID_SEVERITIES:
+        sev = strategy.get("severity")
+        if not sev:
+            errors.append("review_strategy.severity is required.")
+        elif sev not in _VALID_SEVERITIES:
             errors.append(
                 f"review_strategy.severity must be one of: "
                 f"{', '.join(sorted(_VALID_SEVERITIES))} (got '{sev}')."
