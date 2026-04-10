@@ -355,13 +355,23 @@ class TmuxAgentRuntime:
                 del self._grace_panes[pid]
 
             panes = self._registered_panes_unlocked()
-            return [
-                pane
-                for pane in panes
-                if pane.pane_id not in self._expected_missing_panes
-                and pane.pane_id not in self._grace_panes
-                and not tmux_pane_exists(pane.pane_id)
-            ]
+            result: list[RegisteredPaneRef] = []
+            for pane in panes:
+                # Skip panes that are explicitly expected to be missing
+                if pane.pane_id in self._expected_missing_panes:
+                    continue
+                if not tmux_pane_exists(pane.pane_id):
+                    if pane.pane_id in self._grace_panes:
+                        # Already in grace period — skip until it expires
+                        continue
+                    # Newly missing pane — start grace period so that
+                    # tool-event handlers (e.g. submit_research_done →
+                    # finish_task) have time to mark the pane as expected
+                    # before the interruption fires.
+                    self._grace_panes[pane.pane_id] = now
+                    continue
+                # Pane exists and is not expected missing — not a problem
+            return result
 
     def get_pane_output_log(self, pane_id: str | None) -> Path | None:
         """Return the output.log path for a batch-mode pane, if known."""

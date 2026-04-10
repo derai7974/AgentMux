@@ -9,6 +9,6 @@ roles:
   coder:
     model: gpt-5.4-high
   web-researcher:
-    model: claude-haiku
+    model: claude-haiku-4.5
   code-researcher:
-    model: claude-haiku
+    model: claude-haiku-4.5
