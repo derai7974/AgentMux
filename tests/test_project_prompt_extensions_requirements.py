@@ -65,7 +65,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
     def _write_coder_inputs(
         self, feature_dir: Path, *, plan_name: str = "plan_1.md"
     ) -> None:
-        planning_dir = feature_dir / "02_planning"
+        planning_dir = feature_dir / "04_planning"
         planning_dir.mkdir(parents=True, exist_ok=True)
         (planning_dir / plan_name).write_text(f"## {plan_name}\n", encoding="utf-8")
 
@@ -82,34 +82,38 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
 
         # Create required files for prompts
         (feature_dir / "context.md").write_text("# Context", encoding="utf-8")
-        (planning_dir / "architecture.md").write_text(
+        architecting_dir = feature_dir / "02_architecting"
+        architecting_dir.mkdir(parents=True, exist_ok=True)
+        (architecting_dir / "architecture.md").write_text(
             "# Architecture", encoding="utf-8"
         )
 
     def _write_confirmation_inputs(self, feature_dir: Path) -> None:
-        planning_dir = feature_dir / "02_planning"
+        planning_dir = feature_dir / "04_planning"
         planning_dir.mkdir(parents=True, exist_ok=True)
         (planning_dir / "plan.md").write_text("# Plan\n", encoding="utf-8")
-        review_dir = feature_dir / "06_review"
+        review_dir = feature_dir / "07_review"
         review_dir.mkdir(parents=True, exist_ok=True)
         (review_dir / "review.md").write_text("verdict: pass\n", encoding="utf-8")
 
         # Create required files for reviewer prompts
         (feature_dir / "context.md").write_text("# Context", encoding="utf-8")
-        (planning_dir / "architecture.md").write_text(
+        architecting_dir = feature_dir / "02_architecting"
+        architecting_dir.mkdir(parents=True, exist_ok=True)
+        (architecting_dir / "architecture.md").write_text(
             "# Architecture", encoding="utf-8"
         )
 
     def _write_fix_inputs(self, feature_dir: Path) -> None:
-        planning_dir = feature_dir / "02_planning"
+        planning_dir = feature_dir / "04_planning"
         planning_dir.mkdir(parents=True, exist_ok=True)
         (planning_dir / "plan.md").write_text("# Plan\n", encoding="utf-8")
-        review_dir = feature_dir / "06_review"
+        review_dir = feature_dir / "07_review"
         review_dir.mkdir(parents=True, exist_ok=True)
         (review_dir / "fix_request.md").write_text("# Fix request\n", encoding="utf-8")
 
     def _write_change_inputs(self, feature_dir: Path) -> None:
-        planning_dir = feature_dir / "02_planning"
+        planning_dir = feature_dir / "04_planning"
         planning_dir.mkdir(parents=True, exist_ok=True)
         (planning_dir / "plan.md").write_text("# Plan\n", encoding="utf-8")
         (planning_dir / "tasks.md").write_text("# Tasks\n", encoding="utf-8")
@@ -118,7 +122,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
         (completion_dir / "changes.md").write_text("# Changes\n", encoding="utf-8")
 
     def _write_designer_inputs(self, feature_dir: Path) -> None:
-        planning_dir = feature_dir / "02_planning"
+        planning_dir = feature_dir / "04_planning"
         planning_dir.mkdir(parents=True, exist_ok=True)
         (planning_dir / "plan.md").write_text("# Plan\n", encoding="utf-8")
 
@@ -417,7 +421,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
                     "coder",
                     "EXT-CODER",
                     lambda runtime: build_coder_subplan_prompt(
-                        runtime, feature_dir / "02_planning" / "plan_1.md", 1
+                        runtime, feature_dir / "04_planning" / "plan_1.md", 1
                     ),
                 ),
                 (
@@ -489,7 +493,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             self._write_project_prompt(project_dir, "agents", "coder", injected)
 
             prompt = build_coder_subplan_prompt(
-                files, feature_dir / "02_planning" / "plan_1.md", 1
+                files, feature_dir / "04_planning" / "plan_1.md", 1
             )
 
             self.assertIn(injected, prompt)
@@ -510,7 +514,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             self._write_coder_inputs(feature_dir, plan_name="plan_1.md")
 
             # Write architecture.md so planner prompt can include it
-            planning_dir = feature_dir / "02_planning"
+            planning_dir = feature_dir / "04_planning"
             (planning_dir / "architecture.md").write_text(
                 "# Architecture\n", encoding="utf-8"
             )
@@ -518,14 +522,14 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             architect_prompt = build_architect_prompt(files)
             change_prompt = build_change_prompt(files)
             coder_prompt = build_coder_subplan_prompt(
-                files, feature_dir / "02_planning" / "plan_1.md", 1
+                files, feature_dir / "04_planning" / "plan_1.md", 1
             )
 
             planning_contract_line = (
                 "Documentation updates must be captured as explicit plan "
                 "and task items in "
-                "`02_planning/plan.md`, every `02_planning/plan_<N>.md`, "
-                "and every `02_planning/tasks_<N>.md`."
+                "`04_planning/plan.md`, every `04_planning/plan_<N>.md`, "
+                "and every `04_planning/tasks_<N>.md`."
             )
             # Planning contract belongs to the planner, not the architect
             self.assertNotIn(planning_contract_line, architect_prompt)
@@ -571,7 +575,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             )
 
             prompt = build_coder_subplan_prompt(
-                files, feature_dir / "02_planning" / "plan_1.md", 1
+                files, feature_dir / "04_planning" / "plan_1.md", 1
             )
 
             self.assertIn("Research handoff (read before new exploration):", prompt)
@@ -606,7 +610,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             )
 
             prompt = build_coder_subplan_prompt(
-                files, feature_dir / "02_planning" / "plan_1.md", 1
+                files, feature_dir / "04_planning" / "plan_1.md", 1
             )
 
             self.assertIn("Research handoff (read before new exploration):", prompt)
@@ -631,7 +635,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             )
 
             subplan_prompt = build_coder_subplan_prompt(
-                files, feature_dir / "02_planning" / "plan_1.md", 1
+                files, feature_dir / "04_planning" / "plan_1.md", 1
             )
 
             self.assertNotIn(
@@ -699,7 +703,7 @@ class ProjectPromptExtensionsRequirementsTests(unittest.TestCase):
             self.assertIn(preferences_param_text, reviewer_prompt)
 
             self.assertIn(
-                "Implementation review (`06_review/review.md`): "
+                "Implementation review (`07_review/review.md`): "
                 "focus strictly on correctness",
                 reviewer_prompt,
             )

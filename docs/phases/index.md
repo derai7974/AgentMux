@@ -9,16 +9,16 @@ This is the canonical reference for AgentMux's workflow phases. Each phase has i
 | # | Phase | Directory | Optional | Detail |
 |---|-------|-----------|----------|--------|
 | 1 | `product_management` | `01_product_management/` | yes (`--product-manager` flag) | [01_product-management.md](01_product-management.md) |
-| 2a | `architecting` | `02_planning/` | no | [02_planning.md](02_planning.md) |
-| 2b | `planning` | `02_planning/` | no | [02_planning.md](02_planning.md) |
-| 3 | *(research)* | `03_research/` | on-demand | [02_planning.md § Research](02_planning.md#research-03_research) |
-| 4 | `designing` | `04_design/` | yes (`needs_design: true` in plan.yaml) | [04_design.md](04_design.md) |
-| 5a | `implementing` | `05_implementation/` | no | [05_implementation.md](05_implementation.md) |
-| 6 | `reviewing` | `06_review/` | no | [06_review.md](06_review.md) |
-| 5b | `fixing` | `05_implementation/` | yes (after review fail) | [05_implementation.md § Fixing](05_implementation.md#fixing) |
+| 2 | `architecting` | `02_architecting/` | no | [02_architecting.md](02_architecting.md) |
+| 3 | *(research)* | `03_research/` | on-demand | [02_architecting.md § Research](02_architecting.md#research-03_research) |
+| 4 | `planning` | `04_planning/` | no | [04_planning.md](04_planning.md) |
+| 5 | `designing` | `05_design/` | yes (`needs_design: true` in plan.yaml) | [05_design.md](05_design.md) |
+| 6 | `implementing` | `06_implementation/` | no | [06_implementation.md](06_implementation.md) |
+| 7 | `reviewing` | `07_review/` | no | [07_review.md](07_review.md) |
+| 6b | `fixing` | `06_implementation/` | yes (after review fail) | [06_implementation.md § Fixing](06_implementation.md#fixing) |
 | 8 | `completing` | `08_completion/` | no | [08_completion.md](08_completion.md) |
 
-`architecting` and `planning` share the `02_planning/` directory. `implementing` and `fixing` share `05_implementation/`. Research is a cross-cutting concern triggered during architecting.
+`implementing` and `fixing` share `06_implementation/`. Research is a cross-cutting concern triggered during architecting (and by planner/product-manager if needed).
 
 ## State machine
 
@@ -32,7 +32,7 @@ This is the canonical reference for AgentMux's workflow phases. Each phase has i
                                         └── review_fail (loop cap reached) ──────→ completing
                                                                                         │
                                               ┌─ approval_received ──────────────────→ done
-                                              └─ changes_requested ──────────────────→ planning
+                                              └─ changes_requested ──────────────────→ architecting
 ```
 
 `failed` is a terminal virtual phase (no directory) reached via orchestrator interruption.

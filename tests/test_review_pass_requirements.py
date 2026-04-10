@@ -111,7 +111,7 @@ class ReviewPassRequirementsTests(unittest.TestCase):
 
             prompt = build_reviewer_prompt(files, is_review=True)
 
-            self.assertIn("Always write `06_review/review.md`", prompt)
+            self.assertIn("Always write `07_review/review.md`", prompt)
             self.assertIn("verdict: pass", prompt)
             self.assertIn("verdict: fail", prompt)
             self.assertIn("Do not update `state.json`", prompt)

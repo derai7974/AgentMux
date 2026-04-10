@@ -202,7 +202,7 @@ def submit_architecture(
 ) -> str:
     """Signal architecture completion.
 
-    Checks that the agent-written 02_planning/architecture.md exists and has
+    Checks that the agent-written 02_architecting/architecture.md exists and has
     content, then appends a completion signal to tool_events.jsonl.
     Write the Markdown file before calling this tool.
 
@@ -210,7 +210,7 @@ def submit_architecture(
     style/quality preferences directly to .agentmux/prompts/agents/<role>.md.
     """
     feature = _feature_dir(feature_dir)
-    md_path = feature / SESSION_DIR_NAMES["planning"] / "architecture.md"
+    md_path = feature / SESSION_DIR_NAMES["architecting"] / "architecture.md"
     if not md_path.exists():
         raise ValueError(
             "architecture.md not found. Write the file before calling this tool."
@@ -230,7 +230,7 @@ def submit_plan(
 ) -> str:
     """Signal execution plan completion.
 
-    Reads and validates the agent-written 02_planning/plan.yaml (version: 2),
+    Reads and validates the agent-written 04_planning/plan.yaml (version: 2),
     then appends a completion signal to tool_events.jsonl.
     Write plan.yaml before calling this tool.
 
@@ -253,7 +253,7 @@ def submit_review(
 ) -> str:
     """Signal review completion.
 
-    Reads and validates the agent-written 06_review/review.yaml,
+    Reads and validates the agent-written 07_review/review.yaml,
     then appends a completion signal to tool_events.jsonl.
     Write the YAML file before calling this tool.
 

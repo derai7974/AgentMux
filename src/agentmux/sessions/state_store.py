@@ -98,6 +98,7 @@ def update_phase(
 
 def _make_runtime_files(project_dir: Path, feature_dir: Path) -> RuntimeFiles:
     product_management_dir = feature_dir / SESSION_DIR_NAMES["product_management"]
+    architecting_dir = feature_dir / SESSION_DIR_NAMES["architecting"]
     planning_dir = feature_dir / SESSION_DIR_NAMES["planning"]
     research_dir = feature_dir / SESSION_DIR_NAMES["research"]
     design_dir = feature_dir / SESSION_DIR_NAMES["design"]
@@ -108,6 +109,7 @@ def _make_runtime_files(project_dir: Path, feature_dir: Path) -> RuntimeFiles:
         project_dir=project_dir,
         feature_dir=feature_dir,
         product_management_dir=product_management_dir,
+        architecting_dir=architecting_dir,
         planning_dir=planning_dir,
         research_dir=research_dir,
         design_dir=design_dir,
@@ -117,7 +119,7 @@ def _make_runtime_files(project_dir: Path, feature_dir: Path) -> RuntimeFiles:
         context=feature_dir / "context.md",
         requirements=feature_dir / "requirements.md",
         plan=planning_dir / "plan.md",
-        architecture=planning_dir / "architecture.md",
+        architecture=architecting_dir / "architecture.md",
         tasks=planning_dir / "tasks.md",
         execution_plan=planning_dir / "execution_plan.yaml",
         design=design_dir / "design.md",

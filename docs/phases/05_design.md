@@ -1,6 +1,6 @@
 # Phase: Design
 
-> Directory: `04_design/` | Optional: yes (activated when `needs_design: true` in `plan.yaml`)
+> Directory: `05_design/` | Optional: yes (activated when `needs_design: true` in `plan.yaml`)
 
 The designer produces a detailed design document before implementation begins, used when the plan flags a need for a separate design handoff step.
 

@@ -53,7 +53,7 @@ class FixingHandler:
         return (
             EventSpec(
                 name="fix_done",
-                watch_paths=("05_implementation/done_1",),
+                watch_paths=("06_implementation/done_1",),
                 is_ready=lambda path, ctx, state: (
                     ctx.files.feature_dir / path
                 ).exists(),

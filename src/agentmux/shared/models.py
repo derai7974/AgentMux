@@ -76,6 +76,7 @@ class RuntimeFiles:
     project_dir: Path
     feature_dir: Path
     product_management_dir: Path
+    architecting_dir: Path
     planning_dir: Path
     research_dir: Path
     design_dir: Path
@@ -115,7 +116,7 @@ def tasks_file_for_plan(planning_dir: Path, plan_index: int) -> Path:
     while the global tasks.md remains available as an optional overview.
 
     Args:
-        planning_dir: The 02_planning directory path.
+        planning_dir: The 04_planning directory path.
         plan_index: The sub-plan index (1-based for first sub-plan).
 
     Returns:

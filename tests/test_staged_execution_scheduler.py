@@ -120,7 +120,10 @@ def _touch(path: Path) -> None:
 def _write_execution_plan(ctx: PipelineContext, groups: list[dict]) -> None:
     planning_dir = ctx.files.planning_dir
     planning_dir.mkdir(parents=True, exist_ok=True)
-    (planning_dir / "architecture.md").write_text("# Architecture\n", encoding="utf-8")
+    ctx.files.architecting_dir.mkdir(parents=True, exist_ok=True)
+    (ctx.files.architecting_dir / "architecture.md").write_text(
+        "# Architecture\n", encoding="utf-8"
+    )
     (planning_dir / "plan.md").write_text("# Plan\n", encoding="utf-8")
     import yaml
 
@@ -610,7 +613,7 @@ class StagedExecutionSchedulerTests(unittest.TestCase):
             _touch(ctx.files.implementation_dir / "done_1")
             event = WorkflowEvent(
                 kind="fix_done",
-                path="05_implementation/done_1",
+                path="06_implementation/done_1",
                 payload={},
             )
             state = load_state(state_path)

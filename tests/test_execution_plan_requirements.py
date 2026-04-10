@@ -12,7 +12,7 @@ from agentmux.workflow.execution_plan import load_execution_plan
 class ExecutionPlanRequirementsTests(unittest.TestCase):
     def test_missing_execution_plan_raises_when_file_is_required(self) -> None:
         with tempfile.TemporaryDirectory() as td:
-            planning_dir = Path(td) / "02_planning"
+            planning_dir = Path(td) / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
 
             with self.assertRaisesRegex(RuntimeError, "required"):
@@ -22,7 +22,7 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as td:
-            planning_dir = Path(td) / "02_planning"
+            planning_dir = Path(td) / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "plan_1.md").write_text("# Plan 1\n", encoding="utf-8")
             (planning_dir / "plan_2.md").write_text("# Plan 2\n", encoding="utf-8")
@@ -58,7 +58,7 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
 
     def test_load_execution_plan_rejects_legacy_string_entries(self) -> None:
         with tempfile.TemporaryDirectory() as td:
-            planning_dir = Path(td) / "02_planning"
+            planning_dir = Path(td) / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "plan_1.md").write_text("# Plan 1\n", encoding="utf-8")
             (planning_dir / "execution_plan.yaml").write_text(
@@ -78,7 +78,7 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
 
     def test_load_execution_plan_fails_for_missing_referenced_plan_file(self) -> None:
         with tempfile.TemporaryDirectory() as td:
-            planning_dir = Path(td) / "02_planning"
+            planning_dir = Path(td) / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "execution_plan.yaml").write_text(
                 yaml.dump(
@@ -101,7 +101,7 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
 
     def test_load_execution_plan_fails_for_malformed_groups(self) -> None:
         with tempfile.TemporaryDirectory() as td:
-            planning_dir = Path(td) / "02_planning"
+            planning_dir = Path(td) / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "execution_plan.yaml").write_text(
                 yaml.dump({"groups": {}}, default_flow_style=False),
@@ -113,7 +113,7 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
 
     def test_load_execution_plan_rejects_duplicate_group_ids(self) -> None:
         with tempfile.TemporaryDirectory() as td:
-            planning_dir = Path(td) / "02_planning"
+            planning_dir = Path(td) / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "plan_1.md").write_text("# Plan 1\n", encoding="utf-8")
             (planning_dir / "plan_2.md").write_text("# Plan 2\n", encoding="utf-8")
@@ -143,7 +143,7 @@ class ExecutionPlanRequirementsTests(unittest.TestCase):
 
     def test_load_execution_plan_rejects_structured_plan_without_name(self) -> None:
         with tempfile.TemporaryDirectory() as td:
-            planning_dir = Path(td) / "02_planning"
+            planning_dir = Path(td) / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "plan_1.md").write_text("# Plan 1\n", encoding="utf-8")
             (planning_dir / "execution_plan.yaml").write_text(

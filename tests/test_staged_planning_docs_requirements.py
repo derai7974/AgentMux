@@ -12,7 +12,7 @@ class StagedPlanningDocsRequirementsTests(unittest.TestCase):
 
     def test_prompts_doc_covers_staged_planning_contract(self) -> None:
         text = self._read_doc("docs/prompts.md")
-        self.assertIn("02_planning/execution_plan.yaml", text)
+        self.assertIn("04_planning/execution_plan.yaml", text)
         self.assertIn("plan_<N>.md", text)
         self.assertIn("Scope", text)
         self.assertIn("Owned files/modules", text)
@@ -46,7 +46,7 @@ class StagedPlanningDocsRequirementsTests(unittest.TestCase):
         self.assertIn("Green", text)
         self.assertIn("phase order", text.lower())
         self.assertIn(
-            "one task from your assigned `02_planning/tasks_<N>.md` at a time", text
+            "one task from your assigned `04_planning/tasks_<N>.md` at a time", text
         )
 
     def test_prompts_doc_describes_strict_placeholder_rendering(self) -> None:
@@ -58,7 +58,7 @@ class StagedPlanningDocsRequirementsTests(unittest.TestCase):
     def test_file_protocol_doc_covers_execution_groups_and_strict_scheduling(
         self,
     ) -> None:
-        text = self._read_doc("docs/phases/02_planning.md")
+        text = self._read_doc("docs/phases/04_planning.md")
         self.assertIn("execution_plan.yaml", text)
         self.assertIn("execution groups", text.lower())
         self.assertIn("serial", text.lower())

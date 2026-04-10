@@ -19,7 +19,7 @@ class TasksRequirementsTests(unittest.TestCase):
     def _write_coder_inputs(
         self, feature_dir: Path, plan_name: str = "plan_1.md"
     ) -> None:
-        planning_dir = feature_dir / "02_planning"
+        planning_dir = feature_dir / "04_planning"
         planning_dir.mkdir(parents=True, exist_ok=True)
         (planning_dir / plan_name).write_text(f"## {plan_name}\n", encoding="utf-8")
 
@@ -35,7 +35,9 @@ class TasksRequirementsTests(unittest.TestCase):
 
         # Create required files for prompts
         (feature_dir / "context.md").write_text("# Context", encoding="utf-8")
-        (planning_dir / "architecture.md").write_text(
+        architecting_dir = feature_dir / "02_architecting"
+        architecting_dir.mkdir(parents=True, exist_ok=True)
+        (architecting_dir / "architecture.md").write_text(
             "# Architecture", encoding="utf-8"
         )
 
@@ -77,8 +79,8 @@ class TasksRequirementsTests(unittest.TestCase):
             )
             loaded = load_runtime_files(project_dir, feature_dir)
 
-            self.assertEqual(feature_dir / "02_planning" / "tasks.md", files.tasks)
-            self.assertEqual(feature_dir / "02_planning" / "tasks.md", loaded.tasks)
+            self.assertEqual(feature_dir / "04_planning" / "tasks.md", files.tasks)
+            self.assertEqual(feature_dir / "04_planning" / "tasks.md", loaded.tasks)
             self.assertEqual(feature_dir / "created_files.log", files.created_files_log)
             self.assertEqual(
                 feature_dir / "created_files.log", loaded.created_files_log
@@ -104,29 +106,22 @@ class TasksRequirementsTests(unittest.TestCase):
             )
             self._write_coder_inputs(feature_dir, "plan_1.md")
 
-            # Write architecture.md so planner prompt can include it
-            planning_dir = feature_dir / "02_planning"
-            planning_dir.mkdir(parents=True, exist_ok=True)
-            (planning_dir / "architecture.md").write_text(
-                "# Architecture\n", encoding="utf-8"
-            )
-
             architect_prompt = build_architect_prompt(files)
             planner_prompt = build_planner_prompt(files)
             coder_prompt = build_coder_subplan_prompt(
-                files, feature_dir / "02_planning" / "plan_1.md", 1
+                files, feature_dir / "04_planning" / "plan_1.md", 1
             )
 
             # Architect focuses on technical design — must NOT contain plan file
             # instructions (those belong to the planner)
             self.assertNotIn(
-                "write the final plan to `02_planning/plan.md`", architect_prompt
+                "write the final plan to `04_planning/plan.md`", architect_prompt
             )
             self.assertNotIn("also write per-plan task files", architect_prompt)
             self.assertNotIn(
-                "also write `02_planning/execution_plan.yaml`", architect_prompt
+                "also write `04_planning/execution_plan.yaml`", architect_prompt
             )
-            self.assertNotIn("write `02_planning/plan_meta.json`", architect_prompt)
+            self.assertNotIn("write `04_planning/plan_meta.json`", architect_prompt)
             self.assertNotIn("Phase 1: Foundation & Interfaces", architect_prompt)
             self.assertNotIn("Phase 2: Parallel Implementation", architect_prompt)
             self.assertNotIn("legacy flat `plan.md` parsing fallback", architect_prompt)
@@ -136,13 +131,13 @@ class TasksRequirementsTests(unittest.TestCase):
             )
 
             # Architect must describe technical design output (architecture.md)
-            self.assertIn("02_planning/architecture.md", architect_prompt)
+            self.assertIn("02_architecting/architecture.md", architect_prompt)
             self.assertIn("Components", architect_prompt)
             self.assertIn("Interfaces", architect_prompt)
 
             # Planner owns execution planning — check streamlined content
-            self.assertIn("02_planning/plan.yaml", planner_prompt)
-            self.assertIn("02_planning/architecture.md", planner_prompt)
+            self.assertIn("04_planning/plan.yaml", planner_prompt)
+            self.assertIn("02_architecting/architecture.md", planner_prompt)
             self.assertIn("Phase 1 (Serial - Foundation)", planner_prompt)
             self.assertIn("Phase 2 (Parallel - Implementation)", planner_prompt)
             self.assertIn("Phase 3 (Serial - Integration)", planner_prompt)
@@ -154,7 +149,7 @@ class TasksRequirementsTests(unittest.TestCase):
             self.assertIn("execution_plan.yaml", planner_prompt)
             self.assertNotIn("plan_meta.json", planner_prompt)
 
-            self.assertIn("05_implementation/done_1", coder_prompt)
+            self.assertIn("06_implementation/done_1", coder_prompt)
             self.assertIn("Do not update state.json", coder_prompt)
             self.assertIn("TDD protocol", coder_prompt)
             self.assertIn("fail before implementation (Red)", coder_prompt)
@@ -184,11 +179,11 @@ class TasksRequirementsTests(unittest.TestCase):
             self._write_coder_inputs(feature_dir, "plan_2.md")
 
             prompt = build_coder_subplan_prompt(
-                files, feature_dir / "02_planning" / "plan_2.md", 2
+                files, feature_dir / "04_planning" / "plan_2.md", 2
             )
 
-            self.assertIn("02_planning/plan_2.md", prompt)
-            self.assertIn("05_implementation/done_2", prompt)
+            self.assertIn("04_planning/plan_2.md", prompt)
+            self.assertIn("06_implementation/done_2", prompt)
             self.assertIn("TDD protocol", prompt)
             self.assertIn("fail before implementation (Red)", prompt)
             self.assertIn("until the tests pass (Green)", prompt)
@@ -215,7 +210,7 @@ class TasksRequirementsTests(unittest.TestCase):
             self._write_coder_inputs(feature_dir, "plan_1.md")
 
             coder_prompt = build_coder_subplan_prompt(
-                files, feature_dir / "02_planning" / "plan_1.md", 1
+                files, feature_dir / "04_planning" / "plan_1.md", 1
             )
             reviewer_agent_prompt = build_reviewer_prompt(files)
             reviewer_review_prompt = build_reviewer_prompt(files, is_review=True)
@@ -236,7 +231,7 @@ class TasksRequirementsTests(unittest.TestCase):
                 reviewer_agent_prompt,
             )
             self.assertIn(
-                "Verify documentation tasks listed in `02_planning/tasks_<N>.md` "
+                "Verify documentation tasks listed in `04_planning/tasks_<N>.md` "
                 "are complete when they are part of the approved scope.",
                 reviewer_review_prompt,
             )
@@ -260,11 +255,11 @@ class TasksRequirementsTests(unittest.TestCase):
             prompt = build_change_prompt(files)
 
             self.assertIn('<file path="requirements.md">', prompt)
-            self.assertIn('<file path="02_planning/plan.md">', prompt)
-            self.assertNotIn('<file path="02_planning/tasks.md">', prompt)
-            self.assertIn('<file path="02_planning/changes.md">', prompt)
+            self.assertIn('<file path="04_planning/plan.md">', prompt)
+            self.assertNotIn('<file path="04_planning/tasks.md">', prompt)
+            self.assertIn('<file path="04_planning/changes.md">', prompt)
             self.assertIn("execution_plan.yaml", prompt)
-            self.assertNotIn("02_planning/plan_meta.json", prompt)
+            self.assertNotIn("04_planning/plan_meta.json", prompt)
             self.assertIn(
                 "Documentation updates must be captured as explicit tasks "
                 "in the relevant sub-plan.",

@@ -1,6 +1,6 @@
 # Phase: Implementation (Implementing + Fixing)
 
-> Directory: `05_implementation/` (shared by `implementing` and `fixing` phases) | Optional: no (implementing); yes (fixing)
+> Directory: `06_implementation/` (shared by `implementing` and `fixing` phases) | Optional: no (implementing); yes (fixing)
 
 Implementation executes the execution plan produced by planning. Coders receive numbered prompt files mapped to scheduled plan units. After a failed review, the fixing sub-phase runs in the same directory.
 
@@ -30,7 +30,7 @@ Implementation executes the execution plan produced by planning. Coders receive 
 
 ## Fixing {#fixing}
 
-After a `review_fail` event (and below the review loop cap), the pipeline re-enters `05_implementation/` for a fixing pass. The fix prompt is injected based on `06_review/fix_request.md` (see [review.md](review.md)). Fixing completion is signaled by writing `done_1`.
+After a `review_fail` event (and below the review loop cap), the pipeline re-enters `06_implementation/` for a fixing pass. The fix prompt is injected based on `07_review/fix_request.md` (see [review.md](review.md)). Fixing completion is signaled by writing `done_1`.
 
 ## Transitions
 

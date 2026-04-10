@@ -1,6 +1,6 @@
 ## Submitting Your Plan
 
-Write a single `02_planning/plan.yaml` containing all sub-plans and execution metadata, then call `submit_plan()` once. The orchestrator observes the file and materializes `plan_N.md`, `tasks_N.md`, `execution_plan.yaml`, and `plan.md` automatically.
+Write a single `04_planning/plan.yaml` containing all sub-plans and execution metadata, then call `submit_plan()` once. The orchestrator observes the file and materializes `plan_N.md`, `tasks_N.md`, `execution_plan.yaml`, and `plan.md` automatically.
 
 ```yaml
 version: 2

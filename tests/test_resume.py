@@ -19,6 +19,7 @@ from agentmux.terminal_ui.console import ConsoleUI
 from agentmux.workflow.interruptions import InterruptionService
 from agentmux.workflow.phase_registry import resolve_phase_startup_role
 
+ARCHITECTING_DIR = SESSION_DIR_NAMES["architecting"]
 PLANNING_DIR = SESSION_DIR_NAMES["planning"]
 IMPLEMENTATION_DIR = SESSION_DIR_NAMES["implementation"]
 REVIEW_DIR = SESSION_DIR_NAMES["review"]
@@ -130,7 +131,8 @@ class InferResumePhaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
             (feature_dir / PLANNING_DIR).mkdir(parents=True, exist_ok=True)
-            (feature_dir / PLANNING_DIR / "architecture.md").write_text(
+            (feature_dir / ARCHITECTING_DIR).mkdir(parents=True, exist_ok=True)
+            (feature_dir / ARCHITECTING_DIR / "architecture.md").write_text(
                 "# Architecture", encoding="utf-8"
             )
             state = {"phase": "failed"}
@@ -140,7 +142,8 @@ class InferResumePhaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
             (feature_dir / PLANNING_DIR).mkdir(parents=True, exist_ok=True)
-            (feature_dir / PLANNING_DIR / "architecture.md").write_text(
+            (feature_dir / ARCHITECTING_DIR).mkdir(parents=True, exist_ok=True)
+            (feature_dir / ARCHITECTING_DIR / "architecture.md").write_text(
                 "# Architecture", encoding="utf-8"
             )
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
@@ -164,7 +167,8 @@ class InferResumePhaseTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR).mkdir(parents=True, exist_ok=True)
             (feature_dir / REVIEW_DIR).mkdir(parents=True, exist_ok=True)
             (feature_dir / IMPLEMENTATION_DIR).mkdir(parents=True, exist_ok=True)
-            (feature_dir / PLANNING_DIR / "architecture.md").write_text(
+            (feature_dir / ARCHITECTING_DIR).mkdir(parents=True, exist_ok=True)
+            (feature_dir / ARCHITECTING_DIR / "architecture.md").write_text(
                 "# Architecture", encoding="utf-8"
             )
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
@@ -185,7 +189,8 @@ class InferResumePhaseTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR).mkdir(parents=True, exist_ok=True)
             (feature_dir / REVIEW_DIR).mkdir(parents=True, exist_ok=True)
             (feature_dir / IMPLEMENTATION_DIR).mkdir(parents=True, exist_ok=True)
-            (feature_dir / PLANNING_DIR / "architecture.md").write_text(
+            (feature_dir / ARCHITECTING_DIR).mkdir(parents=True, exist_ok=True)
+            (feature_dir / ARCHITECTING_DIR / "architecture.md").write_text(
                 "# Architecture", encoding="utf-8"
             )
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
@@ -208,7 +213,8 @@ class InferResumePhaseTests(unittest.TestCase):
             feature_dir = Path(td)
             (feature_dir / PLANNING_DIR).mkdir(parents=True, exist_ok=True)
             (feature_dir / IMPLEMENTATION_DIR).mkdir(parents=True, exist_ok=True)
-            (feature_dir / PLANNING_DIR / "architecture.md").write_text(
+            (feature_dir / ARCHITECTING_DIR).mkdir(parents=True, exist_ok=True)
+            (feature_dir / ARCHITECTING_DIR / "architecture.md").write_text(
                 "# Architecture", encoding="utf-8"
             )
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
@@ -228,7 +234,8 @@ class InferResumePhaseTests(unittest.TestCase):
             feature_dir = Path(td)
             (feature_dir / PLANNING_DIR).mkdir(parents=True, exist_ok=True)
             (feature_dir / IMPLEMENTATION_DIR).mkdir(parents=True, exist_ok=True)
-            (feature_dir / PLANNING_DIR / "architecture.md").write_text(
+            (feature_dir / ARCHITECTING_DIR).mkdir(parents=True, exist_ok=True)
+            (feature_dir / ARCHITECTING_DIR / "architecture.md").write_text(
                 "# Architecture", encoding="utf-8"
             )
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
@@ -251,7 +258,8 @@ class InferResumePhaseTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR).mkdir(parents=True, exist_ok=True)
             (feature_dir / IMPLEMENTATION_DIR).mkdir(parents=True, exist_ok=True)
             (feature_dir / REVIEW_DIR).mkdir(parents=True, exist_ok=True)
-            (feature_dir / PLANNING_DIR / "architecture.md").write_text(
+            (feature_dir / ARCHITECTING_DIR).mkdir(parents=True, exist_ok=True)
+            (feature_dir / ARCHITECTING_DIR / "architecture.md").write_text(
                 "# Architecture", encoding="utf-8"
             )
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
@@ -282,7 +290,8 @@ class InferResumePhaseTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR).mkdir(parents=True, exist_ok=True)
             (feature_dir / IMPLEMENTATION_DIR).mkdir(parents=True, exist_ok=True)
             (feature_dir / REVIEW_DIR).mkdir(parents=True, exist_ok=True)
-            (feature_dir / PLANNING_DIR / "architecture.md").write_text(
+            (feature_dir / ARCHITECTING_DIR).mkdir(parents=True, exist_ok=True)
+            (feature_dir / ARCHITECTING_DIR / "architecture.md").write_text(
                 "# Architecture", encoding="utf-8"
             )
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
@@ -310,7 +319,8 @@ class InferResumePhaseTests(unittest.TestCase):
             (feature_dir / PLANNING_DIR).mkdir(parents=True, exist_ok=True)
             (feature_dir / IMPLEMENTATION_DIR).mkdir(parents=True, exist_ok=True)
             (feature_dir / REVIEW_DIR).mkdir(parents=True, exist_ok=True)
-            (feature_dir / PLANNING_DIR / "architecture.md").write_text(
+            (feature_dir / ARCHITECTING_DIR).mkdir(parents=True, exist_ok=True)
+            (feature_dir / ARCHITECTING_DIR / "architecture.md").write_text(
                 "# Architecture", encoding="utf-8"
             )
             (feature_dir / PLANNING_DIR / "plan.md").write_text(
@@ -453,9 +463,11 @@ class ResumeApplicationFlowTests(unittest.TestCase):
             (feature_dir / "01_product_management" / "done").write_text(
                 "", encoding="utf-8"
             )
-            planning_dir = feature_dir / "02_planning"
+            planning_dir = feature_dir / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
-            (planning_dir / "architecture.md").write_text(
+            architecting_dir = feature_dir / ARCHITECTING_DIR
+            architecting_dir.mkdir(parents=True, exist_ok=True)
+            (architecting_dir / "architecture.md").write_text(
                 "# Architecture", encoding="utf-8"
             )
             initial_state = {
@@ -552,7 +564,9 @@ class ResumeApplicationFlowTests(unittest.TestCase):
             )
             planning_dir = feature_dir / PLANNING_DIR
             planning_dir.mkdir(parents=True, exist_ok=True)
-            (planning_dir / "architecture.md").write_text(
+            architecting_dir = feature_dir / ARCHITECTING_DIR
+            architecting_dir.mkdir(parents=True, exist_ok=True)
+            (architecting_dir / "architecture.md").write_text(
                 "# Architecture", encoding="utf-8"
             )
             write_state(

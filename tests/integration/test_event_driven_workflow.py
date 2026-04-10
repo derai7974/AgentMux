@@ -87,6 +87,7 @@ class TestEventDrivenWorkflowIntegration(unittest.TestCase):
         files.plan.write_text("# Plan\n", encoding="utf-8")
         files.tasks.parent.mkdir(parents=True, exist_ok=True)
         files.tasks.write_text("# Tasks\n", encoding="utf-8")
+        files.architecture.parent.mkdir(parents=True, exist_ok=True)
         files.architecture.write_text("# Architecture\n", encoding="utf-8")
 
         agents = {

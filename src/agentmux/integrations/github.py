@@ -233,7 +233,7 @@ def _extract_review_verdict(review_text: str) -> str:
 
 def _read_plan_overview(feature_dir: Path) -> str:
     """Read plan overview from plan.yaml (source of truth), falling back to plan.md."""
-    plan_yaml_path = feature_dir / "02_planning" / "plan.yaml"
+    plan_yaml_path = feature_dir / "04_planning" / "plan.yaml"
     if plan_yaml_path.exists():
         try:
             data = yaml.safe_load(plan_yaml_path.read_text(encoding="utf-8")) or {}
@@ -242,7 +242,7 @@ def _read_plan_overview(feature_dir: Path) -> str:
                 return str(overview)
         except Exception:
             pass
-    return _read_text(feature_dir / "02_planning" / "plan.md")
+    return _read_text(feature_dir / "04_planning" / "plan.md")
 
 
 def assemble_pr_body(feature_dir: Path, issue_number: str | None) -> str:
@@ -250,7 +250,7 @@ def assemble_pr_body(feature_dir: Path, issue_number: str | None) -> str:
     plan_text = _read_plan_overview(feature_dir)
     review_text = _read_first_available(
         [
-            feature_dir / "06_review" / "review.md",
+            feature_dir / "07_review" / "review.md",
         ]
     )
 

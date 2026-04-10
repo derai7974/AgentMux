@@ -210,7 +210,7 @@ class DesignerRequirementsTests(unittest.TestCase):
 
             self.assertIn("done_1", coder_prompt)
             self.assertIn("frontend-design", designer_prompt)
-            self.assertIn("04_design/design.md", designer_prompt)
+            self.assertIn("05_design/design.md", designer_prompt)
             self.assertNotIn("[[placeholder:", coder_prompt)
             self.assertNotIn("[[placeholder:", designer_prompt)
             self.assertEqual({}, initial_prompts)
@@ -346,7 +346,7 @@ class DesignerRequirementsTests(unittest.TestCase):
             handler = DesigningHandler()
             event = WorkflowEvent(
                 kind="design_written",
-                path="04_design/design.md",
+                path="05_design/design.md",
                 payload={},
             )
             updates, next_phase = handler.handle_event(

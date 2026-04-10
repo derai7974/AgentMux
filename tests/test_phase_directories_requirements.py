@@ -75,31 +75,36 @@ class PhaseDirectoryRequirementsTests(unittest.TestCase):
                 project_dir, feature_dir, "phase dirs", "session-x"
             )
 
-            self.assertEqual(feature_dir / "02_planning", files.planning_dir)
+            self.assertEqual(feature_dir / "02_architecting", files.architecting_dir)
+            self.assertEqual(feature_dir / "04_planning", files.planning_dir)
             self.assertEqual(feature_dir / "03_research", files.research_dir)
-            self.assertEqual(feature_dir / "04_design", files.design_dir)
+            self.assertEqual(feature_dir / "05_design", files.design_dir)
             self.assertEqual(
-                feature_dir / "05_implementation", files.implementation_dir
+                feature_dir / "06_implementation", files.implementation_dir
             )
-            self.assertEqual(feature_dir / "06_review", files.review_dir)
+            self.assertEqual(feature_dir / "07_review", files.review_dir)
             self.assertEqual(feature_dir / "08_completion", files.completion_dir)
             self.assertFalse((feature_dir / "01_product_management").exists())
+            self.assertFalse(files.architecting_dir.exists())
             self.assertFalse(files.planning_dir.exists())
             self.assertFalse(files.research_dir.exists())
             self.assertFalse(files.design_dir.exists())
             self.assertFalse(files.implementation_dir.exists())
             self.assertFalse(files.review_dir.exists())
             self.assertFalse(files.completion_dir.exists())
-            self.assertEqual(feature_dir / "02_planning" / "plan.md", files.plan)
-            self.assertEqual(feature_dir / "02_planning" / "tasks.md", files.tasks)
             self.assertEqual(
-                feature_dir / "02_planning" / "execution_plan.yaml",
+                feature_dir / "02_architecting" / "architecture.md", files.architecture
+            )
+            self.assertEqual(feature_dir / "04_planning" / "plan.md", files.plan)
+            self.assertEqual(feature_dir / "04_planning" / "tasks.md", files.tasks)
+            self.assertEqual(
+                feature_dir / "04_planning" / "execution_plan.yaml",
                 files.execution_plan,
             )
-            self.assertEqual(feature_dir / "04_design" / "design.md", files.design)
-            self.assertEqual(feature_dir / "06_review" / "review.md", files.review)
+            self.assertEqual(feature_dir / "05_design" / "design.md", files.design)
+            self.assertEqual(feature_dir / "07_review" / "review.md", files.review)
             self.assertEqual(
-                feature_dir / "06_review" / "fix_request.md", files.fix_request
+                feature_dir / "07_review" / "fix_request.md", files.fix_request
             )
             self.assertEqual(
                 feature_dir / "08_completion" / "changes.md", files.changes
@@ -139,7 +144,7 @@ class PhaseDirectoryRequirementsTests(unittest.TestCase):
     def test_load_plan_meta_reads_from_planning_directory(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            planning_dir = feature_dir / "02_planning"
+            planning_dir = feature_dir / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             import yaml
 
@@ -155,7 +160,7 @@ class PhaseDirectoryRequirementsTests(unittest.TestCase):
     def test_coder_label_for_subplan_reads_name_from_execution_plan(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            planning_dir = feature_dir / "02_planning"
+            planning_dir = feature_dir / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "plan_1.md").write_text(
                 "## Sub-plan 1: API wiring\n", encoding="utf-8"

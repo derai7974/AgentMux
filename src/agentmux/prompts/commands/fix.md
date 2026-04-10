@@ -10,12 +10,12 @@ Session directory: [[placeholder:feature_dir]]
 [[include:requirements.md]]
 </file>
 
-<file path="02_planning/plan.md">
-[[include:02_planning/plan.md]]
+<file path="04_planning/plan.md">
+[[include:04_planning/plan.md]]
 </file>
 
-<file path="06_review/fix_request.md">
-[[include:06_review/fix_request.md]]
+<file path="07_review/fix_request.md">
+[[include:07_review/fix_request.md]]
 </file>
 
 <file path="state.json">
@@ -23,10 +23,10 @@ Session directory: [[placeholder:feature_dir]]
 </file>
 
 Your job:
-1. Read the review findings in `06_review/fix_request.md` carefully.
+1. Read the review findings in `07_review/fix_request.md` carefully.
 2. Fix each finding in the project directory [[placeholder:project_dir]].
 3. Do NOT re-implement from scratch — only address the listed findings.
-4. FINAL STEP ONLY — once all fixes are applied, create the completion marker file `05_implementation/done_1` in the session directory and leave it empty.
+4. FINAL STEP ONLY — once all fixes are applied, create the completion marker file `06_implementation/done_1` in the session directory and leave it empty.
 
 [[placeholder:project_instructions]]
 

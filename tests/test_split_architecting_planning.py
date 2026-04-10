@@ -34,9 +34,9 @@ class TestArchitectingPhase(unittest.TestCase):
     """Test that architecting phase is added to session directory names."""
 
     def test_architecting_in_session_dir_names(self) -> None:
-        """Architecting phase should be mapped to 02_planning directory."""
+        """Architecting phase should be mapped to 02_architecting directory."""
         self.assertIn("architecting", SESSION_DIR_NAMES)
-        self.assertEqual(SESSION_DIR_NAMES["architecting"], "02_planning")
+        self.assertEqual(SESSION_DIR_NAMES["architecting"], "02_architecting")
 
 
 class TestRuntimeFilesArchitecture(unittest.TestCase):
@@ -49,7 +49,7 @@ class TestRuntimeFilesArchitecture(unittest.TestCase):
         self.assertIn("architecture", fields)
 
     def test_make_runtime_files_sets_architecture_path(self) -> None:
-        """_make_runtime_files should set architecture to planning_dir /
+        """_make_runtime_files should set architecture to architecting_dir /
         architecture.md."""
         with tempfile.TemporaryDirectory() as td:
             project_dir = Path(td) / "project"
@@ -59,11 +59,11 @@ class TestRuntimeFilesArchitecture(unittest.TestCase):
 
             files = _make_runtime_files(project_dir, feature_dir)
 
-            expected_path = feature_dir / "02_planning" / "architecture.md"
+            expected_path = feature_dir / "02_architecting" / "architecture.md"
             self.assertEqual(files.architecture, expected_path)
 
-    def test_architecture_path_in_planning_dir(self) -> None:
-        """Architecture path should be in the planning directory."""
+    def test_architecture_path_in_architecting_dir(self) -> None:
+        """Architecture path should be in the architecting directory."""
         with tempfile.TemporaryDirectory() as td:
             project_dir = Path(td) / "project"
             feature_dir = Path(td) / "feature"
@@ -72,8 +72,10 @@ class TestRuntimeFilesArchitecture(unittest.TestCase):
 
             files = _make_runtime_files(project_dir, feature_dir)
 
-            # Verify it's in the planning directory subtree
-            self.assertTrue(str(files.architecture).startswith(str(files.planning_dir)))
+            # Verify it's in the architecting directory subtree
+            self.assertTrue(
+                str(files.architecture).startswith(str(files.architecting_dir))
+            )
             self.assertEqual(files.architecture.name, "architecture.md")
 
 
@@ -119,7 +121,7 @@ class TestPlannerPromptTemplates(unittest.TestCase):
             has_architecture_ref = (
                 "architecture.md" in content
                 or "architecture document" in content.lower()
-                or "02_planning/architecture.md" in content
+                or "02_architecting/architecture.md" in content
             )
             self.assertTrue(
                 has_architecture_ref,
@@ -164,7 +166,7 @@ class TestPlannerPromptTemplates(unittest.TestCase):
         planner_prompt = self.agents_dir / "planner.md"
         if planner_prompt.exists():
             content = planner_prompt.read_text(encoding="utf-8")
-            self.assertIn("[[include:02_planning/architecture.md]]", content)
+            self.assertIn("[[include:02_architecting/architecture.md]]", content)
 
     def test_planner_agent_includes_execution_plan_yaml(self) -> None:
         """Planner agent prompt should mention plan.yaml (new unified format)."""
@@ -178,7 +180,7 @@ class TestPlannerPromptTemplates(unittest.TestCase):
         planner_prompt = self.agents_dir / "planner.md"
         if planner_prompt.exists():
             content = planner_prompt.read_text(encoding="utf-8")
-            self.assertIn("02_planning/plan.yaml", content)
+            self.assertIn("04_planning/plan.yaml", content)
 
     def test_planner_agent_includes_tasks_files(self) -> None:
         """Planner agent prompt should mention tasks file creation."""
@@ -278,8 +280,8 @@ class TestPlanningPhaseUsesPlanner(unittest.TestCase):
             (feature_dir / "context.md").write_text("# Context")
             (feature_dir / "requirements.md").write_text("# Requirements")
             (feature_dir / "state.json").write_text('{"phase": "planning"}')
-            (feature_dir / "02_planning").mkdir(parents=True, exist_ok=True)
-            (feature_dir / "02_planning" / "architecture.md").write_text(
+            (feature_dir / "02_architecting").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "02_architecting" / "architecture.md").write_text(
                 "# Architecture"
             )
 
@@ -306,8 +308,8 @@ class TestPlanningPhaseUsesPlanner(unittest.TestCase):
             (feature_dir / "context.md").write_text("# Context")
             (feature_dir / "requirements.md").write_text("# Requirements")
             (feature_dir / "state.json").write_text('{"phase": "planning"}')
-            (feature_dir / "02_planning").mkdir(parents=True, exist_ok=True)
-            (feature_dir / "02_planning" / "architecture.md").write_text(
+            (feature_dir / "02_architecting").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "02_architecting" / "architecture.md").write_text(
                 "# Architecture"
             )
 
@@ -396,7 +398,7 @@ class TestInitialPhase(unittest.TestCase):
             feature_dir = Path(td) / "feature"
             feature_dir.mkdir()
             # Create 02_planning dir but NO architecture.md
-            (feature_dir / "02_planning").mkdir()
+            (feature_dir / "02_architecting").mkdir()
 
             state: dict = {"phase": "failed", "product_manager": False}
             phase = infer_resume_phase(feature_dir, state)
@@ -429,8 +431,8 @@ class TestDocumentationUpdates(unittest.TestCase):
         self.assertIn("planner", content)
 
     def test_file_protocol_includes_planner_prompt(self) -> None:
-        """docs/phases/02_planning.md should document planner prompt files."""
-        planning_doc = self.project_root / "docs" / "phases" / "02_planning.md"
+        """docs/phases/04_planning.md should document planner prompt files."""
+        planning_doc = self.project_root / "docs" / "phases" / "04_planning.md"
         content = planning_doc.read_text(encoding="utf-8")
         # Should mention planner prompt
         self.assertIn("planner", content.lower())

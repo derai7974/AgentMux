@@ -21,14 +21,14 @@ Then inspect `02_planning/execution_plan.yaml` for the `review_strategy.focus` a
 
 Your job:
 1. Review the implementation for security vulnerabilities and performance issues based on focus areas from `execution_plan.yaml`'s `review_strategy.focus`.
-2. Always write `06_review/review.md`.
-3. The first line of `06_review/review.md` must be exactly one of:
+2. Always write `07_review/review.md`.
+3. The first line of `07_review/review.md` must be exactly one of:
    - `verdict: pass`
    - `verdict: fail`
 4. On pass, keep the body brief and summarize what was validated. Include an optional line `commit_message: <summary>` when you can provide a reviewer-authored commit summary for completion.
 5. On fail, include concrete security findings, performance bottlenecks, race conditions, or edge case gaps with specific file references and line numbers where possible.
-6. Verify documentation tasks listed in `02_planning/tasks_<N>.md` are complete when they are part of the approved scope.
-7. FINAL STEP ONLY — once `06_review/review.md` is fully written and nothing else remains, stop. Do not update `state.json` or any workflow status from review.
+6. Verify documentation tasks listed in `04_planning/tasks_<N>.md` are complete when they are part of the approved scope.
+7. FINAL STEP ONLY — once `07_review/review.md` is fully written and nothing else remains, stop. Do not update `state.json` or any workflow status from review.
 
 [[placeholder:project_instructions]]
 

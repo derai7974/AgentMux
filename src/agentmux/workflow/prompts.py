@@ -117,7 +117,7 @@ def write_prompt_file(feature_dir: Path, name: str, content: str) -> Path:
     return prompt_path
 
 
-def _build_coder_research_handoff(files: RuntimeFiles) -> str:
+def _build_research_handoff(files: RuntimeFiles) -> str:
     research_dir = files.research_dir
     if not research_dir.is_dir():
         return ""
@@ -159,6 +159,7 @@ def build_architect_prompt(
             "feature_dir": files.feature_dir,
             "project_dir": files.project_dir,
             "user_ask_tool": _user_ask_tool_for(agent),
+            "research_handoff": _build_research_handoff(files),
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)
@@ -353,7 +354,7 @@ def build_coder_subplan_prompt(
             "project_dir": files.project_dir,
             "plan_file": files.relative_path(subplan_path),
             "tasks_file": tasks_file_relative,
-            "research_handoff": _build_coder_research_handoff(files),
+            "research_handoff": _build_research_handoff(files),
             "completion_instruction": completion_instruction,
             "completion_constraints": completion_constraints,
         },
@@ -452,7 +453,7 @@ def build_coder_whole_plan_prompt(files: RuntimeFiles) -> str:
             "feature_dir": files.feature_dir,
             "project_dir": files.project_dir,
             "plans_content": plans_content,
-            "research_handoff": _build_coder_research_handoff(files),
+            "research_handoff": _build_research_handoff(files),
             "completion_instruction": completion_instruction,
             "completion_constraints": completion_constraints,
         },
@@ -529,6 +530,7 @@ def build_change_prompt(files: RuntimeFiles, agent: AgentConfig | None = None) -
         {
             "feature_dir": files.feature_dir,
             "user_ask_tool": _user_ask_tool_for(agent),
+            "research_handoff": _build_research_handoff(files),
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)
@@ -549,6 +551,7 @@ def build_planner_prompt(files: RuntimeFiles, agent: AgentConfig | None = None) 
             "feature_dir": files.feature_dir,
             "project_dir": files.project_dir,
             "user_ask_tool": _user_ask_tool_for(agent),
+            "research_handoff": _build_research_handoff(files),
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)

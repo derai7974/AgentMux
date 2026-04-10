@@ -33,21 +33,22 @@ def mock_ctx(tmp_path: Path) -> MagicMock:
     ctx = MagicMock()
     ctx.files.feature_dir = tmp_path
     ctx.files.product_management_dir = tmp_path / "01_product_management"
-    ctx.files.planning_dir = tmp_path / "02_planning"
-    ctx.files.design_dir = tmp_path / "04_design"
-    ctx.files.implementation_dir = tmp_path / "05_implementation"
-    ctx.files.review_dir = tmp_path / "06_review"
+    ctx.files.architecting_dir = tmp_path / "02_architecting"
+    ctx.files.planning_dir = tmp_path / "04_planning"
+    ctx.files.design_dir = tmp_path / "05_design"
+    ctx.files.implementation_dir = tmp_path / "06_implementation"
+    ctx.files.review_dir = tmp_path / "07_review"
     ctx.files.completion_dir = tmp_path / "08_completion"
     ctx.files.research_dir = tmp_path / "03_research"
-    ctx.files.changes = tmp_path / "02_planning" / "changes.md"
-    ctx.files.plan = tmp_path / "02_planning" / "plan.md"
-    ctx.files.tasks = tmp_path / "02_planning" / "tasks.md"
-    ctx.files.design = tmp_path / "04_design" / "design.md"
-    ctx.files.review = tmp_path / "06_review" / "review.md"
-    ctx.files.fix_request = tmp_path / "06_review" / "fix_request.txt"
+    ctx.files.changes = tmp_path / "08_completion" / "changes.md"
+    ctx.files.plan = tmp_path / "04_planning" / "plan.md"
+    ctx.files.tasks = tmp_path / "04_planning" / "tasks.md"
+    ctx.files.design = tmp_path / "05_design" / "design.md"
+    ctx.files.review = tmp_path / "07_review" / "review.md"
+    ctx.files.fix_request = tmp_path / "07_review" / "fix_request.txt"
     ctx.files.requirements = tmp_path / "requirements.md"
     ctx.files.context = tmp_path / "context.md"
-    ctx.files.architecture = tmp_path / "02_planning" / "architecture.md"
+    ctx.files.architecture = tmp_path / "02_architecting" / "architecture.md"
     ctx.files.project_dir = tmp_path.parent
     ctx.files.relative_path = lambda p: str(p.relative_to(tmp_path))
     ctx.files.state = tmp_path / "state.json"
@@ -338,8 +339,8 @@ class TestArchitectingHandlerToolEvents:
         handler = ArchitectingHandler()
         # Pre-write architecture.md (the agent writes this before calling
         # submit_architecture)
-        mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        md_path = mock_ctx.files.planning_dir / "architecture.md"
+        mock_ctx.files.architecting_dir.mkdir(parents=True, exist_ok=True)
+        md_path = mock_ctx.files.architecting_dir / "architecture.md"
         md_path.write_text("# Architecture\n\nSome design content.\n", encoding="utf-8")
 
         event = WorkflowEvent(
@@ -360,8 +361,8 @@ class TestArchitectingHandlerToolEvents:
     ) -> None:
         """architecture event is idempotent — re-running doesn't break anything."""
         handler = ArchitectingHandler()
-        mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        md_path = mock_ctx.files.planning_dir / "architecture.md"
+        mock_ctx.files.architecting_dir.mkdir(parents=True, exist_ok=True)
+        md_path = mock_ctx.files.architecting_dir / "architecture.md"
         md_path.write_text("# Architecture\n\nOriginal content.\n", encoding="utf-8")
 
         event = WorkflowEvent(kind="architecture", payload={"payload": {}})
@@ -382,8 +383,8 @@ class TestArchitectingHandlerToolEvents:
     ) -> None:
         """architecture event deactivates and kills the architect pane."""
         handler = ArchitectingHandler()
-        mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        (mock_ctx.files.planning_dir / "architecture.md").write_text(
+        mock_ctx.files.architecting_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.architecting_dir / "architecture.md").write_text(
             "# Architecture\n\nContent.\n", encoding="utf-8"
         )
 
@@ -401,10 +402,11 @@ class TestArchitectingHandlerToolEvents:
         handler = ArchitectingHandler()
         event = WorkflowEvent(kind="architecture", payload={"payload": {}})
 
-        mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
-        (mock_ctx.files.planning_dir / "architecture.md").write_text(
+        mock_ctx.files.architecting_dir.mkdir(parents=True, exist_ok=True)
+        (mock_ctx.files.architecting_dir / "architecture.md").write_text(
             "# Architecture\n\nContent.\n", encoding="utf-8"
         )
+        mock_ctx.files.changes.parent.mkdir(parents=True, exist_ok=True)
         mock_ctx.files.changes.write_text("changes", encoding="utf-8")
 
         handler.handle_event(event, empty_state, mock_ctx)

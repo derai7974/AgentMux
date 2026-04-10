@@ -14,7 +14,7 @@ Session directory: [[placeholder:feature_dir]]
 [[include:[[placeholder:tasks_file]]]]
 </file>
 
-[[include-optional:04_design/design.md]]
+[[include-optional:05_design/design.md]]
 
 [[placeholder:research_handoff]]
 

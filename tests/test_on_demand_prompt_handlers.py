@@ -95,7 +95,7 @@ def _make_ctx(feature_dir: Path) -> tuple[PipelineContext, Path]:
     files.architecture.parent.mkdir(parents=True, exist_ok=True)
     files.architecture.write_text("# Architecture", encoding="utf-8")
 
-    architect_prompt = feature_dir / "02_planning" / "architect_prompt.md"
+    architect_prompt = feature_dir / "02_architecting" / "architect_prompt.md"
     architect_prompt.parent.mkdir(parents=True, exist_ok=True)
     architect_prompt.write_text("architect prompt", encoding="utf-8")
     agents = {
@@ -116,7 +116,7 @@ def _make_ctx(feature_dir: Path) -> tuple[PipelineContext, Path]:
 def _write_execution_plan(
     feature_dir: Path, plans: list[tuple[int, str]], *, mode: str
 ) -> None:
-    planning_dir = feature_dir / "02_planning"
+    planning_dir = feature_dir / "04_planning"
     planning_dir.mkdir(parents=True, exist_ok=True)
     (planning_dir / "plan.md").write_text("# Plan\n", encoding="utf-8")
     for index, name in plans:

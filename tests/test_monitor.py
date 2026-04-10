@@ -25,6 +25,7 @@ def _make_test_files(feature_dir: Path) -> RuntimeFiles:
         project_dir=feature_dir.parent,
         feature_dir=feature_dir,
         product_management_dir=feature_dir / SESSION_DIR_NAMES["product_management"],
+        architecting_dir=feature_dir / SESSION_DIR_NAMES["architecting"],
         planning_dir=feature_dir / SESSION_DIR_NAMES["planning"],
         research_dir=feature_dir / SESSION_DIR_NAMES["research"],
         design_dir=feature_dir / SESSION_DIR_NAMES["design"],
@@ -34,7 +35,9 @@ def _make_test_files(feature_dir: Path) -> RuntimeFiles:
         context=feature_dir / "context.md",
         requirements=feature_dir / "requirements.md",
         plan=feature_dir / SESSION_DIR_NAMES["planning"] / "plan.md",
-        architecture=feature_dir / SESSION_DIR_NAMES["planning"] / "architecture.md",
+        architecture=feature_dir
+        / SESSION_DIR_NAMES["architecting"]
+        / "architecture.md",
         tasks=feature_dir / SESSION_DIR_NAMES["planning"] / "tasks.md",
         execution_plan=feature_dir
         / SESSION_DIR_NAMES["planning"]
@@ -394,20 +397,20 @@ class MonitorTests(unittest.TestCase):
                 encoding="utf-8",
             )
             runtime_state_path.write_text('{"primary": {}}', encoding="utf-8")
-            (feature_dir / "02_planning").mkdir(parents=True, exist_ok=True)
-            (feature_dir / "04_design").mkdir(parents=True, exist_ok=True)
-            (feature_dir / "02_planning" / "plan.md").write_text(
+            (feature_dir / "04_planning").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "05_design").mkdir(parents=True, exist_ok=True)
+            (feature_dir / "04_planning" / "plan.md").write_text(
                 "# plan\n", encoding="utf-8"
             )
-            (feature_dir / "04_design" / "design.md").write_text(
+            (feature_dir / "05_design" / "design.md").write_text(
                 "# design\n", encoding="utf-8"
             )
 
             output = self._strip_ansi(self._render(feature_dir, width=15, height=24))
 
             self.assertNotIn(" DOCUMENTS", output)
-            self.assertNotIn("02_planning", output)
-            self.assertNotIn("04_design", output)
+            self.assertNotIn("04_planning", output)
+            self.assertNotIn("05_design", output)
 
     def test_render_research_section_uses_numbered_research_directory(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -666,8 +669,8 @@ class MonitorTests(unittest.TestCase):
                 "\n".join(
                     [
                         "2026-03-21 11:20:06  context.md",
-                        "2026-03-21 11:20:07  02_planning/architect_prompt.md",
-                        "2026-03-21 11:20:08  02_planning/plan.yaml",
+                        "2026-03-21 11:20:07  02_architecting/architect_prompt.md",
+                        "2026-03-21 11:20:08  04_planning/plan.yaml",
                         "2026-03-21 11:20:10  03_research/code-auth/request.md",
                         "2026-03-21 11:20:11  03_research/code-auth/summary.md",
                     ]
@@ -690,7 +693,7 @@ class MonitorTests(unittest.TestCase):
                 )
 
             self.assertIn("11:20 > planning", output)
-            self.assertIn("11:20 + 02_planning/plan.yaml", output)
+            self.assertIn("11:20 + 04_planning/plan.yaml", output)
             self.assertIn("11:20 + 03_research/code-auth/summary.md", output)
             self.assertIn("11:20 > implementing", output)
             self.assertNotIn("context.md", output)
@@ -698,10 +701,10 @@ class MonitorTests(unittest.TestCase):
             self.assertNotIn("code-auth/request.md", output)
             self.assertLess(
                 output.index("11:20 > planning"),
-                output.index("11:20 + 02_planning/plan.yaml"),
+                output.index("11:20 + 04_planning/plan.yaml"),
             )
             self.assertLess(
-                output.index("11:20 + 02_planning/plan.yaml"),
+                output.index("11:20 + 04_planning/plan.yaml"),
                 output.index("11:20 > implementing"),
             )
 
@@ -713,7 +716,7 @@ class MonitorTests(unittest.TestCase):
             files.state.write_text('{"phase": "planning"}', encoding="utf-8")
             files.runtime_state.write_text('{"primary": {}}', encoding="utf-8")
             files.created_files_log.write_text(
-                "2026-03-21 11:20:08  06_review/review.md\n",
+                "2026-03-21 11:20:08  07_review/review.md\n",
                 encoding="utf-8",
             )
 
@@ -731,7 +734,7 @@ class MonitorTests(unittest.TestCase):
                 )
 
             self.assertIn(" LOG", output)
-            self.assertIn("11:20 + 06_review/review.md", output)
+            self.assertIn("11:20 + 07_review/review.md", output)
 
     def test_render_failed_state_shows_clean_failure_classification_and_cause(
         self,
@@ -800,7 +803,7 @@ class MonitorTests(unittest.TestCase):
             files.state.write_text('{"phase": "planning"}', encoding="utf-8")
             files.runtime_state.write_text('{"primary": {}}', encoding="utf-8")
             files.created_files_log.write_text(
-                "2026-03-21 11:20:08  02_planning/plan.yaml\n",
+                "2026-03-21 11:20:08  04_planning/plan.yaml\n",
                 encoding="utf-8",
             )
 
@@ -818,7 +821,7 @@ class MonitorTests(unittest.TestCase):
             # Raw output should contain OSC 8 hyperlink sequences
             self.assertIn("\033]8;;file://", output)
             # Should contain the path to the file
-            self.assertIn("02_planning/plan.yaml", output)
+            self.assertIn("04_planning/plan.yaml", output)
 
     def test_render_phase_log_entries_do_not_contain_osc8_hyperlinks(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -831,7 +834,7 @@ class MonitorTests(unittest.TestCase):
                 "2026-03-21 11:20:05  planning\n", encoding="utf-8"
             )
             files.created_files_log.write_text(
-                "2026-03-21 11:20:08  02_planning/plan.yaml\n",
+                "2026-03-21 11:20:08  04_planning/plan.yaml\n",
                 encoding="utf-8",
             )
 
@@ -855,7 +858,7 @@ class MonitorTests(unittest.TestCase):
                     phase_line = line
                 # Look for file entry line by checking for the relative path in the line
                 # (accounting for OSC 8 escape sequences that may wrap it)
-                if "02_planning/plan.yaml" in line and "+ " in line:
+                if "04_planning/plan.yaml" in line and "+ " in line:
                     file_line = line
 
             # Phase events should NOT contain OSC 8
@@ -872,7 +875,7 @@ class MonitorTests(unittest.TestCase):
             files.state.write_text('{"phase": "planning"}', encoding="utf-8")
             files.runtime_state.write_text('{"primary": {}}', encoding="utf-8")
             files.created_files_log.write_text(
-                "2026-03-21 11:20:08  02_planning/plan.yaml\n",
+                "2026-03-21 11:20:08  04_planning/plan.yaml\n",
                 encoding="utf-8",
             )
 
@@ -893,7 +896,7 @@ class MonitorTests(unittest.TestCase):
             self.assertNotIn("\033]8;;", stripped)
             self.assertNotIn("\033\\", stripped)
             # But should still contain the visible path text
-            self.assertIn("02_planning/plan.yaml", stripped)
+            self.assertIn("04_planning/plan.yaml", stripped)
 
     def test_render_shows_session_name_in_footer(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -1007,18 +1010,18 @@ class MonitorTests(unittest.TestCase):
         expected = {
             "requirements.md",
             "01_product_management/analysis.md",
-            "02_planning/plan.yaml",
-            "02_planning/tasks.md",
+            "04_planning/plan.yaml",
+            "04_planning/tasks.md",
             "03_research/code-*/summary.md",
             "03_research/code-*/detail.md",
             "03_research/code-*/done",
             "03_research/web-*/summary.md",
             "03_research/web-*/detail.md",
             "03_research/web-*/done",
-            "04_design/design.md",
-            "05_implementation/done_*",
-            "06_review/review.md",
-            "06_review/fix_request.md",
+            "05_design/design.md",
+            "06_implementation/done_*",
+            "07_review/review.md",
+            "07_review/fix_request.md",
             "08_completion/changes.md",
             "08_completion/approval.json",
         }

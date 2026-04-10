@@ -185,7 +185,7 @@ class RuntimeTests(unittest.TestCase):
             prompt_b = feature_dir / "coder_prompt_2.md"
             prompt_a.write_text("a", encoding="utf-8")
             prompt_b.write_text("b", encoding="utf-8")
-            planning_dir = feature_dir / "02_planning"
+            planning_dir = feature_dir / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "plan_2.md").write_text(
                 "## Sub-plan 2: API wiring\n", encoding="utf-8"
@@ -438,7 +438,7 @@ class RuntimeTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            planning_dir = feature_dir / "02_planning"
+            planning_dir = feature_dir / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "plan_2.md").write_text(
                 "## Sub-plan 2: UI polish\n", encoding="utf-8"
@@ -487,7 +487,7 @@ class RuntimeTests(unittest.TestCase):
     def test_finish_many_suppresses_interruption_poll_during_cleanup(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            planning_dir = feature_dir / "02_planning"
+            planning_dir = feature_dir / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "plan_2.md").write_text(
                 "## Sub-plan 2: UI polish\n", encoding="utf-8"
@@ -516,7 +516,7 @@ class RuntimeTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            planning_dir = feature_dir / "02_planning"
+            planning_dir = feature_dir / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "plan_2.md").write_text(
                 "## Sub-plan 2: UI polish\n", encoding="utf-8"
@@ -565,7 +565,7 @@ class RuntimeTests(unittest.TestCase):
     def test_finish_task_suppresses_interruption_poll_during_cleanup(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            planning_dir = feature_dir / "02_planning"
+            planning_dir = feature_dir / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "plan_2.md").write_text(
                 "## Sub-plan 2: UI polish\n", encoding="utf-8"
@@ -594,7 +594,7 @@ class RuntimeTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as td:
             feature_dir = Path(td)
-            planning_dir = feature_dir / "02_planning"
+            planning_dir = feature_dir / "04_planning"
             planning_dir.mkdir(parents=True, exist_ok=True)
             (planning_dir / "plan_2.md").write_text(
                 "## Sub-plan 2: UI polish\n", encoding="utf-8"

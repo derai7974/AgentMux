@@ -27,7 +27,7 @@ Render model is three-stage:
    - Resolve `[[include:path]]` / `[[include-optional:path]]` against `feature_dir`.
    - Include expansion runs after placeholder rendering, so include paths can contain placeholders (for example `[[include:[[placeholder:plan_file]]]]`).
 
-Every prompt builder provides `feature_dir` as the session directory and references workflow files with phase subpaths (for example `02_planning/plan.md`, `06_review/review.md`, `state.json`).
+Every prompt builder provides `feature_dir` as the session directory and references workflow files with phase subpaths (for example `04_planning/plan.md`, `07_review/review.md`, `state.json`).
 Builders that need project-level context (for example product manager and coder) also provide `project_dir`.
 
 ## Project-specific prompt extensions
@@ -120,23 +120,23 @@ The coder prompt contract now requires:
 
 - TDD protocol: write tests first, run them, verify they fail (Red), then implement until tests pass (Green).
 - Strict phase order discipline: follow the active plan/sub-plan phase order and do not move to later-phase logic early.
-- Atomic execution from tasks: complete one task from your assigned `02_planning/tasks_<N>.md` at a time, validate it, and check it off before starting the next task.
+- Atomic execution from tasks: complete one task from your assigned `04_planning/tasks_<N>.md` at a time, validate it, and check it off before starting the next task.
 - Completion marker flow remains unchanged: finish all required validation first, then create the phase completion marker as the final action.
 
 ## Staged planning contract
 
 The architect/planner split is:
 
-- **Architect** (`build_architect_prompt()`) — defines the technical design: solution approach, components, interfaces, data models, cross-cutting concerns, technology choices, risks. Sole output: `02_planning/architecture.md`.
+- **Architect** (`build_architect_prompt()`) — defines the technical design: solution approach, components, interfaces, data models, cross-cutting concerns, technology choices, risks. Sole output: `02_architecting/architecture.md`.
 - **Planner** (`build_planner_prompt()`) — receives `architecture.md` and produces the full execution schedule. Sole owner of all plan files.
 
 Planner (and replanning via `build_change_prompt()`) output contract:
 
-- `02_planning/plan.md` is the human-readable overview
-- `02_planning/plan_<N>.md` files are executable implementation units
-- `02_planning/execution_plan.yaml` is the scheduling source of truth (ordered execution groups, each marked as `serial` or `parallel`, with explicit named plan references) and also contains planner workflow-intent metadata (`needs_design`, `needs_docs`, `doc_files`, `review_strategy`)
-- `02_planning/tasks_<N>.md` are per-plan implementation checklists mapped to the same work; each coder receives only their assigned plan's tasks
-- `02_planning/tasks.md` is an optional human-readable overview summarizing all tasks (not used by scheduler)
+- `04_planning/plan.md` is the human-readable overview
+- `04_planning/plan_<N>.md` files are executable implementation units
+- `04_planning/execution_plan.yaml` is the scheduling source of truth (ordered execution groups, each marked as `serial` or `parallel`, with explicit named plan references) and also contains planner workflow-intent metadata (`needs_design`, `needs_docs`, `doc_files`, `review_strategy`)
+- `04_planning/tasks_<N>.md` are per-plan implementation checklists mapped to the same work; each coder receives only their assigned plan's tasks
+- `04_planning/tasks.md` is an optional human-readable overview summarizing all tasks (not used by scheduler)
 - Documentation updates must be represented in planning artifacts (`plan.md`, `plan_<N>.md`, and corresponding `tasks_<N>.md`) rather than a dedicated post-review docs phase.
 
 Planner output requirements for execution plans include:
@@ -145,7 +145,7 @@ Planner output requirements for execution plans include:
 - Per parallel sub-plan sections for `Scope`, `Owned files/modules`, `Dependencies`, and `Isolation`
 - Explicit conflict mapping by touched files/modules plus explicit ownership for each parallel lane
 - Safety-first rule: Phase 2 parallel sub-plans are allowed only when their owned files/modules are disjoint; if two lanes would edit the same file/module, that work must be merged into one sub-plan or moved into a serial integration step
-- Shared mutable artifacts such as `02_planning/tasks.md`, prompt templates, monitor/state metadata files, and cross-cutting tests/docs should have a single Phase 2 owner unless intentionally deferred to integration
+- Shared mutable artifacts such as `04_planning/tasks.md`, prompt templates, monitor/state metadata files, and cross-cutting tests/docs should have a single Phase 2 owner unless intentionally deferred to integration
 - `Isolation` must be justified in terms of exclusive ownership, not only logical separation
 - A callout for any enabling refactor needed to preserve boundaries, plus explicit technical debt rationale when refactor work is deferred
 
@@ -154,9 +154,9 @@ Current prompt builders:
 - `build_planner_prompt()` renders planning prompts (creates plan files from `architecture.md`)
 - `build_change_prompt()` applies the same staged planning artifact contract in replanning mode
 - planning/replanning prompt contracts require:
-  - `02_planning/plan.md` as the human-readable overview
-  - `02_planning/plan_<N>.md` executable sub-plan files
-  - `02_planning/execution_plan.yaml` as machine-readable schedule and metadata (`version`, ordered `groups`, `group_id`, `mode`, `plans`, plus `needs_design`, `needs_docs`, `doc_files`, `review_strategy`)
+  - `04_planning/plan.md` as the human-readable overview
+  - `04_planning/plan_<N>.md` executable sub-plan files
+  - `04_planning/execution_plan.yaml` as machine-readable schedule and metadata (`version`, ordered `groups`, `group_id`, `mode`, `plans`, plus `needs_design`, `needs_docs`, `doc_files`, `review_strategy`)
   - new plans must write `groups[].plans[]` entries as `{ file: plan_<N>.md, name: "<sub-plan title>" }`
   - `execution_plan.yaml` is required before implementation scheduling starts
 - `build_product_manager_prompt()` renders the PM analysis prompt

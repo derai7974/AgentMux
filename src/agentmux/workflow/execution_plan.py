@@ -103,7 +103,7 @@ def load_execution_plan(planning_dir: Path) -> ExecutionPlan:
                 raise _error(
                     path,
                     f"groups[{index}].plans[{plan_index}] must match 'plan_<N>.md' "
-                    "and stay in 02_planning/.",
+                    "and stay in 04_planning/.",
                 )
             if plan_ref in seen_plan_refs:
                 raise _error(

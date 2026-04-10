@@ -45,21 +45,22 @@ def mock_ctx(tmp_path: Path) -> MagicMock:
     ctx = MagicMock()
     ctx.files.feature_dir = tmp_path
     ctx.files.product_management_dir = tmp_path / "01_product_management"
-    ctx.files.planning_dir = tmp_path / "02_planning"
-    ctx.files.design_dir = tmp_path / "04_design"
-    ctx.files.implementation_dir = tmp_path / "05_implementation"
-    ctx.files.review_dir = tmp_path / "06_review"
+    ctx.files.architecting_dir = tmp_path / "02_architecting"
+    ctx.files.planning_dir = tmp_path / "04_planning"
+    ctx.files.design_dir = tmp_path / "05_design"
+    ctx.files.implementation_dir = tmp_path / "06_implementation"
+    ctx.files.review_dir = tmp_path / "07_review"
     ctx.files.completion_dir = tmp_path / "08_completion"
     ctx.files.research_dir = tmp_path / "research"
-    ctx.files.changes = tmp_path / "02_planning" / "changes.md"
-    ctx.files.plan = tmp_path / "02_planning" / "plan.md"
-    ctx.files.tasks = tmp_path / "02_planning" / "tasks.md"
-    ctx.files.design = tmp_path / "04_design" / "design.md"
-    ctx.files.review = tmp_path / "06_review" / "review.md"
-    ctx.files.fix_request = tmp_path / "06_review" / "fix_request.txt"
+    ctx.files.changes = tmp_path / "08_completion" / "changes.md"
+    ctx.files.plan = tmp_path / "04_planning" / "plan.md"
+    ctx.files.tasks = tmp_path / "04_planning" / "tasks.md"
+    ctx.files.design = tmp_path / "05_design" / "design.md"
+    ctx.files.review = tmp_path / "07_review" / "review.md"
+    ctx.files.fix_request = tmp_path / "07_review" / "fix_request.txt"
     ctx.files.requirements = tmp_path / "requirements.md"
     ctx.files.context = tmp_path / "context.md"
-    ctx.files.architecture = tmp_path / "02_planning" / "architecture.md"
+    ctx.files.architecture = tmp_path / "02_architecting" / "architecture.md"
     ctx.files.project_dir = tmp_path.parent
     ctx.files.relative_path = lambda p: str(p.relative_to(tmp_path))
     ctx.files.state = tmp_path / "state.json"
@@ -283,6 +284,7 @@ class TestPlanningHandler:
 
         # Create changes.md to trigger replan mode
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+        mock_ctx.files.changes.parent.mkdir(parents=True, exist_ok=True)
         mock_ctx.files.changes.write_text("changes requested")
 
         with (
@@ -416,6 +418,7 @@ class TestPlanningHandler:
 
         # Write plan.yaml (version 2) and changes.md
         mock_ctx.files.planning_dir.mkdir(parents=True, exist_ok=True)
+        mock_ctx.files.changes.parent.mkdir(parents=True, exist_ok=True)
         plan_data = {
             "version": 2,
             "plan_overview": "# Plan\n\nTest.",
@@ -499,7 +502,7 @@ class TestDesigningHandler:
     ) -> None:
         """Test transition on design.md creation."""
         handler = DesigningHandler()
-        event = WorkflowEvent(kind="design_written", path="04_design/design.md")
+        event = WorkflowEvent(kind="design_written", path="05_design/design.md")
 
         # Create the design file so is_ready predicate passes
         mock_ctx.files.design.parent.mkdir(parents=True, exist_ok=True)
@@ -985,7 +988,7 @@ class TestFixingHandler:
     ) -> None:
         """Test transition on done_1 marker."""
         handler = FixingHandler()
-        event = WorkflowEvent(kind="fix_done", path="05_implementation/done_1")
+        event = WorkflowEvent(kind="fix_done", path="06_implementation/done_1")
 
         # Create the done marker so is_ready predicate passes
         mock_ctx.files.implementation_dir.mkdir(parents=True, exist_ok=True)

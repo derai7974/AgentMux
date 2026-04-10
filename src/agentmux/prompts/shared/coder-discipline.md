@@ -1,4 +1,4 @@
-6. If `04_design/design.md` is present, follow it for UI-related work.
+6. If `05_design/design.md` is present, follow it for UI-related work.
 7. Change only task-relevant files and avoid drive-by cleanup or formatting outside the requested work.
 8. Run at least the relevant validation steps for the change. This includes tests and any other appropriate checks such as lint, build, or typecheck when they are relevant to the changed code.
 9. Do not write the review.

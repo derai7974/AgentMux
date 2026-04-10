@@ -7,12 +7,12 @@ Session directory: [[placeholder:feature_dir]]
 [[include:requirements.md]]
 </file>
 
-<file path="02_planning/plan.md">
-[[include:02_planning/plan.md]]
+<file path="04_planning/plan.md">
+[[include:04_planning/plan.md]]
 </file>
 
-<file path="06_review/review.md">
-[[include:06_review/review.md]]
+<file path="07_review/review.md">
+[[include:07_review/review.md]]
 </file>
 
 Your job:

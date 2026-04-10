@@ -1,6 +1,6 @@
 ## Submitting Your Review
 
-Write `06_review/review.yaml` with the fields below, then call `submit_review()` to validate your file and signal completion. The orchestrator observes the file and materializes `review.md` automatically.
+Write `07_review/review.yaml` with the fields below, then call `submit_review()` to validate your file and signal completion. The orchestrator observes the file and materializes `review.md` automatically.
 
 On pass:
 ```yaml

@@ -80,7 +80,7 @@ _VALID_REVIEW_PASS = {
 
 class TestSubmitArchitecture(SubmitToolTestBase):
     def _write_md(self, content: str = "# Architecture\n\nSome content.\n") -> Path:
-        path = self.feature_dir / "02_planning" / "architecture.md"
+        path = self.feature_dir / "02_architecting" / "architecture.md"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         return path
@@ -107,7 +107,7 @@ class TestSubmitArchitecture(SubmitToolTestBase):
         self._submit()
         # Only architecture.md (which WE wrote) should exist; no YAML generated
         self.assertFalse(
-            (self.feature_dir / "02_planning" / "architecture.yaml").exists()
+            (self.feature_dir / "02_architecting" / "architecture.yaml").exists()
         )
 
     def test_raises_when_md_missing(self):
@@ -135,7 +135,7 @@ class TestSubmitPlan(SubmitToolTestBase):
         )
 
     def test_appends_minimal_signal_to_log(self):
-        self._write_yaml("02_planning/plan.yaml", _VALID_PLAN)
+        self._write_yaml("04_planning/plan.yaml", _VALID_PLAN)
         result = self._submit()
         self.assertIn("Plan submitted", result)
         entries = self._read_log_entries()
@@ -144,11 +144,11 @@ class TestSubmitPlan(SubmitToolTestBase):
         self.assertEqual(entries[0]["payload"], {})
 
     def test_does_not_write_files(self):
-        self._write_yaml("02_planning/plan.yaml", _VALID_PLAN)
+        self._write_yaml("04_planning/plan.yaml", _VALID_PLAN)
         self._submit()
-        self.assertFalse((self.feature_dir / "02_planning" / "plan.md").exists())
+        self.assertFalse((self.feature_dir / "04_planning" / "plan.md").exists())
         self.assertFalse(
-            (self.feature_dir / "02_planning" / "execution_plan.yaml").exists()
+            (self.feature_dir / "04_planning" / "execution_plan.yaml").exists()
         )
 
     def test_raises_when_yaml_missing(self):
@@ -165,7 +165,7 @@ class TestSubmitPlan(SubmitToolTestBase):
         bad["groups"] = [
             {"group_id": "g1", "mode": "bad", "plans": [{"index": 1, "name": "x"}]}
         ]
-        self._write_yaml("02_planning/plan.yaml", bad)
+        self._write_yaml("04_planning/plan.yaml", bad)
         with self.assertRaises(ValueError) as ctx:
             submit_plan(feature_dir=str(self.feature_dir))
         self.assertIn("mode", str(ctx.exception))
@@ -175,7 +175,7 @@ class TestSubmitPlan(SubmitToolTestBase):
 
         bad = dict(_VALID_PLAN)
         bad["subplans"] = []
-        self._write_yaml("02_planning/plan.yaml", bad)
+        self._write_yaml("04_planning/plan.yaml", bad)
         with self.assertRaises(ValueError):
             submit_plan(feature_dir=str(self.feature_dir))
 
@@ -183,7 +183,7 @@ class TestSubmitPlan(SubmitToolTestBase):
         data = {
             **_VALID_PLAN,
         }
-        self._write_yaml("02_planning/plan.yaml", data)
+        self._write_yaml("04_planning/plan.yaml", data)
         result = self._submit()
         self.assertIn("Plan submitted", result)
 
@@ -196,7 +196,7 @@ class TestSubmitPlan(SubmitToolTestBase):
             try:
                 from pathlib import Path as _Path
 
-                self._write_yaml("02_planning/plan.yaml", _VALID_PLAN)
+                self._write_yaml("04_planning/plan.yaml", _VALID_PLAN)
                 from agentmux.integrations.mcp_research_server import submit_plan
 
                 result = submit_plan(
@@ -230,7 +230,7 @@ class TestSubmitReview(SubmitToolTestBase):
         )
 
     def test_pass_appends_minimal_signal_to_log(self):
-        self._write_yaml("06_review/review.yaml", _VALID_REVIEW_PASS)
+        self._write_yaml("07_review/review.yaml", _VALID_REVIEW_PASS)
         result = self._submit()
         self.assertIn("verdict: pass", result)
         entries = self._read_log_entries()
@@ -239,9 +239,9 @@ class TestSubmitReview(SubmitToolTestBase):
         self.assertEqual(entries[0]["payload"], {})
 
     def test_does_not_write_files(self):
-        self._write_yaml("06_review/review.yaml", _VALID_REVIEW_PASS)
+        self._write_yaml("07_review/review.yaml", _VALID_REVIEW_PASS)
         self._submit()
-        self.assertFalse((self.feature_dir / "06_review" / "review.md").exists())
+        self.assertFalse((self.feature_dir / "07_review" / "review.md").exists())
 
     def test_raises_when_yaml_missing(self):
         from agentmux.integrations.mcp_research_server import submit_review
@@ -263,7 +263,7 @@ class TestSubmitReview(SubmitToolTestBase):
                 }
             ],
         }
-        self._write_yaml("06_review/review.yaml", data)
+        self._write_yaml("07_review/review.yaml", data)
         result = self._submit()
         self.assertIn("verdict: fail", result)
         entries = self._read_log_entries()
@@ -272,7 +272,7 @@ class TestSubmitReview(SubmitToolTestBase):
     def test_fail_without_findings_raises(self):
         from agentmux.integrations.mcp_research_server import submit_review
 
-        self._write_yaml("06_review/review.yaml", {"verdict": "fail", "summary": "Bad"})
+        self._write_yaml("07_review/review.yaml", {"verdict": "fail", "summary": "Bad"})
         with self.assertRaises(ValueError) as ctx:
             submit_review(feature_dir=str(self.feature_dir))
         self.assertIn("findings", str(ctx.exception))
@@ -281,14 +281,14 @@ class TestSubmitReview(SubmitToolTestBase):
         from agentmux.integrations.mcp_research_server import submit_review
 
         self._write_yaml(
-            "06_review/review.yaml", {"verdict": "maybe", "summary": "Unsure"}
+            "07_review/review.yaml", {"verdict": "maybe", "summary": "Unsure"}
         )
         with self.assertRaises(ValueError):
             submit_review(feature_dir=str(self.feature_dir))
 
     def test_accepts_optional_commit_message(self):
         data = {**_VALID_REVIEW_PASS, "commit_message": "feat: add auth"}
-        self._write_yaml("06_review/review.yaml", data)
+        self._write_yaml("07_review/review.yaml", data)
         result = self._submit()
         self.assertIn("verdict: pass", result)
 
@@ -301,7 +301,7 @@ class TestSubmitReview(SubmitToolTestBase):
             try:
                 from pathlib import Path as _Path
 
-                self._write_yaml("06_review/review.yaml", _VALID_REVIEW_PASS)
+                self._write_yaml("07_review/review.yaml", _VALID_REVIEW_PASS)
                 from agentmux.integrations.mcp_research_server import submit_review
 
                 result = submit_review(

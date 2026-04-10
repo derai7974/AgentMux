@@ -19,10 +19,10 @@ Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are
 For the full artifact listing per phase (files, writers, readers, formats, and transitions), see **[docs/phases/](phases/index.md)**:
 
 - [Product Management](phases/product-management.md) — `01_product_management/`
-- [Planning](phases/planning.md) — `02_planning/` and `03_research/`
-- [Design](phases/design.md) — `04_design/`
-- [Implementation](phases/implementation.md) — `05_implementation/`
-- [Review](phases/review.md) — `06_review/`
+- [Planning](phases/02_architecting.md) — `phases/02_architecting.md` and `03_research/`
+- [Design](phases/05_design.md) — `05_design/`
+- [Implementation](phases/06_implementation.md) — `06_implementation/`
+- [Review](phases/07_review.md) — `07_review/`
 - [Completion](phases/completion.md) — `08_completion/`
 
 ## Key functions

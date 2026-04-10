@@ -8,7 +8,7 @@ Session directory: [[placeholder:feature_dir]]
 
 [[placeholder:plans_content]]
 
-[[include-optional:04_design/design.md]]
+[[include-optional:05_design/design.md]]
 
 [[placeholder:research_handoff]]
 

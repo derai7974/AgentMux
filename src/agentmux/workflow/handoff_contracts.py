@@ -68,8 +68,8 @@ class HandoffContract:
 ARCHITECTURE_CONTRACT = HandoffContract(
     name="architecture",
     description="Technical architecture document produced by the architect.",
-    yaml_file="02_planning/architecture.md",
-    md_file="02_planning/architecture.md",
+    yaml_file="02_architecting/architecture.md",
+    md_file="02_architecting/architecture.md",
     fields=(),  # Free-form markdown; no structured field validation
 )
 
@@ -82,8 +82,8 @@ PLAN_CONTRACT = HandoffContract(
     description=(
         "Unified execution plan with embedded sub-plans produced by the planner."
     ),
-    yaml_file="02_planning/plan.yaml",
-    md_file="02_planning/plan.md",
+    yaml_file="04_planning/plan.yaml",
+    md_file="04_planning/plan.md",
     fields=(
         FieldSpec(
             name="plan_overview",
@@ -163,8 +163,8 @@ PLAN_CONTRACT = HandoffContract(
 REVIEW_CONTRACT = HandoffContract(
     name="review",
     description="Code review verdict and findings.",
-    yaml_file="06_review/review.yaml",
-    md_file="06_review/review.md",
+    yaml_file="07_review/review.yaml",
+    md_file="07_review/review.md",
     fields=(
         FieldSpec(
             name="verdict",

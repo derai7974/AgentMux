@@ -115,7 +115,7 @@ class TestSubmitArchitecture(_FeatureDirMixin, unittest.TestCase):
     """Tests for submit_architecture signal tool."""
 
     def _write_md(self, content: str = "# Architecture\n\nSome content.\n") -> Path:
-        path = self.feature_dir / "02_planning" / "architecture.md"
+        path = self.feature_dir / "02_architecting" / "architecture.md"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         return path
@@ -132,7 +132,7 @@ class TestSubmitArchitecture(_FeatureDirMixin, unittest.TestCase):
         self._write_md()
         mrs.submit_architecture(feature_dir=str(self.feature_dir))
         self.assertFalse(
-            (self.feature_dir / "02_planning" / "architecture.yaml").exists()
+            (self.feature_dir / "02_architecting" / "architecture.yaml").exists()
         )
 
     def test_raises_when_md_missing(self):
@@ -182,7 +182,7 @@ class TestSubmitPlan(_FeatureDirMixin, unittest.TestCase):
     def _write_yaml(self, data=None):
         import yaml
 
-        path = self.feature_dir / "02_planning" / "plan.yaml"
+        path = self.feature_dir / "04_planning" / "plan.yaml"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(yaml.safe_dump(data or _VALID_PLAN))
 
@@ -197,9 +197,9 @@ class TestSubmitPlan(_FeatureDirMixin, unittest.TestCase):
     def test_does_not_write_any_extra_files(self):
         self._write_yaml()
         mrs.submit_plan(feature_dir=str(self.feature_dir))
-        self.assertFalse((self.feature_dir / "02_planning" / "plan.md").exists())
+        self.assertFalse((self.feature_dir / "04_planning" / "plan.md").exists())
         self.assertFalse(
-            (self.feature_dir / "02_planning" / "execution_plan.yaml").exists()
+            (self.feature_dir / "04_planning" / "execution_plan.yaml").exists()
         )
 
     def test_raises_when_yaml_missing(self):
@@ -233,7 +233,7 @@ class TestSubmitReview(_FeatureDirMixin, unittest.TestCase):
     def _write_yaml(self, data):
         import yaml
 
-        path = self.feature_dir / "06_review" / "review.yaml"
+        path = self.feature_dir / "07_review" / "review.yaml"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(yaml.safe_dump(data))
 
@@ -248,7 +248,7 @@ class TestSubmitReview(_FeatureDirMixin, unittest.TestCase):
     def test_does_not_write_any_extra_files(self):
         self._write_yaml(self._VALID_PASS)
         mrs.submit_review(feature_dir=str(self.feature_dir))
-        self.assertFalse((self.feature_dir / "06_review" / "review.md").exists())
+        self.assertFalse((self.feature_dir / "07_review" / "review.md").exists())
 
     def test_raises_when_yaml_missing(self):
         with self.assertRaises(ValueError) as ctx:

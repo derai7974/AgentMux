@@ -1,6 +1,6 @@
 # Phase: Review
 
-> Directory: `06_review/` | Optional: no
+> Directory: `07_review/` | Optional: no
 
 The reviewer evaluates the implementation against the plan, producing a structured verdict. AgentMux routes to a specialized reviewer type based on the plan's `review_strategy`.
 
