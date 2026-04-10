@@ -1,41 +1,44 @@
 # Shared File Protocol
 
-> Related source files: `agentmux/shared/models.py`, `agentmux/sessions/state_store.py`, `agentmux/runtime/event_bus.py`, `agentmux/runtime/file_events.py`, `agentmux/runtime/interruption_sources.py`, `agentmux/workflow/orchestrator.py`, `agentmux/workflow/event_router.py`, `agentmux/workflow/phases.py`, `agentmux/workflow/handlers.py`, `agentmux/workflow/prompts.py`
+> Related source files: `src/agentmux/shared/models.py`, `src/agentmux/sessions/state_store.py`, `src/agentmux/runtime/event_bus.py`, `src/agentmux/runtime/file_events.py`, `src/agentmux/runtime/interruption_sources.py`, `src/agentmux/workflow/orchestrator.py`, `src/agentmux/workflow/event_router.py`, `src/agentmux/workflow/phases.py`, `src/agentmux/workflow/handlers.py`, `src/agentmux/workflow/prompts.py`
 
 Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are grouped by phase subdirectories and created on-demand as needed, while a small set of root runtime artifacts is maintained directly by the orchestrator.
 
 ## Root files
 
-- `state.json` — current workflow phase; orchestrator drives transitions
+- `state.json` — current workflow phase and all scheduling state. See [artifacts/session-state.md](artifacts/session-state.md#artifact-statejson).
 - `requirements.md` — initial request passed to architect
 - `context.md` — auto-generated rules/session info injected into prompts
-- `runtime_state.json` / `orchestrator.log` — runtime tracking and orchestrator logs
-- `created_files.log` — append-only created-file history written by the orchestrator as `YYYY-MM-DD HH:MM:SS  relative/path`; records files only (not directories), deduplicated by relative path, and seeded once at startup to include pre-existing session files
-- `tool_events.jsonl` — append-only MCP tool-call event log; each entry is a JSON object `{"tool": "<name>", "timestamp": "<ISO-8601>", "payload": {...}}`; written by MCP server tools and tailed by `ToolCallEventSource`
-- `tool_event_state.json` — persisted tool-event replay cursor; stores the last applied byte offset in `tool_events.jsonl` so resume replays only unapplied tool signals
+- `runtime_state.json` / `orchestrator.log` — runtime tracking and orchestrator logs. See [artifacts/session-state.md](artifacts/session-state.md#artifact-runtime_statejson).
+- `created_files.log` — append-only created-file history. See [artifacts/event-logs.md](artifacts/event-logs.md#created_fileslog).
+- `tool_events.jsonl` — append-only MCP tool-call event log. See [artifacts/event-logs.md](artifacts/event-logs.md#tool_eventsjsonl).
+- `tool_event_state.json` — persisted tool-event replay cursor. See [artifacts/session-state.md](artifacts/session-state.md#artifact-tool_event_statejson).
 
 ## Phase artifacts
 
 For the full artifact listing per phase (files, writers, readers, formats, and transitions), see **[docs/phases/](phases/index.md)**:
 
-- [Product Management](phases/product-management.md) — `01_product_management/`
-- [Planning](phases/02_architecting.md) — `phases/02_architecting.md` and `03_research/`
+- [Product Management](phases/01_product-management.md) — `01_product_management/`
+- [Architecting](phases/02_architecting.md) — `02_architecting/` and `03_research/`
+- [Planning](phases/04_planning.md) — `04_planning/`
 - [Design](phases/05_design.md) — `05_design/`
 - [Implementation](phases/06_implementation.md) — `06_implementation/`
 - [Review](phases/07_review.md) — `07_review/`
-- [Completion](phases/completion.md) — `08_completion/`
+- [Completion](phases/08_completion.md) — `08_completion/`
+
+See also **[docs/artifacts/](artifacts/index.md)** for full schema documentation of key session artifacts.
 
 ## Key functions
 
-- `PipelineOrchestrator.run()` / `build_event_bus()` in `agentmux/workflow/orchestrator.py` — run the phase loop on top of a shared session event bus
-- `EventBus` in `agentmux/runtime/event_bus.py` — generic dispatcher plus start/stop lifecycle for dedicated event sources
-- `FileEventSource` / `FeatureEventHandler` in `agentmux/runtime/file_events.py` — normalize watchdog activity under the feature directory and publish `file.*` events
-- `CreatedFilesLogListener` / `seed_existing_files()` in `agentmux/runtime/file_events.py` — enforce created-file logging semantics (`created_files.log`, first-seen only, bootstrap coverage)
-- `ToolCallEventSource` in `agentmux/runtime/tool_events.py` — tail `tool_events.jsonl` and publish `tool.<name>` events into the EventBus; seeded at startup, then watched via watchdog
-- `InterruptionEventSource` in `agentmux/runtime/interruption_sources.py` — publish interruption events when registered tmux panes disappear
-- `WorkflowEventRouter.enter_current_phase()` in `agentmux/workflow/event_router.py` — explicitly bootstraps the active phase before steady-state event processing starts
-- `build_*_prompt()` in `agentmux/workflow/prompts.py` — loads and renders the markdown template for each phase; called lazily by handlers
-- Handler functions in `agentmux/workflow/handlers.py` — each builds and writes its prompt file just before sending to agent
+- `PipelineOrchestrator.run()` / `build_event_bus()` in `src/agentmux/workflow/orchestrator.py` — run the phase loop on top of a shared session event bus
+- `EventBus` in `src/agentmux/runtime/event_bus.py` — generic dispatcher plus start/stop lifecycle for dedicated event sources
+- `FileEventSource` / `FeatureEventHandler` in `src/agentmux/runtime/file_events.py` — normalize watchdog activity under the feature directory and publish `file.*` events
+- `CreatedFilesLogListener` / `seed_existing_files()` in `src/agentmux/runtime/file_events.py` — enforce created-file logging semantics (`created_files.log`, first-seen only, bootstrap coverage)
+- `ToolCallEventSource` in `src/agentmux/runtime/tool_events.py` — tail `tool_events.jsonl` and publish `tool.<name>` events into the EventBus; seeded at startup, then watched via watchdog
+- `InterruptionEventSource` in `src/agentmux/runtime/interruption_sources.py` — publish interruption events when registered tmux panes disappear
+- `WorkflowEventRouter.enter_current_phase()` in `src/agentmux/workflow/event_router.py` — explicitly bootstraps the active phase before steady-state event processing starts
+- `build_*_prompt()` in `src/agentmux/workflow/prompts.py` — loads and renders the markdown template for each phase; called lazily by handlers
+- Handler functions in `src/agentmux/workflow/handlers/` — each builds and writes its prompt file just before sending to agent
 
 ## MCP Tool Event Protocol
 

@@ -1,8 +1,18 @@
 # Phase: Implementation (Implementing + Fixing)
 
+> Related source files: `src/agentmux/workflow/handlers/implementing.py`, `src/agentmux/workflow/handlers/fixing.py`, `src/agentmux/workflow/phase_registry.py`, `src/agentmux/workflow/prompts.py`, `src/agentmux/integrations/mcp_server.py`
 > Directory: `06_implementation/` (shared by `implementing` and `fixing` phases) | Optional: no (implementing); yes (fixing)
 
 Implementation executes the execution plan produced by planning. Coders receive numbered prompt files mapped to scheduled plan units. After a failed review, the fixing sub-phase runs in the same directory.
+
+## Conditions
+
+**Implementing:** entered after planning (or designing) completes.
+**Fixing:** entered after a `review_failed` event, as long as the review loop cap has not been reached.
+
+## Role
+
+**coder** agent — receives a per-plan prompt and implements or fixes the assigned sub-plan. One coder is spawned per active plan in a parallel group; serial groups spawn one at a time.
 
 ## Artifacts
 
@@ -41,3 +51,9 @@ After a `review_fail` event (and below the review loop cap), the pipeline re-ent
 | `reviewing` | `review_failed` (below loop cap) | `fixing` |
 | `fixing` | `implementation_completed` | `reviewing` |
 | `reviewing` | `review_failed` (loop cap reached) | `completing` |
+
+## Notes
+
+- `implementing` and `fixing` share the same directory (`06_implementation/`); they differ only in how the prompt is built (plan vs. fix-request).
+- Each coder receives only its assigned `plan_<N>.md` and `tasks_<N>.md`; coders for different sub-plans never see each other's prompts.
+- See [Artifact: state.json](../artifacts/session-state.md) for the implementation scheduling fields (`implementation_group_*`).

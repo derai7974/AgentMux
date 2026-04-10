@@ -1,6 +1,6 @@
 # Handoff Contracts
 
-> Related source files: `agentmux/workflow/handoff_contracts.py`, `agentmux/workflow/handoff_artifacts.py`, `agentmux/integrations/mcp_server.py`, `agentmux/prompts/shared/handoff-contract-architecture.md`, `agentmux/prompts/shared/handoff-contract-plan.md`, `agentmux/prompts/shared/handoff-contract-review.md`
+> Related source files: `src/agentmux/workflow/handoff_contracts.py`, `src/agentmux/integrations/mcp_server.py`, `src/agentmux/prompts/shared/handoff-contract-architecture.md`, `src/agentmux/prompts/shared/handoff-contract-plan.md`, `src/agentmux/prompts/shared/handoff-contract-review.md`
 
 Handoff contracts define the structured interface between workflow phases. Each contract specifies the fields an agent must produce, validates submissions, and drives the orchestrator to materialize derived artifacts.
 
@@ -30,48 +30,19 @@ Completion semantics are phase-specific:
 ### Plan
 
 - **MCP tool:** `submit_plan`
-- **Artifacts:** see [phases/planning.md § Planning](phases/planning.md#planning)
+- **Artifacts:** see [phases/04_planning.md](phases/04_planning.md)
+- **Full schema:** see [artifacts/plan-yaml.md](artifacts/plan-yaml.md)
 - **Required fields:** `version` (must be `2`), `plan_overview`, `groups`, `subplans`, `review_strategy`, `needs_design`, `needs_docs`, `doc_files`
 
-`plan.yaml` schema (version 2):
-```yaml
-version: 2
-plan_overview: |
-  Human-readable overview…
-review_strategy:
-  severity: medium   # low | medium | high
-  focus: [security]
-needs_design: false
-needs_docs: true
-doc_files: [docs/api.md]
-groups:
-  - group_id: core-setup
-    mode: serial     # serial | parallel
-    plans:
-      - index: 1
-        name: Core setup
-subplans:
-  - index: 1
-    title: Short descriptive title
-    scope: What this sub-plan covers
-    owned_files: [src/auth.py]
-    dependencies: None
-    implementation_approach: |
-      Step-by-step approach.
-    acceptance_criteria: |
-      Testable criteria for completion.
-    tasks:
-      - First task
-    isolation_rationale: |   # optional
-      Why safe for parallel execution.
-```
+For the complete field-level schema with types, constraints, and examples see [artifacts/plan-yaml.md](artifacts/plan-yaml.md).
 
 Groups reference sub-plans by `index`. Indices must start at 1 and be contiguous (1, 2, 3, …). The orchestrator converts `{index: N, name: "..."}` → `{file: plan_N.md, name: "..."}` when materializing `execution_plan.yaml`.
 
 ### Review
 
 - **MCP tool:** `submit_review`
-- **Artifacts:** see [phases/review.md](phases/review.md)
+- **Artifacts:** see [phases/07_review.md](phases/07_review.md)
+- **Full schema:** see [artifacts/review-yaml.md](artifacts/review-yaml.md)
 - **Required fields:** `verdict` (`"pass"` or `"fail"`), `summary`
 - **Conditional fields:** `findings` (required on `fail` — list of `{location, issue, severity, recommendation}`), `commit_message` (optional on `pass`)
 

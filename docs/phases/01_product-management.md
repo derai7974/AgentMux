@@ -1,8 +1,17 @@
 # Phase: Product Management
 
+> Related source files: `src/agentmux/workflow/handlers/product_management.py`, `src/agentmux/workflow/phase_registry.py`, `src/agentmux/workflow/prompts.py`, `src/agentmux/integrations/mcp_server.py`
 > Directory: `01_product_management/` | Optional: yes (requires `--product-manager` flag)
 
 The product manager analyzes the feature request for usability concerns, integration fit, and design trade-offs before the architect begins technical planning. Its output is advisory — if it conflicts with `requirements.md`, `requirements.md` wins.
+
+## Conditions
+
+Activated only when the pipeline is started with the `--product-manager` flag (or `agentmux issue ... --product-manager`). Skipped entirely otherwise; the pipeline starts directly at `architecting`.
+
+## Role
+
+**product-manager** agent — analyzes requirements and produces advisory analysis.
 
 ## Artifacts
 
@@ -21,6 +30,5 @@ The product manager analyzes the feature request for usability concerns, integra
 
 ## Notes
 
-- Skipped entirely when `--product-manager` flag is not set; the pipeline starts directly at `architecting`.
 - `analysis.md` is injected into the architect prompt as advisory context, not a hard constraint.
 - The monitor shows this phase only when it is active (optional phase).
