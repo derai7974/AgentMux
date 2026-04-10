@@ -856,6 +856,38 @@ roles:
         )
         self.assertEqual("custom-model", agent.model)
 
+    def test_qwen_provider_loads(self):
+        p = PROVIDERS["qwen"]
+        self.assertEqual("qwen", p.cli)
+        self.assertIsNone(p.model_flag)
+        self.assertIsNone(p.trust_snippet)
+        self.assertEqual("qwen3-max", p.default_model)
+        self.assertEqual(["--yolo"], p.default_role_args)
+
+    def test_qwen_resolve_agent(self):
+        agent = resolve_agent(
+            global_provider=get_provider("qwen"),
+            role="coder",
+            role_config={},
+        )
+        self.assertEqual("qwen", agent.cli)
+        self.assertIsNone(agent.model_flag)
+        self.assertIsNone(agent.trust_snippet)
+        self.assertIn("--yolo", agent.args)
+
+    def test_qwen_build_agent_command(self):
+        agent = AgentConfig(
+            role="coder",
+            cli="qwen",
+            model="qwen3-max",
+            model_flag=None,
+            args=["--yolo"],
+        )
+        cmd = build_agent_command(agent)
+        self.assertIn("qwen", cmd)
+        self.assertIn("--yolo", cmd)
+        self.assertNotIn("--model", cmd)
+
 
 if __name__ == "__main__":
     unittest.main()

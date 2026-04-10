@@ -175,7 +175,9 @@ class CodeResearcherRequirementsTests(unittest.TestCase):
             self.assertIn(str(feature_dir), prompt)
             self.assertIn(str(project_dir), prompt)
             self.assertIn("03_research/code-auth-module/request.md", prompt)
-            self.assertIn("03_research/code-auth-module/done", prompt)
+            self.assertIn(
+                'submit_research_done(topic="auth-module", type="code")', prompt
+            )
 
     def test_runtime_supports_string_task_keys_and_spawn_finish_task(self) -> None:
         with tempfile.TemporaryDirectory() as td:

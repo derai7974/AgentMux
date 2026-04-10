@@ -183,7 +183,7 @@ class ProductManagerRequirementsTests(unittest.TestCase):
 
             self.assertIn(str(feature_dir), prompt)
             self.assertIn(str(project_dir), prompt)
-            self.assertIn("01_product_management/done", prompt)
+            self.assertIn("submit_pm_done", prompt)
             self.assertNotIn("04_design/design.md", prompt)
             self.assertNotIn("/frontend-design", prompt)
             self.assertIn("Design handoff needed", prompt)

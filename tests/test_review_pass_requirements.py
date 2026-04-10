@@ -114,7 +114,7 @@ class ReviewPassRequirementsTests(unittest.TestCase):
             self.assertIn("Always write `07_review/review.md`", prompt)
             self.assertIn("verdict: pass", prompt)
             self.assertIn("verdict: fail", prompt)
-            self.assertIn("Do not update `state.json`", prompt)
+            self.assertIn("submit_review()", prompt)
 
     def test_reviewing_phase_on_enter_sends_prompt_to_reviewer(self) -> None:
         with tempfile.TemporaryDirectory() as td:

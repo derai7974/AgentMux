@@ -208,7 +208,7 @@ class DesignerRequirementsTests(unittest.TestCase):
             designer_prompt = build_designer_prompt(files)
             initial_prompts = build_initial_prompts(files)
 
-            self.assertIn("done_1", coder_prompt)
+            self.assertIn("submit_done(subplan_index=1)", coder_prompt)
             self.assertIn("frontend-design", designer_prompt)
             self.assertIn("05_design/design.md", designer_prompt)
             self.assertNotIn("[[placeholder:", coder_prompt)
