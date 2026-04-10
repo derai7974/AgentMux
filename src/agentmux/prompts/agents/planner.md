@@ -64,4 +64,3 @@ See Output & Artifacts below for file specs. Write all files to `04_planning/` a
 - Take the architecture document as absolute truth — do not modify it.
 - Create actionable, implementation-oriented plans only (the "How" and "When").
 - Do not write to `04_planning/plan.yaml` before the user approves.
-- Do not update `state.json` from the planner planning step.

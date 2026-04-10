@@ -9,7 +9,7 @@ from agentmux.workflow.event_catalog import (
     EVENT_IMPLEMENTATION_COMPLETED,
     EVENT_REVIEW_FAILED,
 )
-from agentmux.workflow.event_router import EventSpec, WorkflowEvent
+from agentmux.workflow.event_router import EventSpec, ToolSpec, WorkflowEvent
 from agentmux.workflow.phase_helpers import (
     reset_markers,
     send_to_role,
@@ -50,15 +50,10 @@ class FixingHandler:
         }
 
     def get_event_specs(self) -> tuple[EventSpec, ...]:
-        return (
-            EventSpec(
-                name="fix_done",
-                watch_paths=("06_implementation/done_1",),
-                is_ready=lambda path, ctx, state: (
-                    ctx.files.feature_dir / path
-                ).exists(),
-            ),
-        )
+        return ()
+
+    def get_tool_specs(self) -> tuple[ToolSpec, ...]:
+        return (ToolSpec(name="done", tool_names=("submit_done",)),)
 
     def handle_event(
         self,
@@ -67,8 +62,15 @@ class FixingHandler:
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle events for fixing phase."""
-        if event.kind == "fix_done":
-            ctx.runtime.finish_many("coder")
-            ctx.runtime.deactivate("coder")
-            return {"last_event": EVENT_IMPLEMENTATION_COMPLETED}, "reviewing"
+        if event.kind == "done":
+            payload = event.payload.get("payload", {})
+            subplan_index = payload.get("subplan_index")
+            if subplan_index is not None:
+                # Write done_N marker for tracking (idempotent)
+                done_n_path = ctx.files.implementation_dir / f"done_{subplan_index}"
+                if not done_n_path.exists():
+                    done_n_path.touch()
+                ctx.runtime.finish_many("coder")
+                ctx.runtime.deactivate("coder")
+                return {"last_event": EVENT_IMPLEMENTATION_COMPLETED}, "reviewing"
         return {}, None

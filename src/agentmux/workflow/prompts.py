@@ -290,13 +290,7 @@ def build_reviewer_summary_prompt(
 def build_designer_prompt(files: RuntimeFiles) -> str:
     completion_instruction = (
         "FINAL STEP ONLY — after writing design.md and any optional design artifacts, "
-        "stop. Do not update state.json or any workflow status from the designer step."
-    )
-    completion_constraints = "\n".join(
-        [
-            "- Do not update state.json from the designer step.",
-            "- `design.md` is the completion signal for this phase.",
-        ]
+        "stop. This must be the very last action you take."
     )
     rendered = _render_template(
         _load_template(
@@ -308,7 +302,6 @@ def build_designer_prompt(files: RuntimeFiles) -> str:
             "feature_dir": files.feature_dir,
             "project_dir": files.project_dir,
             "completion_instruction": completion_instruction,
-            "completion_constraints": completion_constraints,
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)
@@ -319,19 +312,11 @@ def build_coder_subplan_prompt(
     subplan_path: Path,
     subplan_index: int,
 ) -> str:
-    marker_name = f"done_{subplan_index}"
-    completion_marker = files.relative_path(files.implementation_dir / marker_name)
     completion_instruction = (
         "FINAL STEP ONLY — once all code is written and nothing else remains, "
-        f"create the completion marker file `{completion_marker}` "
-        "in the session directory and leave it empty. "
+        f"call `submit_done(subplan_index={subplan_index})` "
+        "to signal completion to the orchestrator. "
         "This must be the very last action you take."
-    )
-    completion_constraints = "\n".join(
-        [
-            "- Do not update state.json in parallel coder mode.",
-            "- Do not write anything to the marker file; create it as an empty file.",
-        ]
     )
 
     # Compute per-plan tasks file path and validate it exists
@@ -356,15 +341,12 @@ def build_coder_subplan_prompt(
         "</file>"
     )
     post_discipline_items = (
-        f"12. When your sub-plan implementation is complete, "
-        f"call `submit_done(subplan_index={subplan_index})` "
-        "to signal completion to the orchestrator.\n"
-        "13. If implementation reveals that requirements or the plan need adjustment "
+        f"12. If implementation reveals that requirements or the plan need adjustment "
         "(e.g. a requirement turns out to be infeasible as written, or a task needs "
         "to be split or reordered), "
         f"update `requirements.md` and `{plan_file_rel}` / `{tasks_file_rel}` "
         "accordingly so they stay in sync with reality.\n"
-        f"14. {completion_instruction}"
+        f"13. {completion_instruction}"
     )
 
     rendered = _render_template(
@@ -379,7 +361,6 @@ def build_coder_subplan_prompt(
             "plans_section": plans_section,
             "research_handoff": _build_research_handoff(files),
             "post_discipline_items": post_discipline_items,
-            "completion_constraints": completion_constraints,
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)
@@ -457,11 +438,6 @@ def build_coder_whole_plan_prompt(files: RuntimeFiles) -> str:
         "or all at once at the end. "
         "Each call signals to the orchestrator that the corresponding plan is complete."
     )
-    completion_constraints = "\n".join(
-        [
-            "- Do not update state.json.",
-        ]
-    )
 
     post_discipline_items = (
         "12. If implementation reveals that requirements or a plan need adjustment "
@@ -489,7 +465,6 @@ def build_coder_whole_plan_prompt(files: RuntimeFiles) -> str:
             "plans_section": plans_content,
             "research_handoff": _build_research_handoff(files),
             "post_discipline_items": post_discipline_items,
-            "completion_constraints": completion_constraints,
         },
     )
     return _expand_session_includes(rendered, files.feature_dir)

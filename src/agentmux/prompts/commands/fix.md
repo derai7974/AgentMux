@@ -18,19 +18,13 @@ Session directory: [[placeholder:feature_dir]]
 [[include:07_review/fix_request.md]]
 </file>
 
-<file path="state.json">
-[[include:state.json]]
-</file>
-
 Your job:
 1. Read the review findings in `07_review/fix_request.md` carefully.
 2. Fix each finding in the project directory [[placeholder:project_dir]].
 3. Do NOT re-implement from scratch — only address the listed findings.
-4. FINAL STEP ONLY — once all fixes are applied, create the completion marker file `06_implementation/done_1` in the session directory and leave it empty.
+4. FINAL STEP ONLY — once all fixes are applied, call `submit_done(subplan_index=1)` to signal completion.
 
 [[placeholder:project_instructions]]
 
 Constraints:
 - Only fix what the review asks for.
-- Do not update `state.json` from the fix step.
-- Do not write anything to the marker file; create it as an empty file.

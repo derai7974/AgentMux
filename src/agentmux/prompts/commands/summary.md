@@ -33,7 +33,6 @@ Your job:
    ```
 
 FINAL STEP ONLY — once `08_completion/summary.md` is fully written, stop.
-Do not update `state.json` or any other workflow file.
 
 [[placeholder:project_instructions]]
 

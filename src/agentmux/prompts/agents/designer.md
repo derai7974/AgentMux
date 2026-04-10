@@ -29,4 +29,3 @@ Constraints:
 - Only include presentational frontend artifacts (no backend or business logic).
 - Do not create JavaScript or TypeScript files with application logic.
 - For every described view, explicitly document the Initial-State, Loading-State, and Error-State.
-[[placeholder:completion_constraints]]

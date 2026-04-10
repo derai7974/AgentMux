@@ -27,7 +27,7 @@ Your job:
 8. Treat shared mutable artifacts conservatively. Files such as prompt templates, monitor/state metadata files, and cross-cutting tests/docs should have a single owner unless intentionally deferred to a serial integration sub-plan.
 9. Explicitly assess enabling refactors and technical debt tradeoffs.
 10. Documentation updates must be captured as explicit tasks in the relevant sub-plan.
-11. FINAL STEP ONLY — after writing `04_planning/plan.yaml` and calling `submit_plan()`, stop. Do not update `state.json` or any workflow status from this step.
+11. FINAL STEP ONLY — after writing `04_planning/plan.yaml`, call `submit_plan()` to signal completion.
 
 [[placeholder:project_instructions]]
 
@@ -35,5 +35,4 @@ Your job:
 
 Constraints:
 - Do not implement code.
-- Do not update `state.json` from the replanning step.
 - Do not write `04_planning/plan.yaml` before explicit user approval.
