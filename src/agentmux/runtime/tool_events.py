@@ -151,11 +151,39 @@ class ToolCallEventSource(EventSource):
         self._observer.join()
         self._observer = None
 
-    def _seed_existing(self, bus: EventBus) -> None:
+    def _read_and_emit_from_offset(self, bus: EventBus) -> None:
+        """Read and emit all lines from ``self._offset`` to EOF, then update offset.
+
+        Opens the tool-events log, seeks to the current cursor, and emits a
+        ``SessionEvent`` for every non-empty line.  Updates ``self._offset``
+        to the new file position so subsequent calls resume where this one
+        left off.
+        """
         log_path = self._feature_dir / TOOL_EVENTS_LOG_NAME
         if not log_path.exists():
             return
-        current_size = log_path.stat().st_size
+
+        with log_path.open("r", encoding="utf-8") as f:
+            f.seek(self._offset)
+            while True:
+                start_offset = f.tell()
+                line = f.readline()
+                if not line:
+                    break
+                end_offset = f.tell()
+                stripped = line.rstrip("\n")
+                if stripped:
+                    self._emit_line(
+                        stripped,
+                        bus,
+                        start_offset=start_offset,
+                        end_offset=end_offset,
+                    )
+            self._offset = f.tell()
+
+    def _seed_existing(self, bus: EventBus) -> None:
+        """Replay pre-existing log entries from before ``start()`` was called."""
+        current_size = self._current_log_size()
         if self._offset > current_size:
             logger.warning(
                 "tool event cursor %s exceeds log size %s; replaying from start",
@@ -164,50 +192,21 @@ class ToolCallEventSource(EventSource):
             )
             self._offset = 0
             persist_tool_event_cursor(self._feature_dir, 0)
-        with log_path.open("r", encoding="utf-8") as f:
-            f.seek(self._offset)
-            while True:
-                start_offset = f.tell()
-                line = f.readline()
-                if not line:
-                    break
-                end_offset = f.tell()
-                stripped = line.rstrip("\n")
-                if stripped:
-                    self._emit_line(
-                        stripped,
-                        bus,
-                        start_offset=start_offset,
-                        end_offset=end_offset,
-                    )
-            self._offset = f.tell()
+        self._read_and_emit_from_offset(bus)
 
     def _on_modified(self, bus: EventBus) -> None:
-        log_path = self._feature_dir / TOOL_EVENTS_LOG_NAME
-        if not log_path.exists():
-            return
-
-        current_size = log_path.stat().st_size
+        """Handle a watchdog modification event — emit only newly appended lines."""
+        current_size = self._current_log_size()
         if current_size <= self._offset:
             return
+        self._read_and_emit_from_offset(bus)
 
-        with log_path.open("r", encoding="utf-8") as f:
-            f.seek(self._offset)
-            while True:
-                start_offset = f.tell()
-                line = f.readline()
-                if not line:
-                    break
-                end_offset = f.tell()
-                stripped = line.rstrip("\n")
-                if stripped:
-                    self._emit_line(
-                        stripped,
-                        bus,
-                        start_offset=start_offset,
-                        end_offset=end_offset,
-                    )
-            self._offset = f.tell()
+    def _current_log_size(self) -> int:
+        """Return the current byte size of the tool-events log, or 0 if absent."""
+        log_path = self._feature_dir / TOOL_EVENTS_LOG_NAME
+        if not log_path.exists():
+            return 0
+        return log_path.stat().st_size
 
     def _emit_line(
         self,
