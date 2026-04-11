@@ -16,7 +16,11 @@ from ..integrations.github import GitHubBootstrapper
 from ..integrations.mcp import McpAgentPreparer
 from ..runtime import TmuxRuntimeFactory
 from ..runtime.file_events import ensure_watchdog_available
-from ..runtime.tmux_control import list_agentmux_sessions, tmux_session_exists
+from ..runtime.tmux_control import (
+    list_agentmux_sessions,
+    tmux_kill_session,
+    tmux_session_exists,
+)
 from ..sessions import (
     PreparedSession,
     PromptInput,
@@ -193,6 +197,8 @@ class PipelineApplication:
             return self.orchestrator.run(ctx, args.keep_session)
         except KeyboardInterrupt:
             self._cleanup_runtime_processes(runtime)
+            if tmux_session_exists(runtime.session_name):
+                tmux_kill_session(runtime.session_name)
             report = self.interruptions.build_canceled(
                 feature_dir,
                 "The background orchestrator received Ctrl-C.",
@@ -203,6 +209,8 @@ class PipelineApplication:
             return 130
         except Exception as exc:
             self._cleanup_runtime_processes(runtime)
+            if tmux_session_exists(runtime.session_name):
+                tmux_kill_session(runtime.session_name)
             report = self.interruptions.build_failed(
                 feature_dir,
                 self.interruptions.summarize_exception(
@@ -530,6 +538,8 @@ class PipelineApplication:
             )
         except KeyboardInterrupt:
             self._cleanup_processes(feature_dir, session_name, agents)
+            if tmux_session_exists(session_name):
+                tmux_kill_session(session_name)
             report = self.interruptions.build_canceled(
                 feature_dir,
                 "The pipeline launcher received Ctrl-C.",
