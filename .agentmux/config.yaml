@@ -7,7 +7,7 @@ defaults:
 
 roles:
   coder:
-    model: gpt-5.4-high
+    model: gpt-5.4
   web-researcher:
     model: claude-haiku
   code-researcher:

@@ -40,7 +40,7 @@ except ImportError:  # pragma: no cover - optional at import time in this enviro
     Rule = None  # type: ignore[assignment]
 
 
-KNOWN_PROVIDERS = ("claude", "codex", "gemini", "opencode", "copilot")
+KNOWN_PROVIDERS = ("claude", "codex", "gemini", "opencode", "copilot", "qwen")
 PROMPTED_ROLES = ("architect", "product-manager", "reviewer", "coder", "designer")
 PROMPT_STUB_ROLES = ("coder", "reviewer", "architect", "product-manager", "designer")
 

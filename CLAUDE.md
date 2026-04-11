@@ -46,7 +46,7 @@ agentmux completions zsh                             # Print zsh completion scri
 
 The `agentmux init` command scaffolds a new project with configuration, setup files, and optional custom prompts:
 
-- **Detects installed CLI tools** — Checks for `claude`, `codex`, `gemini`, `opencode` and displays availability
+- **Detects installed CLI tools** — Checks for `claude`, `codex`, `gemini`, `opencode`, `qwen` and displays availability
 - **Interactive role configuration** — Offers a quick path that uses the selected default provider across roles, or a custom per-role setup path
 - **MCP setup** — Prompts to install the `agentmux-research` MCP server at the provider's native config scope for the effective architect/product-manager providers when missing
 - **GitHub settings** — Configures base branch, draft PR preferences, branch prefix
@@ -90,7 +90,7 @@ Default config resolution is layered:
 
 ## Architecture
 
-This is a **tmux-based multi-agent orchestration system**. Instead of calling AI APIs directly, it drives existing CLI tools (`claude`, `codex`, `gemini`, `opencode`) by injecting keystrokes into tmux panes. This reuses existing OAuth-authenticated subscriptions rather than pay-per-token API calls.
+This is a **tmux-based multi-agent orchestration system**. Instead of calling AI APIs directly, it drives existing CLI tools (`claude`, `codex`, `gemini`, `opencode`, `qwen`) by injecting keystrokes into tmux panes. This reuses existing OAuth-authenticated subscriptions rather than pay-per-token API calls.
 
 ### How it works
 
