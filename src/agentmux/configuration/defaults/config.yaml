@@ -240,8 +240,9 @@ providers:
     role_args: {}
   qwen:
     command: qwen
-    trust_snippet: null
-    default_model: qwen3-max
+    model_flag: null          # No --model CLI flag; model configured in ~/.qwen/settings.json
+    trust_snippet: null       # --yolo suppresses all approval dialogs
+    default_model: qwen3-max  # Informational default; not passed to CLI
     default_role_args:
-    - --yolo
-    role_args: {}
+      - --yolo                # Auto-approve all operations across all roles
+    role_args: {}             # No role-specific overrides; --yolo covers all roles
