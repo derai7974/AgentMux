@@ -5,7 +5,8 @@
       "Bash(git commit *)",
       "Bash(copilot *)",
       "WebSearch",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(pytest *)"
     ]
   },
   "$version": 3
