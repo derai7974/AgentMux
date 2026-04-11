@@ -1,6 +1,6 @@
 ## Submitting Your Review
 
-Write `07_review/review.yaml` with the fields below, then call `submit_review()` to validate your file and signal completion. The orchestrator observes the file and materializes `review.md` automatically.
+Write `07_review/review.yaml` with the fields below, then call `submit_review()` to validate your file and signal completion.
 
 On pass:
 ```yaml
@@ -22,4 +22,4 @@ findings:
     recommendation: Add email format check before database lookup.
 ```
 
-After writing the file, call `submit_review()` (no arguments needed). The tool validates your YAML and signals the orchestrator to advance the workflow. If validation fails, it returns an error so you can correct the file.
+After writing the file, call `submit_review()` (no arguments needed).

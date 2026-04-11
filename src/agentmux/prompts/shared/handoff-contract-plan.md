@@ -1,6 +1,6 @@
 ## Submitting Your Plan
 
-Write a single `04_planning/plan.yaml` containing all sub-plans and execution metadata, then call `submit_plan()` once. The orchestrator observes the file and materializes `plan_N.md`, `tasks_N.md`, `execution_plan.yaml`, and `plan.md` automatically.
+Write a single `04_planning/plan.yaml` containing all sub-plans and execution metadata, then call `submit_plan()` once.
 
 ```yaml
 version: 2
@@ -41,6 +41,6 @@ subplans:
       Why this sub-plan is safe for parallel execution.
 ```
 
-After writing the file, call `submit_plan()` (no arguments needed). The tool validates your YAML and signals the orchestrator to advance the workflow. If validation fails, it returns an error so you can correct the file.
+After writing the file, call `submit_plan()` (no arguments needed).
 
-Each sub-plan in `subplans` must be referenced exactly once in `groups[].plans[]` via its `index`. Indices must start at 1 and be contiguous (1, 2, 3, …) — the implementation scheduler requires them to be sequential with no gaps.
+Each sub-plan in `subplans` must be referenced exactly once in `groups[].plans[]` via its `index`. Indices must start at 1 and be contiguous (1, 2, 3, …).

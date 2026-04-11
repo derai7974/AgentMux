@@ -14,5 +14,4 @@ During the final approval conversation for this phase:
      {"target_role": "coder", "bullet": "- Prefer guard clauses over nested conditionals"}
    ]
    ```
-   The tool writes each bullet directly into `.agentmux/prompts/agents/<target_role>.md` under a dedicated `## Approved Preferences` section. No separate file needs to be written.
 7. If no candidates are approved, omit the `preferences` parameter entirely.
