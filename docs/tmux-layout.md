@@ -1,6 +1,9 @@
 # Tmux Session Layout and Pane Management
 
-> Related source file: `src/agentmux/runtime/tmux_control.py`
+> Related source files: `src/agentmux/runtime/tmux_core.py` (primitives),
+> `src/agentmux/runtime/content_zone.py` (layout helpers + `ContentZone`),
+> `src/agentmux/runtime/pane_io.py` (send/capture/trust),
+> `src/agentmux/runtime/tmux_control.py` (session & pane factory)
 
 ## Session naming
 

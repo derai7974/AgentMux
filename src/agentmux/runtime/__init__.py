@@ -13,19 +13,16 @@ from typing import Literal, Protocol
 
 from ..agent_labels import role_display_label
 from ..shared.models import BATCH_AGENT_ROLES, AgentConfig
+from .content_zone import ContentZone, _find_pane_by_title, set_pane_identity
+from .pane_io import send_prompt, send_text
 from .tmux_control import (
-    ContentZone,
-    _find_pane_by_title,
     create_agent_pane,
     create_batch_agent_pane,
     create_completion_pane,
-    send_prompt,
-    send_text,
-    set_pane_identity,
     tmux_kill_session,
     tmux_new_session,
-    tmux_pane_exists,
 )
+from .tmux_core import tmux_pane_exists
 
 SNAPSHOT_VERSION = 2
 

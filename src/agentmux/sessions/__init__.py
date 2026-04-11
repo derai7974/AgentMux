@@ -214,7 +214,8 @@ class SessionService:
         Returns the count of removed sessions.
         """
         # Lazy imports to avoid circular import issues
-        from ..runtime.tmux_control import kill_agentmux_session, tmux_session_exists
+        from ..runtime.tmux_control import kill_agentmux_session
+        from ..runtime.tmux_core import tmux_session_exists
 
         sessions = self.list_resumable_sessions()
         count = 0

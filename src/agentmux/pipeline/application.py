@@ -16,11 +16,8 @@ from ..integrations.github import GitHubBootstrapper
 from ..integrations.mcp import McpAgentPreparer
 from ..runtime import TmuxRuntimeFactory
 from ..runtime.file_events import ensure_watchdog_available
-from ..runtime.tmux_control import (
-    list_agentmux_sessions,
-    tmux_kill_session,
-    tmux_session_exists,
-)
+from ..runtime.tmux_control import tmux_kill_session
+from ..runtime.tmux_core import list_agentmux_sessions, tmux_session_exists
 from ..sessions import (
     PreparedSession,
     PromptInput,

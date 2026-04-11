@@ -11,7 +11,7 @@ import yaml
 from agentmux.configuration import load_explicit_config, load_layered_config
 from agentmux.configuration.providers import PROVIDERS, get_provider, resolve_agent
 from agentmux.runtime.command_builder import build_agent_command
-from agentmux.runtime.tmux_control import accept_trust_prompt
+from agentmux.runtime.pane_io import accept_trust_prompt
 from agentmux.shared.models import AgentConfig, BatchCommand, BatchCommandMode
 
 
@@ -336,8 +336,8 @@ roles:
 
     def test_accept_trust_prompt_skips_when_no_snippet(self) -> None:
         with (
-            patch("agentmux.runtime.tmux_control.capture_pane") as capture_pane,
-            patch("agentmux.runtime.tmux_control.run_command") as run_command,
+            patch("agentmux.runtime.pane_io.capture_pane") as capture_pane,
+            patch("agentmux.runtime.pane_io.run_command") as run_command,
         ):
             accept_trust_prompt("%1", snippet=None)
         capture_pane.assert_not_called()
@@ -601,11 +601,11 @@ roles:
 
         with (
             patch(
-                "agentmux.runtime.tmux_control.capture_pane",
+                "agentmux.runtime.pane_io.capture_pane",
                 side_effect=["some output", "Trust this folder?"],
             ),
             patch(
-                "agentmux.runtime.tmux_control.run_command",
+                "agentmux.runtime.pane_io.run_command",
                 side_effect=lambda args, cwd=None, check=True: commands.append(args),
             ),
         ):
