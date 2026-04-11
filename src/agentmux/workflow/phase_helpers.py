@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..sessions.state_store import now_iso, write_state
 from .transitions import PipelineContext
+
+if TYPE_CHECKING:
+    from .event_router import WorkflowEvent
 
 
 def validate_last_event(value: str) -> None:
@@ -140,6 +144,54 @@ def dispatch_research_task(
     # Update state
     tasks[topic] = "dispatched"
     return {tasks_key: tasks}, None
+
+
+def handle_research_request(
+    role: str,
+    event: WorkflowEvent,
+    state: dict,
+    ctx: PipelineContext,
+) -> tuple[dict, str | None]:
+    """Extract payload, write request.md, and dispatch a research task.
+
+    Shared by all handlers that respond to research_code_req / research_web_req
+    tool events. The only difference per call site is the role string.
+
+    Args:
+        role: "code-researcher" or "web-researcher"
+        event: The incoming WorkflowEvent (payload["payload"] is the MCP payload)
+        state: Current state dict (read-only)
+        ctx: Pipeline context
+
+    Returns:
+        Tuple of (state_updates, None) — never transitions phase
+    """
+    payload = event.payload.get("payload", {})
+    topic = payload.get("topic", "")
+    if not topic:
+        return {}, None
+
+    prefix = "code-" if role == "code-researcher" else "web-"
+    req_dir = ctx.files.research_dir / f"{prefix}{topic}"
+    req_dir.mkdir(parents=True, exist_ok=True)
+    req_path = req_dir / "request.md"
+    if not req_path.exists():
+        questions = payload.get("questions", [])
+        scope_hints = payload.get("scope_hints", [])
+        content = (
+            f"# Research Request: {topic}\n\n"
+            f"## Context\n{payload.get('context', '')}\n\n"
+            f"## Questions\n"
+            + "\n".join(f"- {q}" for q in questions)
+            + (
+                "\n\n## Scope Hints\n" + "\n".join(f"- {h}" for h in scope_hints)
+                if scope_hints
+                else ""
+            )
+        )
+        req_path.write_text(content, encoding="utf-8")
+
+    return dispatch_research_task(role, topic, state, ctx)
 
 
 def notify_research_complete(

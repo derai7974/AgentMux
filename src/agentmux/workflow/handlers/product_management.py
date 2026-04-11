@@ -12,7 +12,7 @@ from agentmux.workflow.event_router import (
     WorkflowEvent,
 )
 from agentmux.workflow.phase_helpers import (
-    dispatch_research_task,
+    handle_research_request,
     notify_research_complete,
     research_role_from_payload,
     send_to_role,
@@ -102,32 +102,7 @@ class ProductManagementHandler:
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle code research request via tool event."""
-        payload = event.payload.get("payload", {})
-        topic = payload.get("topic", "")
-        if not topic:
-            return {}, None
-
-        # Write request.md before dispatching (side-effect ordering requirement)
-        req_dir = ctx.files.research_dir / f"code-{topic}"
-        req_dir.mkdir(parents=True, exist_ok=True)
-        req_path = req_dir / "request.md"
-        if not req_path.exists():
-            questions = payload.get("questions", [])
-            scope_hints = payload.get("scope_hints", [])
-            content = (
-                f"# Research Request: {topic}\n\n"
-                f"## Context\n{payload.get('context', '')}\n\n"
-                f"## Questions\n"
-                + "\n".join(f"- {q}" for q in questions)
-                + (
-                    "\n\n## Scope Hints\n" + "\n".join(f"- {h}" for h in scope_hints)
-                    if scope_hints
-                    else ""
-                )
-            )
-            req_path.write_text(content, encoding="utf-8")
-
-        return dispatch_research_task("code-researcher", topic, state, ctx)
+        return handle_research_request("code-researcher", event, state, ctx)
 
     def _handle_research_web_req(
         self,
@@ -136,32 +111,7 @@ class ProductManagementHandler:
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Handle web research request via tool event."""
-        payload = event.payload.get("payload", {})
-        topic = payload.get("topic", "")
-        if not topic:
-            return {}, None
-
-        # Write request.md before dispatching (side-effect ordering requirement)
-        req_dir = ctx.files.research_dir / f"web-{topic}"
-        req_dir.mkdir(parents=True, exist_ok=True)
-        req_path = req_dir / "request.md"
-        if not req_path.exists():
-            questions = payload.get("questions", [])
-            scope_hints = payload.get("scope_hints", [])
-            content = (
-                f"# Research Request: {topic}\n\n"
-                f"## Context\n{payload.get('context', '')}\n\n"
-                f"## Questions\n"
-                + "\n".join(f"- {q}" for q in questions)
-                + (
-                    "\n\n## Scope Hints\n" + "\n".join(f"- {h}" for h in scope_hints)
-                    if scope_hints
-                    else ""
-                )
-            )
-            req_path.write_text(content, encoding="utf-8")
-
-        return dispatch_research_task("web-researcher", topic, state, ctx)
+        return handle_research_request("web-researcher", event, state, ctx)
 
     def _handle_research_done(
         self,
