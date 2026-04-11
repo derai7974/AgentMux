@@ -1,6 +1,6 @@
 # Workflow Phases
 
-> Related source files: `agentmux/shared/phase_catalog.py`, `agentmux/workflow/phase_registry.py`, `agentmux/workflow/phases.py`
+> Related source file: `src/agentmux/shared/phase_catalog.py`
 
 This is the canonical reference for AgentMux's workflow phases. Each phase has its own detail page; this index describes the sequence, state machine, and directory layout.
 

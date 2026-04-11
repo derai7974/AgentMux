@@ -1,6 +1,6 @@
 # Research Task Dispatch
 
-> Related source files: `agentmux/integrations/mcp_server.py`, `agentmux/integrations/mcp.py`, `agentmux/pipeline/application.py`, `agentmux/configuration/defaults/config.yaml`, `agentmux/workflow/prompts.py`, `agentmux/prompts/agents/architect.md`, `agentmux/prompts/agents/product-manager.md`, `agentmux/prompts/agents/coder.md`
+> Related source file: `src/agentmux/integrations/mcp_server.py`
 
 Research dispatch is now MCP-first. The architect and product-manager should call MCP tools to create research requests, then wait for AgentMux to push a completion message.
 

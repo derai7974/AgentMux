@@ -1,6 +1,6 @@
 # Prompt Templates and Rendering
 
-> Related source files: `agentmux/workflow/prompts.py`, `agentmux/runtime/tmux_control.py`, `agentmux/prompts/agents/`, `agentmux/prompts/commands/`, `agentmux/prompts/shared/`
+> Related source file: `src/agentmux/workflow/prompts.py`
 
 ## Template directories
 

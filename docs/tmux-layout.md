@@ -1,6 +1,6 @@
 # Tmux Session Layout and Pane Management
 
-> Related source files: `agentmux/runtime/tmux_control.py`, `agentmux/runtime/__init__.py`, `agentmux/runtime/interruption_sources.py`, `agentmux/monitor/__init__.py`, `agentmux/terminal_ui/layout.py`
+> Related source file: `src/agentmux/runtime/tmux_control.py`
 
 ## Session naming
 

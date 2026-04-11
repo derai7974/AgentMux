@@ -1,6 +1,6 @@
 # Phase: Completion
 
-> Related source files: `src/agentmux/workflow/handlers/completing.py`, `src/agentmux/workflow/handlers/reviewing.py`, `src/agentmux/integrations/completion.py`, `src/agentmux/workflow/prompts.py`, `src/agentmux/sessions/state_store.py`, `src/agentmux/terminal_ui/completion_ui.py`
+> Related source file: `src/agentmux/workflow/handlers/completing.py`
 > Directory: `08_completion/` | Optional: no
 
 The reviewer writes a human-readable summary of the implementation. The pipeline then awaits user approval or a change request via the native completion UI.

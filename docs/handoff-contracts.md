@@ -1,6 +1,6 @@
 # Handoff Contracts
 
-> Related source files: `src/agentmux/workflow/handoff_contracts.py`, `src/agentmux/integrations/mcp_server.py`, `src/agentmux/prompts/shared/handoff-contract-architecture.md`, `src/agentmux/prompts/shared/handoff-contract-plan.md`, `src/agentmux/prompts/shared/handoff-contract-review.md`
+> Related source file: `src/agentmux/workflow/handoff_contracts.py`
 
 Handoff contracts define the structured interface between workflow phases. Each contract specifies the fields an agent must produce, validates submissions, and drives the orchestrator to materialize derived artifacts.
 

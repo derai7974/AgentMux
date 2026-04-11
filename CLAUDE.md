@@ -1,92 +1,46 @@
 # Coding Agent Instructions
 
-This file provides guidance to COding Agents when working with code in this repository.
+This file provides guidance to coding agents when working with code in this repository.
 
-## Running the Pipeline
+## Development
 
-```bash
-# Install dependencies
-python3 -m pip install -r requirements.txt
-
-# Initialize a new project (scaffolds configuration)
-agentmux init                                        # Interactive setup wizard
-agentmux init --defaults                             # Non-interactive with built-in defaults
-
-# Start a feature workflow
-agentmux "Your feature description"
-
-# Optional flags
-agentmux "feature" --name <slug>                     # Custom feature directory name
-agentmux "feature" --config <path>                   # Explicit config override
-agentmux "feature" --keep-session                    # Keep tmux session after completion
-agentmux "feature" --product-manager                 # Run PM phase before architect planning
-
-# Bootstrap from GitHub issue
-agentmux issue <number-or-url>                       # Bootstrap from GitHub issue title/body
-agentmux issue <number-or-url> --name <slug>         # Custom feature directory name
-agentmux issue <number-or-url> --product-manager     # Run PM phase before architect planning
-
-# Resume an interrupted pipeline
-agentmux resume                                      # Interactive selection from existing sessions
-agentmux resume <feature-dir-or-name>                # Resume specific session by name or path
-agentmux resume <session> --keep-session             # Keep tmux session after completion
-
-# Session management commands
-agentmux sessions                                    # List all sessions with phase, status, and timestamp
-agentmux clean                                       # Remove all sessions (prompts for confirmation)
-agentmux clean --force                               # Remove all sessions without confirmation
-
-# Shell tab completion
-agentmux completions bash                            # Print bash completion script
-agentmux completions zsh                             # Print zsh completion script
-# Enable with: eval "$(agentmux completions bash)" in your .bashrc
-```
-
-### Project Initialization
-
-The `agentmux init` command scaffolds a new project with configuration, setup files, and optional custom prompts:
-
-- **Detects installed CLI tools** — Checks for `claude`, `codex`, `gemini`, `opencode`, `qwen` and displays availability
-- **Interactive role configuration** — Offers a quick path that uses the selected default provider across roles, or a custom per-role setup path
-- **MCP setup** — Prompts to install the `agentmux-research` MCP server at the provider's native config scope for the effective architect/product-manager providers when missing
-- **GitHub settings** — Configures base branch, draft PR preferences, branch prefix
-- **CLAUDE.md setup** — Creates from template, symlinks existing file, or skips
-- **Prompt stubs** — Generates optional project-specific instructions in `.agentmux/prompts/agents/<role>.md`
-- **Config validation** — Verifies the generated `.agentmux/config.yaml` parses correctly
-
-Test command:
-- `python -m pytest tests`
-
-## Linting and Formatting
-
-This project uses [Ruff](https://docs.astral.sh/ruff/) for Python linting and formatting.
+### Install for development
 
 ```bash
-# Check for lint issues
-ruff check src tests
-
-# Auto-fix lint issues
-ruff check --fix src tests
-
-# Check formatting without changes
-ruff format --check src tests
-
-# Format code in place
-ruff format src tests
-
-# Run all pre-commit hooks manually
-pre-commit run --all-files
+python3 -m pip install -e ".[dev]"
 ```
 
-Pre-commit hooks automatically run `ruff-check --fix` and `ruff-format` on every commit.
+### Run tests
+
+```bash
+pytest tests
+```
+
+### Lint and format
+
+```bash
+ruff check src tests           # lint
+ruff check --fix src tests     # auto-fix
+ruff format --check src tests  # check formatting
+ruff format src tests          # format in place
+```
+
+### Pre-commit hooks
+
+```bash
+pre-commit run --all-files     # run all hooks
+```
+
+Hooks run automatically on commit: `ruff-check --fix` and `ruff-format`.
+The `pip-compile` hooks regenerate `requirements.txt` and `requirements-dev.txt` when `pyproject.toml` changes.
+
+### Config resolution
 
 Default config resolution is layered:
-- built-in defaults from `src/agentmux/configuration/defaults/config.yaml` (v2 schema)
-- optional user config from `~/.config/agentmux/config.yaml` (v2 schema)
-- project config from `.agentmux/config.yaml` (v2 schema)
+- built-in defaults from `src/agentmux/configuration/defaults/config.yaml`
+- optional user config from `~/.config/agentmux/config.yaml`
+- project config from `.agentmux/config.yaml`
 - explicit `--config <path>` override
-
-**Note:** Configs must use `version: 2`. The `profile` concept and `launchers` key have been removed. Use direct `model` selection and `providers` instead.
 
 ## Architecture
 
@@ -96,113 +50,66 @@ This is a **tmux-based multi-agent orchestration system**. Instead of calling AI
 
 The pipeline application:
 1. Creates a feature directory under `.agentmux/.sessions/<feature-name>/`
-2. Spawns a tmux session with a **control pane** (left, 15 cols) and agent panes (right)
-   - Pane border titles are enabled so each pane shows its role name
-3. Starts a session file monitor that watches the feature directory with `watchdog` and normalizes file activity to feature-relative paths
-4. Fans those file events out to listeners that wake the orchestration loop and append first-seen file creations to `created_files.log` (including startup files via one-time seeding)
-5. Advances the workflow state machine (`state.json`) based on which workflow artifacts appear/change
-6. Injects the next prompt into the appropriate tmux pane
+2. Spawns a tmux session with a **monitor pane** (left, 40 cols) and agent panes (right)
+   - Pane border titles show the role name for each pane
+3. Starts three event sources on a shared session event bus:
+   - `FileEventSource` — watches the feature directory with `watchdog`, normalizes paths
+   - `ToolCallEventSource` — tails `tool_events.jsonl` for MCP tool-call signals
+   - `InterruptionEventSource` — polls for missing registered agent panes
+4. `WorkflowEventRouter` routes events to phase-specific handler classes (e.g. `ArchitectingHandler`, `ReviewingHandler`), which emit structured workflow events that drive state transitions
+5. Handlers build prompt files lazily just before dispatch, then send a file reference message (`Read and follow the instructions in /path/to/prompt.md`) to the appropriate tmux pane
+6. The orchestrator persists state in `state.json` and advances the workflow based on handler-emitted events — not artifact detection
 
 ### State machine
 
 The workflow progresses through these states (stored in `.agentmux/.sessions/<feature>/state.json`):
 
-``` 
+```
 product_management? → architecting → planning → designing? → implementing → reviewing
     → verdict:pass → completing
     → verdict:fail → fixing → reviewing (review loop)
     → loop cap reached → completing
-    → approval_received (done) OR changes_requested → planning
+    → approval_received (done) OR changes_requested → architecting
 ```
 
 Role routing in these phases:
 - `product-manager`: product management phase only
 - `architect`: architecting phase only — creates technical architecture document (the "What" and "With what")
 - `planner`: planning/replanning only — creates execution plans from architecture (the "How" and "When")
-- `reviewer`: reviewing and final confirmation/completion prompts (dynamically routed to specialized reviewers based on `execution_plan.yaml` `review_strategy`):
+- `designer`: designing phase only — creates `05_design/design.md` from plan with `needs_design: true`
+- `reviewer`: reviewing (dynamically routed to specialized reviewers based on `execution_plan.yaml` `review_strategy`) and completing phases:
   - `reviewer_logic`: Logic & Alignment reviewer (functional correctness vs plan)
-  - `reviewer_quality`: Quality & Style reviewer (clean code, naming, standards)  
+  - `reviewer_quality`: Quality & Style reviewer (clean code, naming, standards)
   - `reviewer_expert`: Deep-Dive Expert reviewer (security, performance, edge cases)
 - `coder`: implementing/fixing
 
 `state.json` persists the durable `phase` and optional metadata such as `last_event`, `review_iteration`, `subplan_count`, `product_manager`, `research_tasks` (a dict tracking code-researcher task status by topic), `web_research_tasks` (a dict tracking web-researcher task status by topic), and GitHub integration keys like `gh_available` / `issue_number`. Agents no longer write workflow statuses directly.
 
-### Component structure
+### Entry points
 
 ```
-src/agentmux/pipeline/__init__.py       — CLI parsing and `main()`
-src/agentmux/pipeline/application.py    — PipelineApplication, launcher flow, hidden `--orchestrate` mode
-src/agentmux/pipeline/init_command.py   — project initialization wizard
-
-src/agentmux/configuration/             — layered config loading, provider/model resolution, built-in defaults (v2 schema)
-src/agentmux/configuration/providers.py — built-in provider helpers for provider/model resolution
-
-src/agentmux/shared/phase_catalog.py    — ordered phase catalog: directories, optional flags, monitor ordering (Layer 1)
-src/agentmux/shared/models.py           — AgentConfig, GitHubConfig, RuntimeFiles; re-exports SESSION_DIR_NAMES from phase_catalog
-src/agentmux/sessions/__init__.py       — SessionService, session creation/resume
-src/agentmux/sessions/state_store.py    — state.json CRUD, feature-directory lifecycle, commit/cleanup helpers
-
-src/agentmux/runtime/__init__.py        — TmuxAgentRuntime and TmuxRuntimeFactory
-src/agentmux/runtime/tmux_control.py    — tmux control, pane/session lifecycle, prompt dispatch
-src/agentmux/runtime/event_bus.py       — shared session event bus
-src/agentmux/runtime/file_events.py     — watchdog integration and created-files logging
-src/agentmux/runtime/interruption_sources.py — missing-pane interruption source
-
-src/agentmux/workflow/phase_registry.py — full phase registry: handler classes, roles, resume checks (Layer 2)
-src/agentmux/workflow/orchestrator.py   — orchestration loop on top of runtime event sources
-src/agentmux/workflow/phases.py         — workflow phase state machine
-src/agentmux/workflow/prompts.py        — prompt rendering and prompt-file creation
-src/agentmux/workflow/handlers.py       — phase helpers and state writes
-src/agentmux/workflow/transitions.py    — PipelineContext and transition helpers
-src/agentmux/workflow/interruptions.py  — interruption catalog and reporting
-src/agentmux/workflow/plan_parser.py    — execution-plan-backed subplan labels
-src/agentmux/workflow/handoff_contracts.py — contract definitions, validation, prompt rendering for structured agent handoffs
-
-src/agentmux/monitor/__init__.py        — monitor command entrypoint
-src/agentmux/monitor/state_reader.py    — monitor state/log aggregation
-src/agentmux/monitor/render.py          — ANSI rendering for the control pane
-src/agentmux/terminal_ui/console.py     — interactive terminal session selection
-src/agentmux/terminal_ui/screens.py     — welcome/goodbye terminal screens and shared logo
-src/agentmux/terminal_ui/layout.py      — shared terminal layout constants
-
-src/agentmux/integrations/github.py     — GitHub issue bootstrap and PR creation
-src/agentmux/integrations/mcp.py        — provider-native MCP setup plus runtime env wiring
-src/agentmux/integrations/mcp_server.py        — shared MCP server (research dispatch + structured submission tools)
-src/agentmux/integrations/completion.py — completion-time commit / PR / cleanup side effects
-src/agentmux/integrations/compression.py — headroom proxy lifecycle and agent env injection
-
-src/agentmux/prompts/agents/            — role-level prompts (define what each agent is)
-  product-manager.md           —   product management phase
-  architect.md                 —   planning phase
-  reviewer.md                  —   review + confirmation phases (fallback when no specialized reviewer is configured)
-  reviewer_logic.md            —   Logic & Alignment reviewer (functional correctness vs plan)
-  reviewer_quality.md          —   Quality & Style reviewer (clean code, naming, standards)
-  reviewer_expert.md           —   Deep-Dive Expert reviewer (security, performance, edge cases)
-  coder.md                     —   implementation phase
-  code-researcher.md           —   codebase analysis on architect request
-  web-researcher.md            —   internet search on architect request
-src/agentmux/prompts/shared/            — reusable prompt fragments inlined via [[shared:...]]
-  handoff-contract-architecture.md —  MCP tool usage + YAML fallback for architecture submission
-  handoff-contract-plan.md     —   MCP tool usage + YAML fallback for execution plan/subplan submission
-  handoff-contract-review.md   —   MCP tool usage + YAML fallback for review submission
-  coder-discipline.md          —   coder workflow discipline rules
-  preference-memory.md         —   preference memory instructions
-src/agentmux/prompts/commands/          — phase-specific command prompts (what to do at each step)
-  review.md                    —   code review (legacy)
-  review_logic.md              —   logic alignment review
-  review_quality.md            —   quality/style review
-  review_expert.md             —   security/performance expert review
-  fix.md                       —   fix review findings
-  confirmation.md              —   user approval / changes gate
-  change.md                    —   re-plan after user requests changes
+src/agentmux/pipeline/application.py      — CLI entry, launcher, --orchestrate mode
+src/agentmux/configuration/__init__.py    — layered config, provider/model resolution
+src/agentmux/shared/phase_catalog.py      — phase catalog: directories, flags, monitor ordering
+src/agentmux/sessions/state_store.py      — session creation/resume, state.json lifecycle
+src/agentmux/runtime/tmux_control.py      — tmux pane/session lifecycle, prompt dispatch
+src/agentmux/workflow/orchestrator.py     — orchestration loop, event sources, phase transitions
+src/agentmux/workflow/phase_registry.py   — phase registry: handlers, roles, resume checks
+src/agentmux/monitor/render.py            — ANSI rendering for control pane
+src/agentmux/integrations/mcp_server.py   — MCP server: research dispatch + submission tools
+src/agentmux/prompts/agents/              — role prompts (architect, coder, reviewer, etc.)
+src/agentmux/prompts/shared/              — reusable prompt fragments ([[shared:...]])
+src/agentmux/prompts/commands/            — phase-specific command prompts (review, fix, etc.)
 ```
+
+For the full file listing per subsystem, see the source tree.
 
 ### Design constraints
 
 - Agents never communicate with each other directly; the orchestrator mediates via files
-- The orchestrator polls via watchdog events, not timers — no busy-waiting
-- Files are created on-demand for workflow phases, and the orchestrator also maintains a root-level `created_files.log` runtime artifact that records first-seen created files once per relative path
-- Prompt files are built lazily by handlers just before injection, not pre-generated
+- The orchestrator uses three event sources on a shared event bus (`FileEventSource`, `ToolCallEventSource`, `InterruptionEventSource`) — no busy-waiting
+- Files are created on-demand for workflow phases; the orchestrator maintains `created_files.log` for first-seen file tracking
+- Prompt files are built lazily by handlers just before dispatch; `send_prompt()` sends a file reference message, not the prompt content
 - Human can attach to the tmux session at any time to observe or intervene
 - Trust/confirmation prompts from CLI tools are automatically answered with Enter
 - Workflow code should depend on runtime/session abstractions, not directly on tmux or GitHub helpers
@@ -228,8 +135,9 @@ Rules:
 
 Deeper context on specific subsystems:
 
+- `docs/getting-started.md` — Quick start, init wizard, and common usage patterns
 - `docs/file-protocol.md` — Shared file protocol, workflow artifacts per phase
-- `docs/configuration.md` — layered config schema, providers/model selection (v2)
+- `docs/configuration.md` — layered config schema, providers/model selection
 - `docs/tmux-layout.md` — Tmux session layout, pane lifecycle, zone approach
 - `docs/research-dispatch.md` — Code-researcher and web-researcher task dispatch
 - `docs/phases/08_completion.md` — Approval flow, commit selection, cleanup

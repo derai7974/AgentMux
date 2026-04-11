@@ -1,6 +1,6 @@
 # Agent Configuration
 
-> Related source files: `agentmux/configuration/__init__.py`, `agentmux/configuration/providers.py`, `agentmux/pipeline/init_command.py`, `agentmux/integrations/mcp.py`, `agentmux/shared/models.py`, `agentmux/configuration/defaults/config.yaml`, `.agentmux/config.yaml`
+> Related source file: `src/agentmux/configuration/__init__.py`
 
 ## Overview
 

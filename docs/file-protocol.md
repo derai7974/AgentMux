@@ -1,6 +1,6 @@
 # Shared File Protocol
 
-> Related source files: `src/agentmux/shared/models.py`, `src/agentmux/sessions/state_store.py`, `src/agentmux/runtime/event_bus.py`, `src/agentmux/runtime/file_events.py`, `src/agentmux/runtime/interruption_sources.py`, `src/agentmux/workflow/orchestrator.py`, `src/agentmux/workflow/event_router.py`, `src/agentmux/workflow/phases.py`, `src/agentmux/workflow/handlers.py`, `src/agentmux/workflow/prompts.py`
+> Related source file: `src/agentmux/workflow/orchestrator.py`
 
 Agents communicate via files in `.agentmux/.sessions/<feature-name>/`. Files are grouped by phase subdirectories and created on-demand as needed, while a small set of root runtime artifacts is maintained directly by the orchestrator.
 
