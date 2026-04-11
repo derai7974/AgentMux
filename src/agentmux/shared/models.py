@@ -1,9 +1,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 
 from .phase_catalog import SESSION_DIR_NAMES as SESSION_DIR_NAMES  # noqa: F401
+
+
+class BatchCommandMode(Enum):
+    """How the prompt file is passed to a batch-mode agent."""
+
+    POSITIONAL = "positional"  # prompt file as last positional arg
+    FLAG = "flag"  # prompt file directly after a flag (e.g. -p)
+    STDIN = "stdin"  # prompt file via stdin redirect (< prompt.md)
+
+
+@dataclass(frozen=True)
+class BatchCommand:
+    """Describes how to invoke a batch-mode agent."""
+
+    verb: str  # the subcommand (e.g. "run", "exec", "-p")
+    mode: BatchCommandMode = BatchCommandMode.POSITIONAL
+
 
 PROMPT_AGENT_ROLES: tuple[str, ...] = (
     "architect",
@@ -46,7 +64,7 @@ class AgentConfig:
     env: dict[str, str] | None = None
     trust_snippet: str | None = None
     provider: str | None = None
-    batch_subcommand: str | None = None
+    batch_command: BatchCommand | None = None
     single_coder: bool = False
 
 

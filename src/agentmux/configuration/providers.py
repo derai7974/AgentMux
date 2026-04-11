@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..shared.models import AgentConfig
+from ..shared.models import AgentConfig, BatchCommand, BatchCommandMode
 from . import load_builtin_catalog
 
 
@@ -13,7 +13,7 @@ class Provider:
     model_flag: str | None
     trust_snippet: str | None
     default_args: dict[str, list[str]]
-    batch_subcommand: str | None = None
+    batch_command: BatchCommand | None = None
     single_coder: bool = False
     default_model: str | None = None
     default_role_args: list[str] | None = None
@@ -50,13 +50,73 @@ def _build_builtin_providers() -> dict[str, Provider]:
             model_flag=provider.get("model_flag"),
             trust_snippet=provider.get("trust_snippet"),
             default_args=role_args,
-            batch_subcommand=provider.get("batch_subcommand"),
+            batch_command=_parse_batch_command(provider),
             single_coder=bool(provider.get("single_coder", False)),
             default_model=default_model,
             default_role_args=default_role_args if default_role_args else None,
             model_args=model_args if model_args else None,
         )
     return result
+
+
+def _parse_batch_command(provider: dict) -> BatchCommand | None:
+    """Parse batch_command from provider config, supporting both old and new formats.
+
+    Old format (deprecated):
+        batch_subcommand: "exec"  # or "-p" or "run"
+
+    New format:
+        batch_command:
+            verb: "exec"
+            mode: "stdin"
+
+    Also handles pre-parsed dicts from __init__.py where mode may already
+    be a BatchCommandMode enum or None (for string fallback).
+    """
+    # New format takes precedence
+    raw_batch = provider.get("batch_command")
+    if raw_batch is not None:
+        if isinstance(raw_batch, dict):
+            verb = str(raw_batch.get("verb", ""))
+            mode_raw = raw_batch.get("mode")
+            # Already parsed as enum?
+            if isinstance(mode_raw, BatchCommandMode):
+                return BatchCommand(verb=verb, mode=mode_raw)
+            if mode_raw is not None:
+                mode_str = str(mode_raw)
+                mode = BatchCommandMode(mode_str)
+            else:
+                # String fallback: infer mode from verb
+                if verb.startswith("-"):
+                    mode = BatchCommandMode.FLAG
+                elif verb == "exec" and provider.get("command") == "codex":
+                    mode = BatchCommandMode.STDIN
+                else:
+                    mode = BatchCommandMode.POSITIONAL
+            return BatchCommand(verb=verb, mode=mode)
+        # Direct string in provider dict (shouldn't happen, but handle it)
+        verb = str(raw_batch)
+        if verb.startswith("-"):
+            mode = BatchCommandMode.FLAG
+        elif verb == "exec" and provider.get("command") == "codex":
+            mode = BatchCommandMode.STDIN
+        else:
+            mode = BatchCommandMode.POSITIONAL
+        return BatchCommand(verb=verb, mode=mode)
+
+    # Legacy format compatibility
+    legacy = provider.get("batch_subcommand")
+    if legacy is not None:
+        verb = str(legacy)
+        if verb.startswith("-"):
+            mode = BatchCommandMode.FLAG
+        elif verb == "exec" and provider.get("command") == "codex":
+            mode = BatchCommandMode.STDIN
+        else:
+            mode = BatchCommandMode.POSITIONAL
+        return BatchCommand(verb=verb, mode=mode)
+
+    return None
 
 
 PROVIDERS: dict[str, Provider] = _build_builtin_providers()
@@ -105,6 +165,6 @@ def resolve_agent(
         model_flag=provider.model_flag,
         args=list(args),
         trust_snippet=provider.trust_snippet,
-        batch_subcommand=provider.batch_subcommand,
+        batch_command=provider.batch_command,
         single_coder=provider.single_coder,
     )

@@ -7,7 +7,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ..shared.models import AgentConfig
+from ..shared.models import AgentConfig, BatchCommandMode
 from ..terminal_ui.layout import MONITOR_MAX_WIDTH, MONITOR_MIN_WIDTH
 
 MAIN_WINDOW = "pipeline"
@@ -29,21 +29,15 @@ def build_agent_command(agent: AgentConfig, prompt_file: str | None = None) -> s
     """Build the shell command for an agent pane.
 
     For batch-mode agents (e.g. researchers), pass ``prompt_file`` to append
-    it as the final argument.  The CLI segment automatically includes
-    ``agent.batch_subcommand`` when defined.
+    it according to ``agent.batch_command.mode``:
+
+    - ``POSITIONAL``: prompt file as last positional argument
+    - ``FLAG``: prompt file directly after the flag (e.g. ``-p``)
+    - ``STDIN``: prompt file via stdin redirect (``< prompt.md``)
 
     The ``--model`` flag is only included when ``agent.model_flag`` is not
     ``None``.  Providers like opencode that ignore model settings should set
     ``model_flag=None`` in their provider config.
-
-    If ``batch_subcommand`` starts with ``-``, it is treated as a flag that
-    takes the prompt file as its value (e.g. copilot's ``-p``).  In this
-    case the prompt file path is appended directly after the flag, not at
-    the end of the command.
-
-    If ``batch_subcommand`` is ``exec`` and ``cli`` is ``codex``, the prompt
-    file is passed via stdin redirect (``codex exec ... < prompt.md``)
-    because Codex does not accept a file path as a positional argument.
     """
     env_prefix = ""
     if agent.env:
@@ -53,37 +47,7 @@ def build_agent_command(agent: AgentConfig, prompt_file: str | None = None) -> s
         ]
         env_prefix = f"env {' '.join(env_items)} "
 
-    # Determine whether batch_subcommand is a flag taking a value
-    batch_sub_is_flag = (
-        agent.batch_subcommand is not None and agent.batch_subcommand.startswith("-")
-    )
-
-    # Codex special case: 'codex exec' reads prompt from stdin, not as file path arg
-    codex_needs_stdin = (
-        agent.batch_subcommand == "exec"
-        and agent.cli == "codex"
-        and prompt_file is not None
-    )
-
-    if agent.batch_subcommand and prompt_file is not None:
-        if batch_sub_is_flag:
-            # Flag-style subcommand: prompt file goes right after the flag
-            cli_segment = (
-                f"{shlex.quote(agent.cli)} {shlex.quote(agent.batch_subcommand)} "
-                f"{shlex.quote(prompt_file)}"
-            )
-        elif codex_needs_stdin:
-            # Codex exec: prompt via stdin redirect
-            cli_segment = (
-                f"{shlex.quote(agent.cli)} {shlex.quote(agent.batch_subcommand)}"
-            )
-        else:
-            # Subcommand verb (e.g. "run"): appended normally
-            cli_segment = (
-                f"{shlex.quote(agent.cli)} {shlex.quote(agent.batch_subcommand)}"
-            )
-    else:
-        cli_segment = shlex.quote(agent.cli)
+    cli_segment = _build_cli_segment(agent, prompt_file)
 
     if agent.model_flag is not None:
         model_segment = f" {shlex.quote(agent.model_flag)} {shlex.quote(agent.model)}"
@@ -99,15 +63,42 @@ def build_agent_command(agent: AgentConfig, prompt_file: str | None = None) -> s
         + (f" {extra_args}" if extra_args else "")
     )
 
-    # For non-flag batch_subcommand, append prompt file at the end
-    if prompt_file is not None and not batch_sub_is_flag:
-        if codex_needs_stdin:
-            # Codex needs stdin redirect: codex exec ... < prompt.md
-            cmd += f" < {shlex.quote(prompt_file)}"
+    # For POSITIONAL mode or no batch_command, append prompt file at the end
+    if prompt_file is not None:
+        if agent.batch_command is not None:
+            if agent.batch_command.mode is BatchCommandMode.POSITIONAL:
+                cmd += f" {shlex.quote(prompt_file)}"
+            elif agent.batch_command.mode is BatchCommandMode.STDIN:
+                cmd += f" < {shlex.quote(prompt_file)}"
         else:
+            # No batch_command: default behaviour – append as positional
             cmd += f" {shlex.quote(prompt_file)}"
 
     return cmd
+
+
+def _build_cli_segment(agent: AgentConfig, prompt_file: str | None) -> str:
+    """Build the CLI portion of the command based on batch_command mode."""
+    batch_cmd = agent.batch_command
+
+    # No batch command or no prompt file: just the CLI
+    if batch_cmd is None or prompt_file is None:
+        return shlex.quote(agent.cli)
+
+    verb_quoted = shlex.quote(batch_cmd.verb)
+    cli_quoted = shlex.quote(agent.cli)
+    prompt_quoted = shlex.quote(prompt_file)
+
+    if batch_cmd.mode is BatchCommandMode.FLAG:
+        # Flag-style: cli -p prompt.md
+        return f"{cli_quoted} {verb_quoted} {prompt_quoted}"
+    elif batch_cmd.mode is BatchCommandMode.STDIN:
+        # Stdin redirect: cli exec
+        # Actual redirect (< prompt.md) is appended later
+        return f"{cli_quoted} {verb_quoted}"
+    else:
+        # POSITIONAL: cli verb (prompt appended later in build_agent_command)
+        return f"{cli_quoted} {verb_quoted}"
 
 
 def tmux_session_exists(session_name: str) -> bool:

@@ -249,6 +249,8 @@ def _normalize_provider(name: str, raw: Any) -> dict[str, Any]:
         result["trust_snippet"] = str(raw["trust_snippet"])
     if raw.get("batch_subcommand") is not None:
         result["batch_subcommand"] = str(raw["batch_subcommand"])
+    if raw.get("batch_command") is not None:
+        result["batch_command"] = _parse_batch_command_config(raw["batch_command"])
     if raw.get("single_coder") is not None:
         result["single_coder"] = bool(raw["single_coder"])
     if raw.get("default_model") is not None:
@@ -259,6 +261,73 @@ def _normalize_provider(name: str, raw: Any) -> dict[str, Any]:
         )
 
     return result
+
+
+def _parse_batch_command_config(raw: Any) -> dict[str, Any]:
+    """Parse batch_command from config, supporting dict and string formats."""
+    from ..shared.models import BatchCommandMode
+
+    if isinstance(raw, dict):
+        verb = str(raw.get("verb", ""))
+        mode_str = str(raw.get("mode", "positional"))
+        try:
+            mode = BatchCommandMode(mode_str)
+        except ValueError as e:
+            valid = ", ".join(m.value for m in BatchCommandMode)
+            raise ValueError(
+                f"Invalid batch_command.mode: '{mode_str}'. Expected one of: {valid}"
+            ) from e
+        return {"verb": verb, "mode": mode}
+    # String fallback: will be converted to BatchCommand in providers.py
+    return {"verb": str(raw), "mode": None}
+
+
+def _build_batch_command_from_provider(provider: dict):
+    """Build a BatchCommand from a provider dict, handling both old and new formats."""
+    from ..shared.models import BatchCommand, BatchCommandMode
+
+    # New format
+    raw_batch = provider.get("batch_command")
+    if raw_batch is not None:
+        if isinstance(raw_batch, dict):
+            verb = str(raw_batch.get("verb", ""))
+            mode_raw = raw_batch.get("mode")
+            if isinstance(mode_raw, BatchCommandMode):
+                return BatchCommand(verb=verb, mode=mode_raw)
+            if mode_raw is not None:
+                mode = BatchCommandMode(str(mode_raw))
+            else:
+                # Infer from verb
+                if verb.startswith("-"):
+                    mode = BatchCommandMode.FLAG
+                elif verb == "exec" and provider.get("command") == "codex":
+                    mode = BatchCommandMode.STDIN
+                else:
+                    mode = BatchCommandMode.POSITIONAL
+            return BatchCommand(verb=verb, mode=mode)
+        # String
+        verb = str(raw_batch)
+        if verb.startswith("-"):
+            mode = BatchCommandMode.FLAG
+        elif verb == "exec" and provider.get("command") == "codex":
+            mode = BatchCommandMode.STDIN
+        else:
+            mode = BatchCommandMode.POSITIONAL
+        return BatchCommand(verb=verb, mode=mode)
+
+    # Legacy format
+    legacy = provider.get("batch_subcommand")
+    if legacy is not None:
+        verb = str(legacy)
+        if verb.startswith("-"):
+            mode = BatchCommandMode.FLAG
+        elif verb == "exec" and provider.get("command") == "codex":
+            mode = BatchCommandMode.STDIN
+        else:
+            mode = BatchCommandMode.POSITIONAL
+        return BatchCommand(verb=verb, mode=mode)
+
+    return None
 
 
 def _normalize_role_config(role: str, raw: Any) -> dict[str, Any]:
@@ -401,7 +470,7 @@ def _resolve_loaded_config(
             args=list(args),
             trust_snippet=provider.get("trust_snippet"),
             provider=provider_name,
-            batch_subcommand=provider.get("batch_subcommand"),
+            batch_command=_build_batch_command_from_provider(provider),
             single_coder=bool(provider.get("single_coder", False)),
         )
 

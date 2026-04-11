@@ -14,7 +14,7 @@ from agentmux.runtime.tmux_control import (
     accept_trust_prompt,
     build_agent_command,
 )
-from agentmux.shared.models import AgentConfig
+from agentmux.shared.models import AgentConfig, BatchCommand, BatchCommandMode
 
 
 class ProviderAbstractionTests(unittest.TestCase):
@@ -404,7 +404,7 @@ roles:
                 cli="opencode",
                 model="opencode/qwen3-plus",
                 model_flag=None,
-                batch_subcommand="run",
+                batch_command=BatchCommand("run", BatchCommandMode.POSITIONAL),
                 args=["--agent", "agentmux-researcher"],
             ),
             prompt_file="/tmp/prompt.md",
@@ -432,15 +432,15 @@ roles:
         self.assertIn("sonnet", cmd)
         self.assertIn("/tmp/prompt.md", cmd)
 
-    def test_interactive_agent_excludes_batch_subcommand(self) -> None:
-        """Interactive agents (no prompt_file) must NOT include batch_subcommand."""
+    def test_interactive_agent_excludes_batch_command(self) -> None:
+        """Interactive agents (no prompt_file) must NOT include batch_command."""
         cmd = build_agent_command(
             AgentConfig(
                 role="architect",
                 cli="opencode",
                 model="opencode/qwen3-plus",
                 model_flag=None,
-                batch_subcommand="run",
+                batch_command=BatchCommand("run", BatchCommandMode.POSITIONAL),
                 args=["--agent", "agentmux-architect"],
             )
         )
@@ -451,15 +451,15 @@ roles:
         self.assertIn("--agent", cmd)
         self.assertIn("agentmux-architect", cmd)
 
-    def test_batch_agent_includes_batch_subcommand_with_prompt_file(self) -> None:
-        """Batch agents (with prompt_file) MUST include batch_subcommand."""
+    def test_batch_agent_includes_batch_command_with_prompt_file(self) -> None:
+        """Batch agents (with prompt_file) MUST include batch_command."""
         cmd = build_agent_command(
             AgentConfig(
                 role="code-researcher",
                 cli="opencode",
                 model="opencode/qwen3-plus",
                 model_flag=None,
-                batch_subcommand="run",
+                batch_command=BatchCommand("run", BatchCommandMode.POSITIONAL),
                 args=["--agent", "agentmux-code-researcher"],
             ),
             prompt_file="/tmp/prompt.md",
@@ -478,7 +478,7 @@ roles:
                 cli="opencode",
                 model="opencode/qwen3-plus",
                 model_flag=None,
-                batch_subcommand="run",
+                batch_command=BatchCommand("run", BatchCommandMode.POSITIONAL),
                 args=["--agent", "agentmux-architect"],
             )
         )
@@ -489,7 +489,7 @@ roles:
         self.assertIn("--agent", cmd)
 
     def test_claude_architect_command_unaffected(self) -> None:
-        """Claude architect should work as before (no batch_subcommand)."""
+        """Claude architect should work as before (no batch_command)."""
         cmd = build_agent_command(
             AgentConfig(
                 role="architect",
@@ -504,15 +504,15 @@ roles:
         self.assertIn("sonnet", cmd)
         self.assertNotIn("run", cmd)
 
-    def test_batch_subcommand_none_with_prompt_file(self) -> None:
-        """When batch_subcommand is None, prompt_file is still appended."""
+    def test_batch_command_none_with_prompt_file(self) -> None:
+        """When batch_command is None, prompt_file is still appended."""
         cmd = build_agent_command(
             AgentConfig(
                 role="researcher",
                 cli="claude",
                 model="sonnet",
                 model_flag="--model",
-                batch_subcommand=None,
+                batch_command=None,
                 args=[],
             ),
             prompt_file="/tmp/prompt.md",
@@ -520,15 +520,15 @@ roles:
         self.assertIn("/tmp/prompt.md", cmd)
         self.assertNotIn(" run ", f" {cmd} ")
 
-    def test_batch_subcommand_flag_style_places_prompt_right_after(self) -> None:
-        """Flag-style batch_subcommand (e.g. -p) puts prompt file right after it."""
+    def test_batch_command_flag_mode_places_prompt_right_after(self) -> None:
+        """Flag-style batch_command (e.g. -p) puts prompt file right after it."""
         cmd = build_agent_command(
             AgentConfig(
                 role="code-researcher",
                 cli="copilot",
                 model="claude-haiku",
                 model_flag="--model",
-                batch_subcommand="-p",
+                batch_command=BatchCommand("-p", BatchCommandMode.FLAG),
                 args=["--allow-all", "--reasoning-effort", "high"],
             ),
             prompt_file="/tmp/prompt.md",
@@ -554,7 +554,7 @@ roles:
                 cli="gemini",
                 model="gemini-2.5-flash",
                 model_flag="--model",
-                batch_subcommand="-p",
+                batch_command=BatchCommand("-p", BatchCommandMode.FLAG),
                 args=["--approval-mode", "yolo"],
             ),
             prompt_file="/tmp/prompt.md",
@@ -579,7 +579,7 @@ roles:
                 cli="codex",
                 model="o4-mini",
                 model_flag="--model",
-                batch_subcommand="exec",
+                batch_command=BatchCommand("exec", BatchCommandMode.STDIN),
                 args=["-s", "workspace-write", "-a", "never"],
             ),
             prompt_file="/tmp/prompt.md",
