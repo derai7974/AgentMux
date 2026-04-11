@@ -10,10 +10,8 @@ import yaml
 
 from agentmux.configuration import load_explicit_config, load_layered_config
 from agentmux.configuration.providers import PROVIDERS, get_provider, resolve_agent
-from agentmux.runtime.tmux_control import (
-    accept_trust_prompt,
-    build_agent_command,
-)
+from agentmux.runtime.command_builder import build_agent_command
+from agentmux.runtime.tmux_control import accept_trust_prompt
 from agentmux.shared.models import AgentConfig, BatchCommand, BatchCommandMode
 
 

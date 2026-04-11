@@ -9,7 +9,7 @@ from unittest.mock import patch
 import yaml
 
 import agentmux.pipeline.application as application
-from agentmux.runtime.tmux_control import build_agent_command
+from agentmux.runtime.command_builder import build_agent_command
 from agentmux.sessions.state_store import create_feature_files
 from agentmux.shared.models import (
     AgentConfig,
