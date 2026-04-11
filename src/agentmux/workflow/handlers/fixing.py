@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from agentmux.agent_labels import role_display_label
 from agentmux.workflow.event_catalog import (
@@ -28,13 +28,14 @@ if TYPE_CHECKING:
 class FixingHandler(BaseToolHandler):
     """Event-driven handler for fixing phase."""
 
-    _TOOL_HANDLERS: ClassVar[tuple[ToolHandlerEntry, ...]] = (
-        ToolHandlerEntry(
-            name="done",
-            tool_names=("submit_done",),
-            handler=lambda s, e, st, c: s._handle_done(e, st, c),
-        ),
-    )
+    def _get_tool_handlers(self) -> tuple[ToolHandlerEntry, ...]:
+        return (
+            ToolHandlerEntry(
+                name="done",
+                tool_names=("submit_done",),
+                handler=lambda s, e, st, c: s._handle_done(e, st, c),
+            ),
+        )
 
     def enter(self, state: dict, ctx: PipelineContext) -> dict:
         """Called when entering fixing phase.

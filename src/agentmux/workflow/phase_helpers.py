@@ -242,6 +242,35 @@ def notify_research_complete(
     return {tasks_key: tasks}, None
 
 
+def handle_research_done(
+    event: WorkflowEvent,
+    state: dict,
+    ctx: PipelineContext,
+    notify_target: str,
+) -> tuple[dict, str | None]:
+    """Handle research completion via tool event.
+
+    Shared by all handlers that respond to research_done tool events.
+    The only difference per call site is the notify_target string.
+
+    Args:
+        event: The incoming WorkflowEvent (payload["payload"] is the MCP payload)
+        state: Current state dict (read-only)
+        ctx: Pipeline context
+        notify_target: Role to notify (e.g., "architect", "planner", "product-manager")
+
+    Returns:
+        Tuple of (state_updates, None) — never transitions phase
+    """
+    payload = event.payload.get("payload", {})
+    topic = payload.get("topic", "")
+    role = research_role_from_payload(payload)
+    if not topic or role is None:
+        return {}, None
+
+    return notify_research_complete(role, topic, state, ctx, notify_target)
+
+
 def research_role_from_payload(payload: dict) -> str | None:
     """Map research-done payloads to the corresponding researcher role."""
     role_type = str(payload.get("role_type") or payload.get("type") or "").strip()

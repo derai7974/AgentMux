@@ -7,7 +7,7 @@ the architecture document produced by the architect in the architecting phase.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 import yaml
 
@@ -23,10 +23,9 @@ from agentmux.workflow.handoff_artifacts import (
     generate_tasks_md,
 )
 from agentmux.workflow.phase_helpers import (
+    handle_research_done,
     handle_research_request,
     load_plan_meta,
-    notify_research_complete,
-    research_role_from_payload,
     send_to_role,
 )
 from agentmux.workflow.prompts import (
@@ -45,28 +44,33 @@ class PlanningHandler(BaseToolHandler):
     The planner receives the architecture document and creates execution plans.
     """
 
-    _TOOL_HANDLERS: ClassVar[tuple[ToolHandlerEntry, ...]] = (
-        ToolHandlerEntry(
-            name="plan",
-            tool_names=("submit_plan",),
-            handler=lambda s, e, st, c: s._handle_plan(e, st, c),
-        ),
-        ToolHandlerEntry(
-            name="research_code_req",
-            tool_names=("research_dispatch_code",),
-            handler=lambda s, e, st, c: s._handle_research_code_req(e, st, c),
-        ),
-        ToolHandlerEntry(
-            name="research_web_req",
-            tool_names=("research_dispatch_web",),
-            handler=lambda s, e, st, c: s._handle_research_web_req(e, st, c),
-        ),
-        ToolHandlerEntry(
-            name="research_done",
-            tool_names=("submit_research_done",),
-            handler=lambda s, e, st, c: s._handle_research_done(e, st, c),
-        ),
-    )
+    def _get_tool_handlers(self) -> tuple[ToolHandlerEntry, ...]:
+        return (
+            ToolHandlerEntry(
+                name="plan",
+                tool_names=("submit_plan",),
+                handler=lambda s, e, st, c: s._handle_plan(e, st, c),
+            ),
+            ToolHandlerEntry(
+                name="research_code_req",
+                tool_names=("research_dispatch_code",),
+                handler=lambda s, e, st, c: handle_research_request(
+                    "code-researcher", e, st, c
+                ),
+            ),
+            ToolHandlerEntry(
+                name="research_web_req",
+                tool_names=("research_dispatch_web",),
+                handler=lambda s, e, st, c: handle_research_request(
+                    "web-researcher", e, st, c
+                ),
+            ),
+            ToolHandlerEntry(
+                name="research_done",
+                tool_names=("submit_research_done",),
+                handler=lambda s, e, st, c: handle_research_done(e, st, c, "planner"),
+            ),
+        )
 
     def get_event_specs(self) -> Sequence[EventSpec]:
         return ()
@@ -150,36 +154,3 @@ class PlanningHandler(BaseToolHandler):
 
         next_phase = "designing" if needs_design else "implementing"
         return {"last_event": EVENT_PLAN_WRITTEN}, next_phase
-
-    def _handle_research_code_req(
-        self,
-        event: WorkflowEvent,
-        state: dict,
-        ctx: PipelineContext,
-    ) -> tuple[dict, str | None]:
-        """Handle code research request via tool event."""
-        return handle_research_request("code-researcher", event, state, ctx)
-
-    def _handle_research_web_req(
-        self,
-        event: WorkflowEvent,
-        state: dict,
-        ctx: PipelineContext,
-    ) -> tuple[dict, str | None]:
-        """Handle web research request via tool event."""
-        return handle_research_request("web-researcher", event, state, ctx)
-
-    def _handle_research_done(
-        self,
-        event: WorkflowEvent,
-        state: dict,
-        ctx: PipelineContext,
-    ) -> tuple[dict, str | None]:
-        """Handle research completion via tool event."""
-        payload = event.payload.get("payload", {})
-        topic = payload.get("topic", "")
-        role = research_role_from_payload(payload)
-        if not topic or role is None:
-            return {}, None
-
-        return notify_research_complete(role, topic, state, ctx, "planner")

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from agentmux.agent_labels import format_agent_label
 from agentmux.runtime import ParallelPromptSpec
@@ -149,13 +149,14 @@ def _set_implementation_progress(
 class ImplementingHandler(BaseToolHandler):
     """Event-driven handler for implementing phase."""
 
-    _TOOL_HANDLERS: ClassVar[tuple[ToolHandlerEntry, ...]] = (
-        ToolHandlerEntry(
-            name="done",
-            tool_names=("submit_done",),
-            handler=lambda s, e, st, c: s._handle_done(e, st, c),
-        ),
-    )
+    def _get_tool_handlers(self) -> tuple[ToolHandlerEntry, ...]:
+        return (
+            ToolHandlerEntry(
+                name="done",
+                tool_names=("submit_done",),
+                handler=lambda s, e, st, c: s._handle_done(e, st, c),
+            ),
+        )
 
     def enter(self, state: dict, ctx: PipelineContext) -> dict:
         """Called when entering implementing phase.

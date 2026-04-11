@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 import yaml
 
@@ -59,13 +59,14 @@ _SPECS = (
 class ReviewingHandler(BaseToolHandler):
     """Event-driven handler for reviewing phase."""
 
-    _TOOL_HANDLERS: ClassVar[tuple[ToolHandlerEntry, ...]] = (
-        ToolHandlerEntry(
-            name="review",
-            tool_names=("submit_review",),
-            handler=lambda s, e, st, c: s._handle_review(e, st, c),
-        ),
-    )
+    def _get_tool_handlers(self) -> tuple[ToolHandlerEntry, ...]:
+        return (
+            ToolHandlerEntry(
+                name="review",
+                tool_names=("submit_review",),
+                handler=lambda s, e, st, c: s._handle_review(e, st, c),
+            ),
+        )
 
     def get_event_specs(self) -> Sequence[EventSpec]:
         return _SPECS

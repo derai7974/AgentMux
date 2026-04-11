@@ -1,15 +1,15 @@
 """Base class for tool-event handlers.
 
-Provides a ``_TOOL_HANDLERS`` registry pattern so concrete handlers only
-declare their tool mappings once.  ``get_tool_specs()`` and
-``handle_event()`` are implemented automatically.
+Provides a ``_get_tool_handlers()`` method so concrete handlers can
+build their tool mappings dynamically (e.g. with role-specific closures).
+``get_tool_specs()`` and ``handle_event()`` are implemented automatically.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from agentmux.workflow.event_router import ToolSpec, WorkflowEvent
 
@@ -32,32 +32,35 @@ class ToolHandlerEntry:
 class BaseToolHandler:
     """Base class for phase handlers that process tool-call events.
 
-    Subclasses define ``_TOOL_HANDLERS`` as a tuple of
+    Subclasses override :meth:`_get_tool_handlers` to return a tuple of
     :class:`ToolHandlerEntry`.  The base class implements
     :meth:`get_tool_specs` and :meth:`handle_event` automatically.
 
     Example::
 
         class MyHandler(BaseToolHandler):
-            _TOOL_HANDLERS: ClassVar[tuple[ToolHandlerEntry, ...]] = (
-                ToolHandlerEntry(
-                    name="done",
-                    tool_names=("submit_done",),
-                    handler=MyHandler._handle_done,
-                ),
-            )
+            def _get_tool_handlers(self):
+                return (
+                    ToolHandlerEntry(
+                        name="done",
+                        tool_names=("submit_done",),
+                        handler=MyHandler._handle_done,
+                    ),
+                )
 
             def _handle_done(self, event, state, ctx):
                 return {}, None
     """
 
-    _TOOL_HANDLERS: ClassVar[tuple[ToolHandlerEntry, ...]] = ()
+    def _get_tool_handlers(self) -> tuple[ToolHandlerEntry, ...]:
+        """Return the tuple of ToolHandlerEntry for this handler."""
+        return ()
 
     def get_tool_specs(self) -> Sequence[ToolSpec]:
-        """Return ToolSpecs derived from _TOOL_HANDLERS."""
+        """Return ToolSpecs derived from _get_tool_handlers()."""
         return tuple(
             ToolSpec(name=entry.name, tool_names=entry.tool_names)
-            for entry in self._TOOL_HANDLERS
+            for entry in self._get_tool_handlers()
         )
 
     def handle_event(
@@ -67,7 +70,7 @@ class BaseToolHandler:
         ctx: PipelineContext,
     ) -> tuple[dict, str | None]:
         """Dispatch tool events to the registered handler method."""
-        for entry in self._TOOL_HANDLERS:
+        for entry in self._get_tool_handlers():
             if event.kind == entry.name:
                 return entry.handler(self, event, state, ctx)
         return {}, None
