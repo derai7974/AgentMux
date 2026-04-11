@@ -22,6 +22,7 @@ from .render import Monitor as Monitor
 from .state_reader import PIPELINE_STATES as PIPELINE_STATES
 from .state_reader import get_role_states as get_role_states
 from .state_reader import load_state
+from .state_reader import tmux_session_exists as tmux_session_exists
 
 
 def render(
@@ -77,12 +78,23 @@ def main() -> None:
 
     monitor = Monitor(args.session_name, files, agents)
     prev_status: str | None = None
+    session_lost_count = 0
 
     sys.stdout.write("\033[?25l")
     sys.stdout.flush()
 
     try:
         while True:
+            # Check whether the tmux session still exists
+            if not tmux_session_exists(args.session_name):
+                session_lost_count += 1
+                # Give it 2 consecutive failures to avoid race conditions
+                # during session teardown
+                if session_lost_count >= 2:
+                    break
+            else:
+                session_lost_count = 0
+
             width, height = os.get_terminal_size()
             if width != MONITOR_WIDTH:
                 own_pane = os.environ.get("TMUX_PANE", "")
