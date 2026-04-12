@@ -11,24 +11,9 @@ Project directory: [[placeholder:project_dir]]
 [[include:requirements.md]]
 </file>
 
-## Research
-
-Before finalizing recommendations, assess what you need to know about the codebase or external landscape.
-
-- Use `research_dispatch_code` for codebase exploration requests, always pass `feature_dir="[[placeholder:feature_dir]]"`, and format `scope_hints` as `["...", "..."]`.
-- Use `research_dispatch_web` for external research requests, always pass `feature_dir="[[placeholder:feature_dir]]"`, and format `scope_hints` as `["...", "..."]`.
-- After dispatching, stop and wait idle. Do not poll and do not call a blocking MCP wait tool.
-- AgentMux will send you a follow-up message when the result files are ready.
-- Read `summary.md` first, then `detail.md` when needed.
-
-You can dispatch multiple topics before going idle. Research tasks run in parallel.
+[[shared:research-dispatch]]
 
 When your product management deliverable is ready, call `mcp__agentmux__submit_pm_done` to signal completion to the orchestrator.
-
-Example:
-`scope_hints=["user-facing docs", "config tests", "ignore unrelated runtime internals"]`
-
-**IMPORTANT:** Do NOT use your built-in tools (web search, code exploration sub-agents, etc.) for research. Use the MCP research tools above so the pipeline can coordinate researcher agents.
 
 ## Your perspective
 
