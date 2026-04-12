@@ -47,7 +47,12 @@ def generate_subplan_md(data: dict[str, Any]) -> str:
     for file_path in data["owned_files"]:
         lines.append(f"- `{file_path}`")
     lines.append("")
-    lines.extend(["## Dependencies", "", data["dependencies"].strip(), ""])
+    deps = data["dependencies"]
+    if isinstance(deps, list):
+        deps_text = "\n".join(f"- {d}" for d in deps)
+    else:
+        deps_text = str(deps).strip()
+    lines.extend(["## Dependencies", "", deps_text, ""])
     lines.extend(
         ["## Implementation Approach", "", data["implementation_approach"].strip(), ""]
     )

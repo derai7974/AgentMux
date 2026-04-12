@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 
+from agentmux.workflow.handoff_artifacts import generate_subplan_md
 from agentmux.workflow.handoff_contracts import (
     ARCHITECTURE_CONTRACT,
     CONTRACTS,
@@ -289,6 +290,36 @@ class TestRenderContractPrompt(unittest.TestCase):
         text = render_contract_prompt("plan")
         self.assertIn("groups", text)
         self.assertIn("subplans", text)
+
+
+_SUBPLAN_BASE = {
+    "title": "Auth module",
+    "scope": "User auth",
+    "owned_files": ["src/auth.py"],
+    "implementation_approach": "Step by step",
+    "acceptance_criteria": "All tests pass",
+    "tasks": ["Create module"],
+    "isolation_rationale": None,
+}
+
+
+class TestGenerateSubplanMd(unittest.TestCase):
+    def test_dependencies_as_string(self):
+        data = {**_SUBPLAN_BASE, "dependencies": "None"}
+        result = generate_subplan_md(data)
+        self.assertIn("## Dependencies", result)
+        self.assertIn("None", result)
+
+    def test_dependencies_as_list(self):
+        data = {**_SUBPLAN_BASE, "dependencies": ["Sub-plan 1 (module must exist)"]}
+        result = generate_subplan_md(data)
+        self.assertIn("## Dependencies", result)
+        self.assertIn("- Sub-plan 1 (module must exist)", result)
+
+    def test_dependencies_as_empty_list(self):
+        data = {**_SUBPLAN_BASE, "dependencies": []}
+        result = generate_subplan_md(data)
+        self.assertIn("## Dependencies", result)
 
 
 if __name__ == "__main__":
